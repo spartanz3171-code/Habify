@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description"
+        content="Habify - Gamifica tus hábitos con un sistema RPG de 8 bits. Sube de nivel, gana oro y combate cumpliendo tus hábitos diarios.">
+    <meta name="theme-color" content="#1a1a35">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Habify">
+    <title>Habify - RPG Habit Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+    <link rel="apple-touch-icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230f0f23%22/><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/sprites.css">
+    <!-- Supabase JS Client (local UMD bundle) -->
+    <script src="js/supabase.min.js"></script>
+</head>
+
+<body>
+
+    <!-- App Header -->
+    <header class="app-header" id="app-header" style="display: none;">
+        <div class="app-logo">HABIFY</div>
+        <div class="app-header-stats">
+            <div class="header-stat">
+                <span class="gold-icon">G</span>
+                <span id="header-gold">0</span>
+            </div>
+            <div class="header-stat">
+                <span class="level-badge" id="header-level">LV1</span>
+            </div>
+            <div class="header-stat" style="margin-left: 8px; display: flex; gap: 4px;">
+                <select id="lang-switch" class="form-select" onchange="window.I18N.setLang(this.value)" style="padding: 2px; font-size: 6px; width: 40px; border-color: var(--pixel-dark-gray);">
+                    <option value="es">ES</option>
+                    <option value="en">EN</option>
+                </select>
+                <button onclick="App.logout()" class="btn btn-secondary" data-i18n="btn.logout"
+                    style="padding: 2px 6px; font-size: 6px; border-width: 1px; border-bottom-width: 2px;">SALIR</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-content" id="app-content">
+        <div class="loading-screen">
+            <div class="pixel-spinner"></div>
+            <div class="loading-text">CARGANDO...</div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav" id="bottom-nav" style="display: none;">
+        <a class="nav-item active" data-view="dashboard" href="#">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label" data-i18n="nav.home">Inicio</span>
+        </a>
+        <a class="nav-item" data-view="habits" href="#">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label" data-i18n="nav.habits">Habitos</span>
+        </a>
+        <a class="nav-item" data-view="store" href="#">
+            <span class="nav-icon">🏪</span>
+            <span class="nav-label" data-i18n="nav.store">Tienda</span>
+        </a>
+        <a class="nav-item" data-view="arena" href="#">
+            <span class="nav-icon">⚔️</span>
+            <span class="nav-label" data-i18n="nav.arena">Arena</span>
+        </a>
+    </nav>
+
+    <!-- Scripts (order matters) -->
+    <script src="js/i18n.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/views.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+                    .catch(err => console.error('Error al registrar Service Worker:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

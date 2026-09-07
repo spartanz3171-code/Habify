@@ -1,0 +1,1847 @@
+/* ==========================================
+   HABIFY - CSS Pixel Art Sprites
+   All sprites rendered via box-shadow pixel technique
+   Each "pixel" = 4px x 4px
+   ========================================== */
+
+/* --- Base Sprite Container --- */
+.pixel-sprite {
+    display: inline-block;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    position: relative;
+}
+
+/* ============================================
+   HERO SPRITE - Full Body Wizard (16x24 grid)
+   Each cell = 4px → total: 64px x 96px
+   ============================================ */
+.pixel-hero {
+    width: 4px;
+    height: 4px;
+    position: relative;
+    transform: scale(1);
+    animation: hero-breathe 2s steps(2) infinite;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.6)) drop-shadow(-1px -1px 0 rgba(255,255,255,0.1));
+}
+
+.hd-active {
+    width: auto !important;
+    height: auto !important;
+}
+
+.hd-active::before,
+.hd-active::after {
+    display: none !important;
+    box-shadow: none !important;
+}
+
+@keyframes hero-breathe {
+
+    0%,
+    100% {
+        transform: scale(1) translateY(0);
+    }
+
+    50% {
+        transform: scale(1) translateY(-4px);
+    }
+}
+
+.pixel-hero.attack {
+    animation: hero-attack 0.3s ease-in-out;
+}
+
+@keyframes hero-attack {
+    0% { transform: scale(1) translateX(0); }
+    50% { transform: scale(1) translateX(30px); }
+    100% { transform: scale(1) translateX(0); }
+}
+
+.pixel-hero::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        /* === HAT (blue wizard hat) === */
+        /* Hat tip */
+        28px 0 0 #3b5dc9,
+        32px 0 0 #3b5dc9,
+        /* Hat top row */
+        24px 4px 0 #3b5dc9,
+        28px 4px 0 #4a7aed,
+        32px 4px 0 #4a7aed,
+        36px 4px 0 #3b5dc9,
+        /* Hat middle */
+        20px 8px 0 #3b5dc9,
+        24px 8px 0 #4a7aed,
+        28px 8px 0 #6999ff,
+        32px 8px 0 #6999ff,
+        36px 8px 0 #4a7aed,
+        40px 8px 0 #3b5dc9,
+        /* Hat brim */
+        12px 12px 0 #3b5dc9,
+        16px 12px 0 #3b5dc9,
+        20px 12px 0 #4a7aed,
+        24px 12px 0 #4a7aed,
+        28px 12px 0 #4a7aed,
+        32px 12px 0 #4a7aed,
+        36px 12px 0 #4a7aed,
+        40px 12px 0 #3b5dc9,
+        44px 12px 0 #3b5dc9,
+        48px 12px 0 #3b5dc9,
+
+        /* === FACE === */
+        20px 16px 0 #f0b070,
+        24px 16px 0 #f0b070,
+        28px 16px 0 #f0b070,
+        32px 16px 0 #f0b070,
+        36px 16px 0 #f0b070,
+        40px 16px 0 #f0b070,
+        /* Eyes */
+        20px 20px 0 #f0b070,
+        24px 20px 0 #1a1a2e,
+        28px 20px 0 #f0b070,
+        32px 20px 0 #f0b070,
+        36px 20px 0 #1a1a2e,
+        40px 20px 0 #f0b070,
+        /* Mouth / Beard area */
+        20px 24px 0 #f0b070,
+        24px 24px 0 #f0b070,
+        28px 24px 0 #d48a50,
+        32px 24px 0 #d48a50,
+        36px 24px 0 #f0b070,
+        40px 24px 0 #f0b070,
+        /* Beard */
+        24px 28px 0 #c0c0c0,
+        28px 28px 0 #e0e0e0,
+        32px 28px 0 #e0e0e0,
+        36px 28px 0 #c0c0c0,
+
+        /* === ROBE (body) === */
+        /* Shoulders */
+        12px 32px 0 #7b2d8e,
+        16px 32px 0 #7b2d8e,
+        20px 32px 0 #9b4dbe,
+        24px 32px 0 #9b4dbe,
+        28px 32px 0 #9b4dbe,
+        32px 32px 0 #9b4dbe,
+        36px 32px 0 #9b4dbe,
+        40px 32px 0 #9b4dbe,
+        44px 32px 0 #7b2d8e,
+        48px 32px 0 #7b2d8e,
+        /* Upper body */
+        12px 36px 0 #7b2d8e,
+        16px 36px 0 #9b4dbe,
+        20px 36px 0 #9b4dbe,
+        24px 36px 0 #b06dd0,
+        28px 36px 0 #ffd700,
+        32px 36px 0 #ffd700,
+        36px 36px 0 #b06dd0,
+        40px 36px 0 #9b4dbe,
+        44px 36px 0 #9b4dbe,
+        48px 36px 0 #7b2d8e,
+        /* Mid body */
+        16px 40px 0 #7b2d8e,
+        20px 40px 0 #9b4dbe,
+        24px 40px 0 #9b4dbe,
+        28px 40px 0 #b06dd0,
+        32px 40px 0 #b06dd0,
+        36px 40px 0 #9b4dbe,
+        40px 40px 0 #9b4dbe,
+        44px 40px 0 #7b2d8e,
+        /* Arms and body */
+        8px 44px 0 #f0b070,
+        12px 44px 0 #f0b070,
+        16px 44px 0 #7b2d8e,
+        20px 44px 0 #9b4dbe,
+        24px 44px 0 #9b4dbe,
+        28px 44px 0 #9b4dbe,
+        32px 44px 0 #9b4dbe,
+        36px 44px 0 #9b4dbe,
+        40px 44px 0 #9b4dbe,
+        44px 44px 0 #7b2d8e,
+        48px 44px 0 #f0b070,
+        52px 44px 0 #f0b070,
+        /* Lower robe */
+        16px 48px 0 #7b2d8e,
+        20px 48px 0 #7b2d8e,
+        24px 48px 0 #9b4dbe,
+        28px 48px 0 #9b4dbe,
+        32px 48px 0 #9b4dbe,
+        36px 48px 0 #9b4dbe,
+        40px 48px 0 #7b2d8e,
+        44px 48px 0 #7b2d8e,
+        /* Robe bottom */
+        16px 52px 0 #7b2d8e,
+        20px 52px 0 #9b4dbe,
+        24px 52px 0 #9b4dbe,
+        28px 52px 0 #9b4dbe,
+        32px 52px 0 #9b4dbe,
+        36px 52px 0 #9b4dbe,
+        40px 52px 0 #9b4dbe,
+        44px 52px 0 #7b2d8e,
+
+        /* === ROBE HEM === */
+        12px 56px 0 #7b2d8e,
+        16px 56px 0 #9b4dbe,
+        20px 56px 0 #9b4dbe,
+        24px 56px 0 #7b2d8e,
+        28px 56px 0 #9b4dbe,
+        32px 56px 0 #9b4dbe,
+        36px 56px 0 #7b2d8e,
+        40px 56px 0 #9b4dbe,
+        44px 56px 0 #9b4dbe,
+        48px 56px 0 #7b2d8e,
+
+        /* === FEET (boots) === */
+        16px 60px 0 #5a3a1e,
+        20px 60px 0 #7a5a3e,
+        24px 60px 0 #5a3a1e,
+        36px 60px 0 #5a3a1e,
+        40px 60px 0 #7a5a3e,
+        44px 60px 0 #5a3a1e;
+}
+
+/* === DEAD HERO (on knees) === */
+.pixel-hero.dead {
+    animation: none;
+    filter: grayscale(0.5) brightness(0.7);
+}
+
+.pixel-hero.dead::before {
+    content: '💀';
+    position: absolute;
+    top: -24px;
+    left: 16px;
+    font-size: 16px;
+    animation: dead-bounce 1s steps(2) infinite;
+    z-index: 5;
+}
+
+@keyframes dead-bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+/* ============================================
+   WEAPON OVERLAYS
+   ============================================ */
+
+/* Staff (rendered to the right of hero) */
+.pixel-hero.has-staff {
+    box-shadow:
+        /* Staff pole */
+        56px 16px 0 #8b6914,
+        56px 20px 0 #a07828,
+        56px 24px 0 #a07828,
+        56px 28px 0 #a07828,
+        56px 32px 0 #a07828,
+        56px 36px 0 #a07828,
+        56px 40px 0 #a07828,
+        56px 44px 0 #a07828,
+        56px 48px 0 #8b6914,
+        56px 52px 0 #8b6914,
+        /* Orb on top */
+        52px 8px 0 #00d4ff,
+        56px 8px 0 #5bffff,
+        60px 8px 0 #00d4ff,
+        52px 12px 0 #00d4ff,
+        56px 12px 0 #aaffff,
+        60px 12px 0 #00d4ff;
+}
+
+/* Sword (rendered to the right of hero) */
+.pixel-hero.has-sword {
+    box-shadow:
+        /* Blade */
+        56px 8px 0 #c0c0c0,
+        56px 12px 0 #e0e0e0,
+        56px 16px 0 #e0e0e0,
+        56px 20px 0 #e0e0e0,
+        56px 24px 0 #c0c0c0,
+        56px 28px 0 #c0c0c0,
+        /* Guard */
+        52px 32px 0 #ffd700,
+        56px 32px 0 #ffd700,
+        60px 32px 0 #ffd700,
+        /* Handle */
+        56px 36px 0 #8b4513,
+        56px 40px 0 #8b4513,
+        /* Pommel */
+        56px 44px 0 #ffd700;
+}
+
+/* Shield (rendered to the left) */
+.pixel-hero.has-shield::before {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        -4px 32px 0 #4a7aed,
+        0px 28px 0 #4a7aed,
+        -4px 28px 0 #3b5dc9,
+        -8px 32px 0 #3b5dc9,
+        0px 32px 0 #6999ff,
+        -4px 36px 0 #4a7aed,
+        0px 36px 0 #4a7aed,
+        -8px 36px 0 #3b5dc9,
+        -4px 40px 0 #3b5dc9,
+        0px 40px 0 #4a7aed,
+        -4px 44px 0 #ffd700;
+    z-index: 2;
+}
+
+/* Bow */
+.pixel-hero.has-bow {
+    box-shadow:
+        56px 16px 0 #5a8a3e,
+        60px 20px 0 #5a8a3e,
+        60px 24px 0 #5a8a3e,
+        60px 28px 0 #5a8a3e,
+        60px 32px 0 #5a8a3e,
+        60px 36px 0 #5a8a3e,
+        56px 40px 0 #5a8a3e,
+        /* String */
+        56px 20px 0 #c0c0c0,
+        56px 24px 0 #c0c0c0,
+        56px 28px 0 #c0c0c0,
+        56px 32px 0 #c0c0c0,
+        56px 36px 0 #c0c0c0;
+}
+
+/* ============================================
+   PET SPRITES
+   ============================================ */
+
+/* Mini T-Rex */
+.pixel-pet-trex {
+    width: 4px;
+    height: 4px;
+    position: absolute;
+    animation: pet-hop 1s steps(2) infinite;
+}
+
+@keyframes pet-hop {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+.pixel-pet-trex::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        /* Head */
+        8px 0 0 #2d8e3b,
+        12px 0 0 #2d8e3b,
+        16px 0 0 #2d8e3b,
+        4px 4px 0 #2d8e3b,
+        8px 4px 0 #3dae4b,
+        12px 4px 0 #1a1a2e,
+        16px 4px 0 #3dae4b,
+        /* Jaw */
+        8px 8px 0 #3dae4b,
+        12px 8px 0 #ff6060,
+        16px 8px 0 #3dae4b,
+        20px 8px 0 #e0e0e0,
+        /* Body */
+        0px 12px 0 #2d8e3b,
+        4px 12px 0 #3dae4b,
+        8px 12px 0 #3dae4b,
+        12px 12px 0 #3dae4b,
+        /* Arms */
+        12px 16px 0 #2d8e3b,
+        16px 16px 0 #3dae4b,
+        0px 16px 0 #3dae4b,
+        4px 16px 0 #3dae4b,
+        8px 16px 0 #3dae4b,
+        /* Tail + Legs */
+        -4px 16px 0 #2d8e3b,
+        -8px 12px 0 #2d8e3b,
+        4px 20px 0 #3dae4b,
+        12px 20px 0 #3dae4b,
+        4px 24px 0 #2d8e3b,
+        12px 24px 0 #2d8e3b;
+}
+
+/* Dragon Pet */
+.pixel-pet-dragon {
+    width: 4px;
+    height: 4px;
+    position: absolute;
+    animation: pet-hover 1.5s steps(2) infinite;
+}
+
+@keyframes pet-hover {
+
+    0%,
+    100% {
+        transform: translateY(0) scaleX(1);
+    }
+
+    50% {
+        transform: translateY(-8px) scaleX(1);
+    }
+}
+
+.pixel-pet-dragon::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        /* Head */
+        8px 0 0 #e94560,
+        12px 0 0 #e94560,
+        4px 4px 0 #e94560,
+        8px 4px 0 #ff6b8a,
+        12px 4px 0 #1a1a2e,
+        16px 4px 0 #ff6b8a,
+        /* Body + wings */
+        -4px 8px 0 #e94560,
+        0px 8px 0 #ff6b8a,
+        4px 8px 0 #ff6b8a,
+        8px 8px 0 #ff6b8a,
+        12px 8px 0 #ff6b8a,
+        16px 8px 0 #e94560,
+        20px 8px 0 #e94560,
+        /* Lower body */
+        4px 12px 0 #e94560,
+        8px 12px 0 #ffd700,
+        12px 12px 0 #e94560,
+        /* Legs */
+        4px 16px 0 #e94560,
+        12px 16px 0 #e94560;
+}
+
+/* Cat Pet */
+.pixel-pet-cat {
+    width: 4px;
+    height: 4px;
+    position: absolute;
+    animation: pet-hop 1.2s steps(2) infinite;
+}
+
+.pixel-pet-cat::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        /* Ears */
+        0px 0px 0 #9b4dbe,
+        16px 0px 0 #9b4dbe,
+        /* Head */
+        0px 4px 0 #b06dd0,
+        4px 4px 0 #b06dd0,
+        8px 4px 0 #b06dd0,
+        12px 4px 0 #b06dd0,
+        16px 4px 0 #b06dd0,
+        /* Eyes */
+        4px 8px 0 #00ff00,
+        8px 8px 0 #b06dd0,
+        12px 8px 0 #00ff00,
+        /* Body */
+        4px 12px 0 #b06dd0,
+        8px 12px 0 #b06dd0,
+        12px 12px 0 #b06dd0,
+        /* Legs + Tail */
+        4px 16px 0 #9b4dbe,
+        12px 16px 0 #9b4dbe,
+        16px 12px 0 #9b4dbe,
+        20px 8px 0 #9b4dbe;
+}
+
+/* Phoenix Pet */
+.pixel-pet-phoenix {
+    width: 4px;
+    height: 4px;
+    position: absolute;
+    animation: pet-hover 1s steps(2) infinite;
+}
+
+.pixel-pet-phoenix::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        /* Head crown */
+        8px 0px 0 #ffd700,
+        4px 0px 0 #ff6b00,
+        12px 0px 0 #ff6b00,
+        /* Head */
+        4px 4px 0 #ff6b00,
+        8px 4px 0 #ffa500,
+        12px 4px 0 #ff6b00,
+        /* Eye */
+        8px 8px 0 #1a1a2e,
+        4px 8px 0 #ffa500,
+        12px 8px 0 #ffa500,
+        /* Wings + Body */
+        -4px 12px 0 #ffd700,
+        0px 12px 0 #ff6b00,
+        4px 12px 0 #ffa500,
+        8px 12px 0 #ffa500,
+        12px 12px 0 #ffa500,
+        16px 12px 0 #ff6b00,
+        20px 12px 0 #ffd700,
+        /* Lower */
+        4px 16px 0 #ff6b00,
+        8px 16px 0 #e94560,
+        12px 16px 0 #ff6b00,
+        /* Tail feathers */
+        8px 20px 0 #ffd700,
+        4px 20px 0 #ff6b00,
+        12px 20px 0 #ff6b00;
+}
+
+/* ============================================
+   ENEMY SPRITES 
+   ============================================ */
+
+.pixel-enemy {
+    width: 4px;
+    height: 4px;
+    position: relative;
+    animation: enemy-idle 1.5s steps(2) infinite;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.6)) drop-shadow(-1px -1px 0 rgba(255,255,255,0.1));
+}
+
+@keyframes enemy-idle {
+
+    0%,
+    100% {
+        transform: scaleX(-1) translateY(0);
+    }
+
+    50% {
+        transform: scaleX(-1) translateY(-4px);
+    }
+}
+
+.pixel-enemy.attack {
+    animation: enemy-attack 0.3s ease-in-out;
+}
+
+@keyframes enemy-attack {
+    0% { transform: scaleX(-1) translateX(0); }
+    50% { transform: scaleX(-1) translateX(30px); }
+    100% { transform: scaleX(-1) translateX(0); }
+}
+
+/* Goblin */
+.pixel-enemy.goblin::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        8px 4px 0 #3dae4b, 12px 4px 0 #3dae4b,
+        4px 8px 0 #2d8e3b, 8px 8px 0 #3dae4b, 12px 8px 0 #3dae4b, 16px 8px 0 #2d8e3b,
+        4px 12px 0 #1a1a2e, 8px 12px 0 #3dae4b, 12px 12px 0 #3dae4b, 16px 12px 0 #1a1a2e,
+        8px 16px 0 #e94560,
+        4px 20px 0 #5a3a1e, 8px 20px 0 #3dae4b, 12px 20px 0 #3dae4b, 16px 20px 0 #5a3a1e,
+        4px 24px 0 #3dae4b, 8px 24px 0 #ffd700, 12px 24px 0 #ffd700, 16px 24px 0 #3dae4b,
+        4px 28px 0 #3dae4b, 8px 28px 0 #3dae4b, 12px 28px 0 #3dae4b, 16px 28px 0 #3dae4b,
+        0px 32px 0 #2d8e3b, 4px 32px 0 #3dae4b, 16px 32px 0 #3dae4b, 20px 32px 0 #2d8e3b,
+        4px 36px 0 #5a3a1e, 16px 36px 0 #5a3a1e;
+}
+
+/* Skeleton */
+.pixel-enemy.skeleton::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        8px 0px 0 #e0e0e0, 12px 0px 0 #e0e0e0,
+        4px 4px 0 #e0e0e0, 8px 4px 0 #e0e0e0, 12px 4px 0 #e0e0e0, 16px 4px 0 #e0e0e0,
+        4px 8px 0 #1a1a2e, 8px 8px 0 #e0e0e0, 12px 8px 0 #e0e0e0, 16px 8px 0 #1a1a2e,
+        8px 12px 0 #c0c0c0, 12px 12px 0 #c0c0c0,
+        4px 16px 0 #e0e0e0, 8px 16px 0 #c0c0c0, 12px 16px 0 #c0c0c0, 16px 16px 0 #e0e0e0,
+        8px 20px 0 #e0e0e0, 12px 20px 0 #e0e0e0,
+        4px 24px 0 #e0e0e0, 8px 24px 0 #c0c0c0, 12px 24px 0 #c0c0c0, 16px 24px 0 #e0e0e0,
+        8px 28px 0 #e0e0e0, 12px 28px 0 #e0e0e0,
+        4px 32px 0 #c0c0c0, 16px 32px 0 #c0c0c0;
+}
+
+/* Slime */
+.pixel-enemy.slime::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        8px 8px 0 #00d4aa, 12px 8px 0 #00d4aa,
+        4px 12px 0 #00d4aa, 8px 12px 0 #00ffc8, 12px 12px 0 #00ffc8, 16px 12px 0 #00d4aa,
+        4px 16px 0 #1a1a2e, 8px 16px 0 #00ffc8, 12px 16px 0 #00ffc8, 16px 16px 0 #1a1a2e,
+        0px 20px 0 #00a884, 4px 20px 0 #00d4aa, 8px 20px 0 #00ffc8, 12px 20px 0 #00ffc8, 16px 20px 0 #00d4aa, 20px 20px 0 #00a884,
+        0px 24px 0 #00a884, 4px 24px 0 #00d4aa, 8px 24px 0 #00d4aa, 12px 24px 0 #00d4aa, 16px 24px 0 #00d4aa, 20px 24px 0 #00a884;
+}
+
+/* Orc */
+.pixel-enemy.orc::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        8px 0px 0 #5a3a1e, 12px 0px 0 #5a3a1e,
+        4px 4px 0 #3dae4b, 8px 4px 0 #3dae4b, 12px 4px 0 #3dae4b, 16px 4px 0 #3dae4b,
+        4px 8px 0 #e0e0e0, 8px 8px 0 #3dae4b, 12px 8px 0 #3dae4b, 16px 8px 0 #e0e0e0,
+        4px 12px 0 #3dae4b, 8px 12px 0 #e94560, 12px 12px 0 #e94560, 16px 12px 0 #3dae4b,
+        0px 16px 0 #3dae4b, 4px 16px 0 #5a3a1e, 8px 16px 0 #5a3a1e, 12px 16px 0 #5a3a1e, 16px 16px 0 #5a3a1e, 20px 16px 0 #3dae4b,
+        0px 20px 0 #3dae4b, 4px 20px 0 #5a3a1e, 8px 20px 0 #5a3a1e, 12px 20px 0 #5a3a1e, 16px 20px 0 #5a3a1e, 20px 20px 0 #3dae4b,
+        4px 24px 0 #5a3a1e, 8px 24px 0 #3dae4b, 12px 24px 0 #3dae4b, 16px 24px 0 #5a3a1e,
+        4px 28px 0 #3a2010, 16px 28px 0 #3a2010;
+}
+
+/* Ghost */
+.pixel-enemy.ghost::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: transparent;
+    box-shadow:
+        8px 0px 0 #a0a0d8, 12px 0px 0 #a0a0d8,
+        4px 4px 0 #c0c0ff, 8px 4px 0 #c0c0ff, 12px 4px 0 #c0c0ff, 16px 4px 0 #c0c0ff,
+        4px 8px 0 #1a1a2e, 8px 8px 0 #c0c0ff, 12px 8px 0 #c0c0ff, 16px 8px 0 #1a1a2e,
+        4px 12px 0 #c0c0ff, 8px 12px 0 #1a1a2e, 12px 12px 0 #c0c0ff, 16px 12px 0 #c0c0ff,
+        4px 16px 0 #a0a0d8, 8px 16px 0 #c0c0ff, 12px 16px 0 #c0c0ff, 16px 16px 0 #a0a0d8,
+        4px 20px 0 #a0a0d8, 8px 20px 0 #c0c0ff, 12px 20px 0 #c0c0ff, 16px 20px 0 #a0a0d8,
+        0px 24px 0 #a0a0d8, 8px 24px 0 #a0a0d8, 16px 24px 0 #a0a0d8;
+}
+
+/* ============================================
+   SPRITE SCENE CONTAINER (Dashboard)
+   ============================================ */
+.sprite-scene {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 20px;
+    height: 160px;
+    padding-top: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.sprite-wrapper {
+    position: relative;
+    width: 64px;
+    height: 96px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    transform: scale(1.2);
+    transform-origin: top center;
+    margin-top: 15px;
+}
+
+.pet-wrapper {
+    position: relative;
+    width: 28px;
+    height: 48px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.pet-wrapper .pixel-pet-trex,
+.pet-wrapper .pixel-pet-dragon,
+.pet-wrapper .pixel-pet-cat,
+.pet-wrapper .pixel-pet-phoenix {
+    position: relative;
+}
+
+/* Battle sprite scaling */
+.arena-sprite-wrapper {
+    margin: 10px 0;
+    height: 160px;
+    display: flex;
+    justify-content: center;
+}
+
+.arena-sprite-wrapper .sprite-wrapper {
+    transform: scale(1.3);
+    margin-top: 25px;
+}
+
+/* === AVATAR CLASS VARIANTS === */
+.pixel-hero.mage::after {
+    box-shadow:
+/* === HAT (blue wizard hat) === */
+        /* Hat tip */
+        28px 0 0 #3b5dc9,
+        32px 0 0 #3b5dc9,
+        /* Hat top row */
+        24px 4px 0 #3b5dc9,
+        28px 4px 0 #4a7aed,
+        32px 4px 0 #4a7aed,
+        36px 4px 0 #3b5dc9,
+        /* Hat middle */
+        20px 8px 0 #3b5dc9,
+        24px 8px 0 #4a7aed,
+        28px 8px 0 #6999ff,
+        32px 8px 0 #6999ff,
+        36px 8px 0 #4a7aed,
+        40px 8px 0 #3b5dc9,
+        /* Hat brim */
+        12px 12px 0 #3b5dc9,
+        16px 12px 0 #3b5dc9,
+        20px 12px 0 #4a7aed,
+        24px 12px 0 #4a7aed,
+        28px 12px 0 #4a7aed,
+        32px 12px 0 #4a7aed,
+        36px 12px 0 #4a7aed,
+        40px 12px 0 #3b5dc9,
+        44px 12px 0 #3b5dc9,
+        48px 12px 0 #3b5dc9,
+
+        /* === FACE === */
+        20px 16px 0 #f0b070,
+        24px 16px 0 #f0b070,
+        28px 16px 0 #f0b070,
+        32px 16px 0 #f0b070,
+        36px 16px 0 #f0b070,
+        40px 16px 0 #f0b070,
+        /* Eyes */
+        20px 20px 0 #f0b070,
+        24px 20px 0 #1a1a2e,
+        28px 20px 0 #f0b070,
+        32px 20px 0 #f0b070,
+        36px 20px 0 #1a1a2e,
+        40px 20px 0 #f0b070,
+        /* Mouth / Beard area */
+        20px 24px 0 #f0b070,
+        24px 24px 0 #f0b070,
+        28px 24px 0 #d48a50,
+        32px 24px 0 #d48a50,
+        36px 24px 0 #f0b070,
+        40px 24px 0 #f0b070,
+        /* Beard */
+        24px 28px 0 #c0c0c0,
+        28px 28px 0 #e0e0e0,
+        32px 28px 0 #e0e0e0,
+        36px 28px 0 #c0c0c0,
+
+        /* === ROBE (body) === */
+        /* Shoulders */
+        12px 32px 0 #7b2d8e,
+        16px 32px 0 #7b2d8e,
+        20px 32px 0 #9b4dbe,
+        24px 32px 0 #9b4dbe,
+        28px 32px 0 #9b4dbe,
+        32px 32px 0 #9b4dbe,
+        36px 32px 0 #9b4dbe,
+        40px 32px 0 #9b4dbe,
+        44px 32px 0 #7b2d8e,
+        48px 32px 0 #7b2d8e,
+        /* Upper body */
+        12px 36px 0 #7b2d8e,
+        16px 36px 0 #9b4dbe,
+        20px 36px 0 #9b4dbe,
+        24px 36px 0 #b06dd0,
+        28px 36px 0 #ffd700,
+        32px 36px 0 #ffd700,
+        36px 36px 0 #b06dd0,
+        40px 36px 0 #9b4dbe,
+        44px 36px 0 #9b4dbe,
+        48px 36px 0 #7b2d8e,
+        /* Mid body */
+        16px 40px 0 #7b2d8e,
+        20px 40px 0 #9b4dbe,
+        24px 40px 0 #9b4dbe,
+        28px 40px 0 #b06dd0,
+        32px 40px 0 #b06dd0,
+        36px 40px 0 #9b4dbe,
+        40px 40px 0 #9b4dbe,
+        44px 40px 0 #7b2d8e,
+        /* Arms and body */
+        8px 44px 0 #f0b070,
+        12px 44px 0 #f0b070,
+        16px 44px 0 #7b2d8e,
+        20px 44px 0 #9b4dbe,
+        24px 44px 0 #9b4dbe,
+        28px 44px 0 #9b4dbe,
+        32px 44px 0 #9b4dbe,
+        36px 44px 0 #9b4dbe,
+        40px 44px 0 #9b4dbe,
+        44px 44px 0 #7b2d8e,
+        48px 44px 0 #f0b070,
+        52px 44px 0 #f0b070,
+        /* Lower robe */
+        16px 48px 0 #7b2d8e,
+        20px 48px 0 #7b2d8e,
+        24px 48px 0 #9b4dbe,
+        28px 48px 0 #9b4dbe,
+        32px 48px 0 #9b4dbe,
+        36px 48px 0 #9b4dbe,
+        40px 48px 0 #7b2d8e,
+        44px 48px 0 #7b2d8e,
+        /* Robe bottom */
+        16px 52px 0 #7b2d8e,
+        20px 52px 0 #9b4dbe,
+        24px 52px 0 #9b4dbe,
+        28px 52px 0 #9b4dbe,
+        32px 52px 0 #9b4dbe,
+        36px 52px 0 #9b4dbe,
+        40px 52px 0 #9b4dbe,
+        44px 52px 0 #7b2d8e,
+
+        /* === ROBE HEM === */
+        12px 56px 0 #7b2d8e,
+        16px 56px 0 #9b4dbe,
+        20px 56px 0 #9b4dbe,
+        24px 56px 0 #7b2d8e,
+        28px 56px 0 #9b4dbe,
+        32px 56px 0 #9b4dbe,
+        36px 56px 0 #7b2d8e,
+        40px 56px 0 #9b4dbe,
+        44px 56px 0 #9b4dbe,
+        48px 56px 0 #7b2d8e,
+
+        /* === FEET (boots) === */
+        16px 60px 0 #5a3a1e,
+        20px 60px 0 #7a5a3e,
+        24px 60px 0 #5a3a1e,
+        36px 60px 0 #5a3a1e,
+        40px 60px 0 #7a5a3e,
+        44px 60px 0 #5a3a1e;
+}
+
+.pixel-hero.knight::after {
+    box-shadow:
+/* === HAT (blue wizard hat) === */
+        /* Hat tip */
+        28px 0 0 #c0c0c0,
+        32px 0 0 #c0c0c0,
+        /* Hat top row */
+        24px 4px 0 #c0c0c0,
+        28px 4px 0 #e0e0e0,
+        32px 4px 0 #e0e0e0,
+        36px 4px 0 #c0c0c0,
+        /* Hat middle */
+        20px 8px 0 #c0c0c0,
+        24px 8px 0 #e0e0e0,
+        28px 8px 0 #ffffff,
+        32px 8px 0 #ffffff,
+        36px 8px 0 #e0e0e0,
+        40px 8px 0 #c0c0c0,
+        /* Hat brim */
+        12px 12px 0 #c0c0c0,
+        16px 12px 0 #c0c0c0,
+        20px 12px 0 #e0e0e0,
+        24px 12px 0 #e0e0e0,
+        28px 12px 0 #e0e0e0,
+        32px 12px 0 #e0e0e0,
+        36px 12px 0 #e0e0e0,
+        40px 12px 0 #c0c0c0,
+        44px 12px 0 #c0c0c0,
+        48px 12px 0 #c0c0c0,
+
+        /* === FACE === */
+        20px 16px 0 #c0c0c0,
+        24px 16px 0 #c0c0c0,
+        28px 16px 0 #c0c0c0,
+        32px 16px 0 #c0c0c0,
+        36px 16px 0 #c0c0c0,
+        40px 16px 0 #c0c0c0,
+        /* Eyes */
+        20px 20px 0 #c0c0c0,
+        24px 20px 0 #1a1a2e,
+        28px 20px 0 #c0c0c0,
+        32px 20px 0 #c0c0c0,
+        36px 20px 0 #1a1a2e,
+        40px 20px 0 #c0c0c0,
+        /* Mouth / Beard area */
+        20px 24px 0 #c0c0c0,
+        24px 24px 0 #c0c0c0,
+        28px 24px 0 #d48a50,
+        32px 24px 0 #d48a50,
+        36px 24px 0 #c0c0c0,
+        40px 24px 0 #c0c0c0,
+        /* Beard */
+        24px 28px 0 #c0c0c0,
+        28px 28px 0 #e0e0e0,
+        32px 28px 0 #e0e0e0,
+        36px 28px 0 #c0c0c0,
+
+        /* === ROBE (body) === */
+        /* Shoulders */
+        12px 32px 0 #808080,
+        16px 32px 0 #808080,
+        20px 32px 0 #a0a0a0,
+        24px 32px 0 #a0a0a0,
+        28px 32px 0 #a0a0a0,
+        32px 32px 0 #a0a0a0,
+        36px 32px 0 #a0a0a0,
+        40px 32px 0 #a0a0a0,
+        44px 32px 0 #808080,
+        48px 32px 0 #808080,
+        /* Upper body */
+        12px 36px 0 #808080,
+        16px 36px 0 #a0a0a0,
+        20px 36px 0 #a0a0a0,
+        24px 36px 0 #c0c0c0,
+        28px 36px 0 #e94560,
+        32px 36px 0 #e94560,
+        36px 36px 0 #c0c0c0,
+        40px 36px 0 #a0a0a0,
+        44px 36px 0 #a0a0a0,
+        48px 36px 0 #808080,
+        /* Mid body */
+        16px 40px 0 #808080,
+        20px 40px 0 #a0a0a0,
+        24px 40px 0 #a0a0a0,
+        28px 40px 0 #c0c0c0,
+        32px 40px 0 #c0c0c0,
+        36px 40px 0 #a0a0a0,
+        40px 40px 0 #a0a0a0,
+        44px 40px 0 #808080,
+        /* Arms and body */
+        8px 44px 0 #c0c0c0,
+        12px 44px 0 #c0c0c0,
+        16px 44px 0 #808080,
+        20px 44px 0 #a0a0a0,
+        24px 44px 0 #a0a0a0,
+        28px 44px 0 #a0a0a0,
+        32px 44px 0 #a0a0a0,
+        36px 44px 0 #a0a0a0,
+        40px 44px 0 #a0a0a0,
+        44px 44px 0 #808080,
+        48px 44px 0 #c0c0c0,
+        52px 44px 0 #c0c0c0,
+        /* Lower robe */
+        16px 48px 0 #808080,
+        20px 48px 0 #808080,
+        24px 48px 0 #a0a0a0,
+        28px 48px 0 #a0a0a0,
+        32px 48px 0 #a0a0a0,
+        36px 48px 0 #a0a0a0,
+        40px 48px 0 #808080,
+        44px 48px 0 #808080,
+        /* Robe bottom */
+        16px 52px 0 #808080,
+        20px 52px 0 #a0a0a0,
+        24px 52px 0 #a0a0a0,
+        28px 52px 0 #a0a0a0,
+        32px 52px 0 #a0a0a0,
+        36px 52px 0 #a0a0a0,
+        40px 52px 0 #a0a0a0,
+        44px 52px 0 #808080,
+
+        /* === ROBE HEM === */
+        12px 56px 0 #808080,
+        16px 56px 0 #a0a0a0,
+        20px 56px 0 #a0a0a0,
+        24px 56px 0 #808080,
+        28px 56px 0 #a0a0a0,
+        32px 56px 0 #a0a0a0,
+        36px 56px 0 #808080,
+        40px 56px 0 #a0a0a0,
+        44px 56px 0 #a0a0a0,
+        48px 56px 0 #808080,
+
+        /* === FEET (boots) === */
+        16px 60px 0 #5a3a1e,
+        20px 60px 0 #7a5a3e,
+        24px 60px 0 #5a3a1e,
+        36px 60px 0 #5a3a1e,
+        40px 60px 0 #7a5a3e,
+        44px 60px 0 #5a3a1e;
+}
+
+.pixel-hero.elf::after {
+    box-shadow:
+/* === HAT (blue wizard hat) === */
+        /* Hat tip */
+        28px 0 0 #2d8e3b,
+        32px 0 0 #2d8e3b,
+        /* Hat top row */
+        24px 4px 0 #2d8e3b,
+        28px 4px 0 #3dae4b,
+        32px 4px 0 #3dae4b,
+        36px 4px 0 #2d8e3b,
+        /* Hat middle */
+        20px 8px 0 #2d8e3b,
+        24px 8px 0 #3dae4b,
+        28px 8px 0 #5bce6b,
+        32px 8px 0 #5bce6b,
+        36px 8px 0 #3dae4b,
+        40px 8px 0 #2d8e3b,
+        /* Hat brim */
+        12px 12px 0 #2d8e3b,
+        16px 12px 0 #2d8e3b,
+        20px 12px 0 #3dae4b,
+        24px 12px 0 #3dae4b,
+        28px 12px 0 #3dae4b,
+        32px 12px 0 #3dae4b,
+        36px 12px 0 #3dae4b,
+        40px 12px 0 #2d8e3b,
+        44px 12px 0 #2d8e3b,
+        48px 12px 0 #2d8e3b,
+
+        /* === FACE === */
+        20px 16px 0 #f0b070,
+        24px 16px 0 #f0b070,
+        28px 16px 0 #f0b070,
+        32px 16px 0 #f0b070,
+        36px 16px 0 #f0b070,
+        40px 16px 0 #f0b070,
+        /* Eyes */
+        20px 20px 0 #f0b070,
+        24px 20px 0 #1a1a2e,
+        28px 20px 0 #f0b070,
+        32px 20px 0 #f0b070,
+        36px 20px 0 #1a1a2e,
+        40px 20px 0 #f0b070,
+        /* Mouth / Beard area */
+        20px 24px 0 #f0b070,
+        24px 24px 0 #f0b070,
+        28px 24px 0 #d48a50,
+        32px 24px 0 #d48a50,
+        36px 24px 0 #f0b070,
+        40px 24px 0 #f0b070,
+        /* Beard */
+        24px 28px 0 #d4af37,
+        28px 28px 0 #f3e5ab,
+        32px 28px 0 #f3e5ab,
+        36px 28px 0 #d4af37,
+
+        /* === ROBE (body) === */
+        /* Shoulders */
+        12px 32px 0 #1e5c27,
+        16px 32px 0 #1e5c27,
+        20px 32px 0 #2d8e3b,
+        24px 32px 0 #2d8e3b,
+        28px 32px 0 #2d8e3b,
+        32px 32px 0 #2d8e3b,
+        36px 32px 0 #2d8e3b,
+        40px 32px 0 #2d8e3b,
+        44px 32px 0 #1e5c27,
+        48px 32px 0 #1e5c27,
+        /* Upper body */
+        12px 36px 0 #1e5c27,
+        16px 36px 0 #2d8e3b,
+        20px 36px 0 #2d8e3b,
+        24px 36px 0 #3dae4b,
+        28px 36px 0 #ffd700,
+        32px 36px 0 #ffd700,
+        36px 36px 0 #3dae4b,
+        40px 36px 0 #2d8e3b,
+        44px 36px 0 #2d8e3b,
+        48px 36px 0 #1e5c27,
+        /* Mid body */
+        16px 40px 0 #1e5c27,
+        20px 40px 0 #2d8e3b,
+        24px 40px 0 #2d8e3b,
+        28px 40px 0 #3dae4b,
+        32px 40px 0 #3dae4b,
+        36px 40px 0 #2d8e3b,
+        40px 40px 0 #2d8e3b,
+        44px 40px 0 #1e5c27,
+        /* Arms and body */
+        8px 44px 0 #f0b070,
+        12px 44px 0 #f0b070,
+        16px 44px 0 #1e5c27,
+        20px 44px 0 #2d8e3b,
+        24px 44px 0 #2d8e3b,
+        28px 44px 0 #2d8e3b,
+        32px 44px 0 #2d8e3b,
+        36px 44px 0 #2d8e3b,
+        40px 44px 0 #2d8e3b,
+        44px 44px 0 #1e5c27,
+        48px 44px 0 #f0b070,
+        52px 44px 0 #f0b070,
+        /* Lower robe */
+        16px 48px 0 #1e5c27,
+        20px 48px 0 #1e5c27,
+        24px 48px 0 #2d8e3b,
+        28px 48px 0 #2d8e3b,
+        32px 48px 0 #2d8e3b,
+        36px 48px 0 #2d8e3b,
+        40px 48px 0 #1e5c27,
+        44px 48px 0 #1e5c27,
+        /* Robe bottom */
+        16px 52px 0 #1e5c27,
+        20px 52px 0 #2d8e3b,
+        24px 52px 0 #2d8e3b,
+        28px 52px 0 #2d8e3b,
+        32px 52px 0 #2d8e3b,
+        36px 52px 0 #2d8e3b,
+        40px 52px 0 #2d8e3b,
+        44px 52px 0 #1e5c27,
+
+        /* === ROBE HEM === */
+        12px 56px 0 #1e5c27,
+        16px 56px 0 #2d8e3b,
+        20px 56px 0 #2d8e3b,
+        24px 56px 0 #1e5c27,
+        28px 56px 0 #2d8e3b,
+        32px 56px 0 #2d8e3b,
+        36px 56px 0 #1e5c27,
+        40px 56px 0 #2d8e3b,
+        44px 56px 0 #2d8e3b,
+        48px 56px 0 #1e5c27,
+
+        /* === FEET (boots) === */
+        16px 60px 0 #5a3a1e,
+        20px 60px 0 #7a5a3e,
+        24px 60px 0 #5a3a1e,
+        36px 60px 0 #5a3a1e,
+        40px 60px 0 #7a5a3e,
+        44px 60px 0 #5a3a1e;
+}
+
+.pixel-hero.hero::after {
+    box-shadow:
+/* === HAT (blue wizard hat) === */
+        /* Hat tip */
+        28px 0 0 #1a5276,
+        32px 0 0 #1a5276,
+        /* Hat top row */
+        24px 4px 0 #1a5276,
+        28px 4px 0 #2980b9,
+        32px 4px 0 #2980b9,
+        36px 4px 0 #1a5276,
+        /* Hat middle */
+        20px 8px 0 #1a5276,
+        24px 8px 0 #2980b9,
+        28px 8px 0 #5dade2,
+        32px 8px 0 #5dade2,
+        36px 8px 0 #2980b9,
+        40px 8px 0 #1a5276,
+        /* Hat brim */
+        12px 12px 0 #1a5276,
+        16px 12px 0 #1a5276,
+        20px 12px 0 #2980b9,
+        24px 12px 0 #2980b9,
+        28px 12px 0 #2980b9,
+        32px 12px 0 #2980b9,
+        36px 12px 0 #2980b9,
+        40px 12px 0 #1a5276,
+        44px 12px 0 #1a5276,
+        48px 12px 0 #1a5276,
+
+        /* === FACE === */
+        20px 16px 0 #f0b070,
+        24px 16px 0 #f0b070,
+        28px 16px 0 #f0b070,
+        32px 16px 0 #f0b070,
+        36px 16px 0 #f0b070,
+        40px 16px 0 #f0b070,
+        /* Eyes */
+        20px 20px 0 #f0b070,
+        24px 20px 0 #1a1a2e,
+        28px 20px 0 #f0b070,
+        32px 20px 0 #f0b070,
+        36px 20px 0 #1a1a2e,
+        40px 20px 0 #f0b070,
+        /* Mouth / Beard area */
+        20px 24px 0 #f0b070,
+        24px 24px 0 #f0b070,
+        28px 24px 0 #d48a50,
+        32px 24px 0 #d48a50,
+        36px 24px 0 #f0b070,
+        40px 24px 0 #f0b070,
+        /* Beard */
+        24px 28px 0 #5a3a1e,
+        28px 28px 0 #7a5a3e,
+        32px 28px 0 #7a5a3e,
+        36px 28px 0 #5a3a1e,
+
+        /* === ROBE (body) === */
+        /* Shoulders */
+        12px 32px 0 #21618c,
+        16px 32px 0 #21618c,
+        20px 32px 0 #2e86c1,
+        24px 32px 0 #2e86c1,
+        28px 32px 0 #2e86c1,
+        32px 32px 0 #2e86c1,
+        36px 32px 0 #2e86c1,
+        40px 32px 0 #2e86c1,
+        44px 32px 0 #21618c,
+        48px 32px 0 #21618c,
+        /* Upper body */
+        12px 36px 0 #21618c,
+        16px 36px 0 #2e86c1,
+        20px 36px 0 #2e86c1,
+        24px 36px 0 #5dade2,
+        28px 36px 0 #ffd700,
+        32px 36px 0 #ffd700,
+        36px 36px 0 #5dade2,
+        40px 36px 0 #2e86c1,
+        44px 36px 0 #2e86c1,
+        48px 36px 0 #21618c,
+        /* Mid body */
+        16px 40px 0 #21618c,
+        20px 40px 0 #2e86c1,
+        24px 40px 0 #2e86c1,
+        28px 40px 0 #5dade2,
+        32px 40px 0 #5dade2,
+        36px 40px 0 #2e86c1,
+        40px 40px 0 #2e86c1,
+        44px 40px 0 #21618c,
+        /* Arms and body */
+        8px 44px 0 #f0b070,
+        12px 44px 0 #f0b070,
+        16px 44px 0 #21618c,
+        20px 44px 0 #2e86c1,
+        24px 44px 0 #2e86c1,
+        28px 44px 0 #2e86c1,
+        32px 44px 0 #2e86c1,
+        36px 44px 0 #2e86c1,
+        40px 44px 0 #2e86c1,
+        44px 44px 0 #21618c,
+        48px 44px 0 #f0b070,
+        52px 44px 0 #f0b070,
+        /* Lower robe */
+        16px 48px 0 #21618c,
+        20px 48px 0 #21618c,
+        24px 48px 0 #2e86c1,
+        28px 48px 0 #2e86c1,
+        32px 48px 0 #2e86c1,
+        36px 48px 0 #2e86c1,
+        40px 48px 0 #21618c,
+        44px 48px 0 #21618c,
+        /* Robe bottom */
+        16px 52px 0 #21618c,
+        20px 52px 0 #2e86c1,
+        24px 52px 0 #2e86c1,
+        28px 52px 0 #2e86c1,
+        32px 52px 0 #2e86c1,
+        36px 52px 0 #2e86c1,
+        40px 52px 0 #2e86c1,
+        44px 52px 0 #21618c,
+
+        /* === ROBE HEM === */
+        12px 56px 0 #21618c,
+        16px 56px 0 #2e86c1,
+        20px 56px 0 #2e86c1,
+        24px 56px 0 #21618c,
+        28px 56px 0 #2e86c1,
+        32px 56px 0 #2e86c1,
+        36px 56px 0 #21618c,
+        40px 56px 0 #2e86c1,
+        44px 56px 0 #2e86c1,
+        48px 56px 0 #21618c,
+
+        /* === FEET (boots) === */
+        16px 60px 0 #5a3a1e,
+        20px 60px 0 #7a5a3e,
+        24px 60px 0 #5a3a1e,
+        36px 60px 0 #5a3a1e,
+        40px 60px 0 #7a5a3e,
+        44px 60px 0 #5a3a1e;
+}
+
+/* ============================================
+   COMBAT ANIMATIONS
+   ============================================ */
+@keyframes anim-attack-basic {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(30px) rotate(15deg); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes anim-attack-enemy-basic {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(-30px) rotate(-15deg); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes anim-spell-fire {
+    0% { filter: drop-shadow(0 0 0 #ff004d) brightness(1); }
+    50% { filter: drop-shadow(0 0 20px #ffec27) brightness(1.5); }
+    100% { filter: drop-shadow(0 0 0 #ff004d) brightness(1); }
+}
+
+@keyframes anim-spell-heal {
+    0% { filter: drop-shadow(0 0 0 #00e436); }
+    50% { filter: drop-shadow(0 -10px 20px #00e436) brightness(1.3); }
+    100% { filter: drop-shadow(0 0 0 #00e436); }
+}
+
+@keyframes anim-damage-fire {
+    0% { filter: brightness(1) sepia(0) hue-rotate(0deg) saturate(1); }
+    20% { filter: brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(5); }
+    50% { filter: brightness(1.2) sepia(1) hue-rotate(-50deg) saturate(3); opacity: 0.5; }
+    80% { filter: brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(5); }
+    100% { filter: brightness(1) sepia(0) hue-rotate(0deg) saturate(1); opacity: 1; }
+}
+
+.anim-attack-basic { animation: anim-attack-basic 0.4s ease-out; }
+.anim-attack-enemy-basic { animation: anim-attack-enemy-basic 0.4s ease-out; }
+.anim-spell-fire { animation: anim-spell-fire 0.6s ease-out; }
+.anim-spell-heal { animation: anim-spell-heal 0.6s ease-out; }
+.anim-damage-fire { animation: anim-damage-fire 0.5s ease-out; }
+
+/* ============================================
+   PARTICLE EFFECTS
+   ============================================ */
+/* Fireball projectile - positioned by engine JS, not CSS animation */
+.fireball-projectile {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: #ffec27;
+    border-radius: 50%;
+    box-shadow: 0 0 12px #ff7700, -6px 0 18px #ff004d, 0 0 6px #fff inset;
+    z-index: 20;
+    opacity: 1;
+    pointer-events: none;
+    transform: scale(1);
+}
+
+/* Legacy CSS animation kept for turn-based mode if needed */
+@keyframes shoot-fireball {
+    0% { opacity: 1; transform: translate(0, 0) scale(1); }
+    100% { opacity: 1; transform: translate(160px, 0) scale(2); }
+}
+
+.heal-sparkle {
+    position: absolute;
+    width: 4px; height: 4px;
+    background: #00e436;
+    box-shadow: 0 0 8px #00e436;
+    z-index: 10;
+    animation: float-up 0.5s ease-out forwards;
+}
+
+@keyframes float-up {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-40px); }
+}
+
+/* ============================================
+   REAL-TIME FSM STATE ANIMATIONS
+   ============================================ */
+.fighter-container {
+    position: absolute;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;    /* shadow below, sprite above */
+    align-items: center;
+    justify-content: flex-end;
+    width: 100px; /* Reverted to safer 100px from 150px */
+}
+
+/* Ground shadow - ellipse under fighter feet */
+.fighter-shadow {
+    width: 80px; /* Proportional to 100px container */
+    height: 10px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 80%);
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    transition: transform 0.1s, opacity 0.1s;
+}
+
+.fighter-container .sprite-wrapper {
+    display: flex;
+    align-items: flex-end;
+    transform-origin: bottom center;
+    position: relative; /* for ::before / ::after */
+}
+
+/* Player faces RIGHT by default (flip on left) */
+.fighter-container.is-player[data-facing="left"] .sprite-wrapper {
+    transform: scaleX(-1);
+}
+
+/* Monsters face LEFT by default (flip on right) */
+.fighter-container.is-monster[data-facing="right"] .sprite-wrapper {
+    transform: scaleX(-1);
+}
+.fighter-container.is-monster[data-facing="left"] .sprite-wrapper {
+    transform: scaleX(1);
+}
+
+/* ─── IDLE BREATHING ─── */
+.fighter-container[data-state="IDLE"] .sprite-wrapper {
+    animation: idle-breathe 2.2s ease-in-out infinite;
+}
+
+@keyframes idle-breathe {
+    0%,100% { transform: scaleY(1) translateY(0px); }
+    30%      { transform: scaleY(1.02) translateY(-1.5px); }
+    60%      { transform: scaleY(0.99) translateY(0.5px); }
+}
+
+/* Player flip breathe */
+.fighter-container.is-player[data-facing="left"][data-state="IDLE"] .sprite-wrapper {
+    animation: idle-breathe-player-left 2.2s ease-in-out infinite;
+}
+@keyframes idle-breathe-player-left {
+    0%,100% { transform: scaleX(-1) scaleY(1) translateY(0px); }
+    30%      { transform: scaleX(-1) scaleY(1.02) translateY(-1.5px); }
+    60%      { transform: scaleX(-1) scaleY(0.99) translateY(0.5px); }
+}
+
+/* Monster flip breathe */
+.fighter-container.is-monster[data-facing="right"][data-state="IDLE"] .sprite-wrapper {
+    animation: idle-breathe-monster-right 2.2s ease-in-out infinite;
+}
+@keyframes idle-breathe-monster-right {
+    0%,100% { transform: scaleX(-1) scaleY(1) translateY(0px); }
+    30%      { transform: scaleX(-1) scaleY(1.02) translateY(-1.5px); }
+    60%      { transform: scaleX(-1) scaleY(0.99) translateY(0.5px); }
+}
+
+/* States */
+.fighter-container[data-state="JUMPING"] .sprite-wrapper {
+    transform: scaleY(1.12);
+}
+
+.fighter-container[data-facing="left"][data-state="JUMPING"] .sprite-wrapper {
+    transform: scaleX(-1) scaleY(1.12);
+}
+
+.fighter-container[data-state="RUNNING"] .sprite-wrapper {
+    animation: walk-stride 0.42s ease-in-out infinite;
+}
+
+/* 8-keyframe walk cycle: squish on landing, stretch when rising, lean fwd */
+@keyframes walk-stride {
+    0%   { transform: translateY(0px)   scaleX(1.0)  scaleY(1.00) rotate(3deg);  }
+    12%  { transform: translateY(-5px)  scaleX(0.95) scaleY(1.06) rotate(1deg);  } /* rising */
+    25%  { transform: translateY(-9px)  scaleX(1.04) scaleY(0.96) rotate(-1deg); } /* peak airborne */
+    37%  { transform: translateY(-4px)  scaleX(0.97) scaleY(1.03) rotate(-3deg); } /* descending */
+    50%  { transform: translateY(0px)   scaleX(1.03) scaleY(0.96) rotate(-3deg); } /* LAND - squish */
+    62%  { transform: translateY(-5px)  scaleX(0.95) scaleY(1.06) rotate(-1deg); } /* rising again */
+    75%  { transform: translateY(-9px)  scaleX(1.04) scaleY(0.96) rotate(1deg);  } /* peak airborne */
+    87%  { transform: translateY(-4px)  scaleX(0.97) scaleY(1.03) rotate(3deg);  } /* descending */
+    100% { transform: translateY(0px)   scaleX(1.0)  scaleY(1.00) rotate(3deg);  } /* land */
+}
+
+.fighter-container[data-facing="left"][data-state="RUNNING"] .sprite-wrapper {
+    animation: walk-stride-left 0.42s ease-in-out infinite;
+}
+
+@keyframes walk-stride-left {
+    0%   { transform: scaleX(-1.0)  scaleY(1.00) translateY(0px)   rotate(-3deg); }
+    12%  { transform: scaleX(-0.95) scaleY(1.06) translateY(-5px)  rotate(-1deg); }
+    25%  { transform: scaleX(-1.04) scaleY(0.96) translateY(-9px)  rotate(1deg);  }
+    37%  { transform: scaleX(-0.97) scaleY(1.03) translateY(-4px)  rotate(3deg);  }
+    50%  { transform: scaleX(-1.03) scaleY(0.96) translateY(0px)   rotate(3deg);  }
+    62%  { transform: scaleX(-0.95) scaleY(1.06) translateY(-5px)  rotate(1deg);  }
+    75%  { transform: scaleX(-1.04) scaleY(0.96) translateY(-9px)  rotate(-1deg); }
+    87%  { transform: scaleX(-0.97) scaleY(1.03) translateY(-4px)  rotate(-3deg); }
+    100% { transform: scaleX(-1.0)  scaleY(1.00) translateY(0px)   rotate(-3deg); }
+}
+
+
+/* ─── MELEE SWORD SLASH (ATTACKING) ─── */
+.fighter-container[data-state="ATTACKING"] .sprite-wrapper {
+    animation: sword-lunge 0.40s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
+}
+
+/* Body: rear-foot push → lunge → recover */
+@keyframes sword-lunge {
+    0%   { transform: scaleX(1)    scaleY(1)    translateX(0)     rotate(0deg);  }
+    10%  { transform: scaleX(0.75) scaleY(1.22) translateX(-4px)  rotate(-10deg); } /* coil back */
+    38%  { transform: scaleX(1.25) scaleY(0.80) translateX(28px)  rotate(13deg);  } /* SLASH EXTEND */
+    60%  { transform: scaleX(1.10) scaleY(0.90) translateX(14px)  rotate(6deg);   }
+    100% { transform: scaleX(1)    scaleY(1)    translateX(0)     rotate(0deg);  }
+}
+
+/* ::before → Pre-slash wind-up flash (faint glow behind) */
+.fighter-container[data-state="ATTACKING"] .sprite-wrapper::before {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 5px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,240,100,0.7) 0%, transparent 70%);
+    pointer-events: none;
+    animation: sword-preflash 0.40s ease-out forwards;
+}
+
+@keyframes sword-preflash {
+    0%   { opacity: 0.8; transform: scale(0.5); }
+    20%  { opacity: 0.5; transform: scale(1.6); }
+    100% { opacity: 0;   transform: scale(0.8); }
+}
+
+/* ::after → Curved sword ARC sweeping diagonally top-right → bottom-right */
+.fighter-container[data-state="ATTACKING"] .sprite-wrapper::after {
+    content: '';
+    position: absolute;
+    right: -34px;
+    top: 4px;
+    width: 46px;
+    height: 58px;
+    /* Arc shape: right+bottom border = curve of the swing */
+    border-right:  5px solid rgba(255, 245, 100, 0.95);
+    border-bottom: 3px solid rgba(255, 230,  60, 0.80);
+    border-top:    2px solid rgba(255, 250, 180, 0.50);
+    border-radius: 0 60% 60% 0;
+    box-shadow:
+        4px  0  16px rgba(255,200,0,0.65),
+        0    4px 10px rgba(255,200,0,0.40),
+        inset -4px 0 8px rgba(255,255,180,0.45);
+    pointer-events: none;
+    animation: sword-arc 0.40s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
+    transform-origin: top left;
+}
+
+@keyframes sword-arc {
+    0%   { opacity: 0;   transform: rotate(-85deg) scaleX(0.1) scaleY(0.8); }
+    18%  { opacity: 1;   transform: rotate(-45deg) scaleX(1.15) scaleY(1.0); }
+    45%  { opacity: 0.95; transform: rotate(5deg)  scaleX(1.05) scaleY(1.0); }
+    70%  { opacity: 0.7; transform: rotate(40deg)  scaleX(0.90) scaleY(0.9); }
+    100% { opacity: 0;   transform: rotate(70deg)  scaleX(0.3)  scaleY(0.7); }
+}
+
+
+/* Left-facing sword slash */
+.fighter-container[data-facing="left"][data-state="ATTACKING"] .sprite-wrapper {
+    animation: sword-lunge-left 0.40s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
+}
+
+@keyframes sword-lunge-left {
+    0%   { transform: scaleX(-1)    scaleY(1)    translateX(0)     rotate(0deg);  }
+    10%  { transform: scaleX(-0.75) scaleY(1.22) translateX(4px)   rotate(10deg); }
+    38%  { transform: scaleX(-1.25) scaleY(0.80) translateX(-28px) rotate(-13deg);}
+    60%  { transform: scaleX(-1.10) scaleY(0.90) translateX(-14px) rotate(-6deg); }
+    100% { transform: scaleX(-1)    scaleY(1)    translateX(0)     rotate(0deg);  }
+}
+
+/* ::before left → pre-slash glow */
+.fighter-container[data-facing="left"][data-state="ATTACKING"] .sprite-wrapper::before {
+    content: '';
+    position: absolute;
+    left: -10px;
+    right: auto;
+    top: 5px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,240,100,0.7) 0%, transparent 70%);
+    pointer-events: none;
+    animation: sword-preflash 0.40s ease-out forwards;
+}
+
+/* ::after left → curved arc mirrored to swing left */
+.fighter-container[data-facing="left"][data-state="ATTACKING"] .sprite-wrapper::after {
+    content: '';
+    position: absolute;
+    left: -34px;
+    right: auto;
+    top: 4px;
+    width: 46px;
+    height: 58px;
+    border-left:   5px solid rgba(255, 245, 100, 0.95);
+    border-bottom: 3px solid rgba(255, 230,  60, 0.80);
+    border-top:    2px solid rgba(255, 250, 180, 0.50);
+    border-radius: 60% 0 0 60%;
+    box-shadow:
+        -4px 0  16px rgba(255,200,0,0.65),
+         0   4px 10px rgba(255,200,0,0.40),
+        inset 4px 0 8px rgba(255,255,180,0.45);
+    pointer-events: none;
+    animation: sword-arc-left 0.40s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
+    transform-origin: top right;
+}
+
+@keyframes sword-arc-left {
+    0%   { opacity: 0;    transform: rotate(85deg)  scaleX(0.1) scaleY(0.8); }
+    18%  { opacity: 1;    transform: rotate(45deg)  scaleX(1.15) scaleY(1.0); }
+    45%  { opacity: 0.95; transform: rotate(-5deg)  scaleX(1.05) scaleY(1.0); }
+    70%  { opacity: 0.7;  transform: rotate(-40deg) scaleX(0.90) scaleY(0.9); }
+    100% { opacity: 0;    transform: rotate(-70deg) scaleX(0.3)  scaleY(0.7); }
+}
+
+/* ─── ARENA SCREEN SHAKE ON HIT ─── */
+@keyframes arena-hit-shake {
+    0%   { transform: translate(0,    0);    }
+    15%  { transform: translate(-5px, 2px);  }
+    30%  { transform: translate( 5px,-3px);  }
+    50%  { transform: translate(-3px, 3px);  }
+    70%  { transform: translate( 3px,-2px);  }
+    85%  { transform: translate(-2px, 1px);  }
+    100% { transform: translate(0,    0);    }
+}
+
+.arena-stage.hit-shake {
+    animation: arena-hit-shake 0.28s ease-out forwards;
+}
+
+
+/* ─── SPELL CAST (CASTING) ─── */
+.fighter-container[data-state="CASTING"] .sprite-wrapper {
+    animation: cast-spell 0.55s ease-in-out forwards;
+}
+
+@keyframes cast-spell {
+    0%   { transform: scaleX(1)    scaleY(1)    translateX(0)    rotate(0deg); }
+    20%  { transform: scaleX(0.9)  scaleY(1.1)  translateX(-6px) rotate(-10deg); } /* lean back to charge */
+    55%  { transform: scaleX(1.1)  scaleY(0.9)  translateX(10px) rotate(8deg);  } /* thrust forward */
+    75%  { transform: scaleX(1.05) scaleY(0.95) translateX(6px)  rotate(3deg);  }
+    100% { transform: scaleX(1)    scaleY(1)    translateX(0)    rotate(0deg);  }
+}
+
+/* Glowing orb before cast */
+.fighter-container[data-state="CASTING"] .sprite-wrapper::before {
+    content: '🔮';
+    position: absolute;
+    right: -8px;
+    top: 10px;
+    font-size: 28px;
+    pointer-events: none;
+    animation: orb-launch 0.55s ease-out forwards;
+}
+
+@keyframes orb-launch {
+    0%   { opacity: 0; transform: scale(0.2); }
+    30%  { opacity: 1; transform: scale(1.4); }
+    65%  { opacity: 1; transform: scale(1) translateX(20px); }
+    100% { opacity: 0; transform: scale(0.4) translateX(80px); }
+}
+
+/* Left-facing cast */
+.fighter-container[data-facing="left"][data-state="CASTING"] .sprite-wrapper {
+    animation: cast-spell-left 0.55s ease-in-out forwards;
+}
+
+@keyframes cast-spell-left {
+    0%   { transform: scaleX(-1)   scaleY(1)    translateX(0)    rotate(0deg); }
+    20%  { transform: scaleX(-0.9) scaleY(1.1)  translateX(6px)  rotate(10deg); }
+    55%  { transform: scaleX(-1.1) scaleY(0.9)  translateX(-10px) rotate(-8deg); }
+    75%  { transform: scaleX(-1.05) scaleY(0.95) translateX(-6px) rotate(-3deg); }
+    100% { transform: scaleX(-1)   scaleY(1)    translateX(0)    rotate(0deg); }
+}
+
+.fighter-container[data-facing="left"][data-state="CASTING"] .sprite-wrapper::before {
+    content: '🔮';
+    position: absolute;
+    left: -8px;
+    right: auto;
+    top: 10px;
+    font-size: 28px;
+    pointer-events: none;
+    animation: orb-launch-left 0.55s ease-out forwards;
+}
+
+@keyframes orb-launch-left {
+    0%   { opacity: 0; transform: scale(0.2); }
+    30%  { opacity: 1; transform: scale(1.4); }
+    65%  { opacity: 1; transform: scale(1) translateX(-20px); }
+    100% { opacity: 0; transform: scale(0.4) translateX(-80px); }
+}
+
+
+
+.fighter-container[data-state="HIT_STUN"] .sprite-wrapper {
+    animation: hit-stun 0.25s ease-out;
+    filter: drop-shadow(0 0 8px #ff004d) brightness(1.5);
+}
+
+@keyframes hit-stun {
+    0%   { transform: translateX(0); }
+    25%  { transform: translateX(-6px) rotate(-4deg); }
+    50%  { transform: translateX(6px) rotate(4deg); }
+    75%  { transform: translateX(-4px) rotate(-2deg); }
+    100% { transform: translateX(0); filter: none; }
+}
+
+.fighter-container[data-facing="left"][data-state="HIT_STUN"] .sprite-wrapper {
+    animation: hit-stun-left 0.25s ease-out;
+    filter: drop-shadow(0 0 8px #ff004d) brightness(1.5);
+}
+
+@keyframes hit-stun-left {
+    0%   { transform: scaleX(-1) translateX(0); }
+    25%  { transform: scaleX(-1) translateX(-6px) rotate(4deg); }
+    50%  { transform: scaleX(-1) translateX(6px) rotate(-4deg); }
+    100% { transform: scaleX(-1) translateX(0); }
+}
+
+.fighter-container[data-state="DEAD"] .sprite-wrapper {
+    transform: rotate(90deg) translateX(40px) !important;
+    filter: grayscale(1) brightness(0.4);
+    transition: all 0.6s ease-out;
+    transform-origin: bottom left;
+}
+
+.fighter-container[data-facing="left"][data-state="DEAD"] .sprite-wrapper {
+    transform: scaleX(-1) rotate(-90deg) translateX(-40px) !important;
+    filter: grayscale(1) brightness(0.4);
+    transition: all 0.6s ease-out;
+}
+
+/* ============================================================
+   FIREBALL / PROJECTILE SYSTEM
+   ============================================================ */
+
+/* Base projectile container (48x48, centered on x/y) */
+.rt-proj {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    pointer-events: none;
+    z-index: 50;
+    /* engine sets left/top each frame */
+}
+
+/* ─── FIRE PROJECTILE ─── */
+.rt-proj-fire .proj-core {
+    position: absolute;
+    inset: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%,
+        #fff 0%,
+        #ffe066 25%,
+        #ff6600 55%,
+        #cc2200 100%
+    );
+    box-shadow:
+        0 0 8px  6px #ff7700,
+        0 0 20px 10px rgba(255,100,0,0.6),
+        0 0 40px 18px rgba(255,60,0,0.25);
+    animation: fire-core-pulse 0.13s ease-in-out infinite alternate;
+}
+
+@keyframes fire-core-pulse {
+    0%   { transform: scale(1);    box-shadow: 0 0 8px 6px #ff7700, 0 0 20px 10px rgba(255,100,0,0.6); }
+    100% { transform: scale(1.18); box-shadow: 0 0 14px 10px #ff9900, 0 0 30px 16px rgba(255,120,0,0.8); }
+}
+
+/* Flame-tongue ring around the core */
+.rt-proj-fire .proj-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    /* Conic gradient gives lopsided flame look */
+    background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        #ff4400 40deg,
+        #ffaa00 80deg,
+        #ff6600 120deg,
+        transparent 160deg,
+        #ff3300 200deg,
+        #ffcc00 240deg,
+        transparent 300deg,
+        transparent 360deg
+    );
+    filter: blur(3px);
+    animation: fire-ring-spin 0.18s linear infinite;
+    opacity: 0.85;
+}
+
+@keyframes fire-ring-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ─── MAGIC PROJECTILE ─── */
+.rt-proj-magic .proj-core {
+    position: absolute;
+    inset: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%,
+        #fff 0%, #ccaaff 30%, #8800ff 75%, #440099 100%
+    );
+    box-shadow:
+        0 0 10px 6px #aa00ff,
+        0 0 24px 12px rgba(150,0,255,0.5);
+    animation: magic-core-pulse 0.2s ease-in-out infinite alternate;
+}
+
+@keyframes magic-core-pulse {
+    0%   { transform: scale(0.95); }
+    100% { transform: scale(1.1); }
+}
+
+.rt-proj-magic .proj-ring {
+    position: absolute;
+    inset: 2px;
+    border-radius: 50%;
+    border: 3px solid rgba(180,80,255,0.6);
+    box-shadow: 0 0 12px 4px rgba(140,0,255,0.5);
+    animation: magic-ring-pulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes magic-ring-pulse {
+    0%   { transform: scale(0.9); opacity: 0.5; }
+    100% { transform: scale(1.15); opacity: 1; }
+}
+
+/* ─── TRAIL PARTICLES ─── */
+.proj-trail-fire {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fffca0 0%, #ff7700 50%, transparent 100%);
+    box-shadow: 0 0 6px 3px rgba(255,100,0,0.5);
+    pointer-events: none;
+    z-index: 45;
+    animation: trail-fade 0.35s ease-out forwards;
+}
+
+.proj-trail-magic {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #eeccff 0%, #aa44ff 60%, transparent 100%);
+    box-shadow: 0 0 6px 3px rgba(140,0,255,0.5);
+    pointer-events: none;
+    z-index: 45;
+    animation: trail-fade 0.35s ease-out forwards;
+}
+
+@keyframes trail-fade {
+    0%   { transform: scale(1.2); opacity: 0.9; }
+    100% { transform: scale(0.2); opacity: 0; }
+}
+
+/* ─── PUNCH MOTION STREAK (::after on sprite-wrapper) ─── */
+/* Replaces the emoji 💥 with a physical arm-streak effect */
+
+/* Base impact flash improved */
+@keyframes impact-flash {
+    0%   { opacity: 0; transform: scale(0.1) rotate(-30deg); }
+    30%  { opacity: 1; transform: scale(1.4) rotate(0deg); }
+    70%  { opacity: 0.8; transform: scale(1.1) rotate(5deg); }
+    100% { opacity: 0; transform: scale(0.7) rotate(10deg); }
+}
