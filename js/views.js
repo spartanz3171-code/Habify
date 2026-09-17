@@ -51,6 +51,12 @@ const Views = {
                 ? '¿No tienes cuenta? <a onclick="App.showAuth(\'register\')">Registrate</a>'
                 : '¿Ya tienes cuenta? <a onclick="App.showAuth(\'login\')">Inicia sesion</a>'}
                 </div>
+
+                <div style="margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--pixel-dark-gray); text-align: center;">
+                    <a onclick="App.openAdminPanel()" style="font-size: 6px; color: var(--text-muted); opacity: 0.6; text-decoration: none; cursor: pointer; letter-spacing: 0.5px;">
+                        🛡️ ACCESO ADMINISTRATIVO / DEV
+                    </a>
+                </div>
             </div>
         `;
     },
@@ -265,85 +271,69 @@ const Views = {
     },
 
     // ========================================
-    // HABITS MANAGEMENT VIEW
+    // ========================================
+    // HABITS MANAGEMENT VIEW (CATALOG & ACTIVE)
     // ========================================
     renderHabits() {
         const habits = GameState.habits;
         const editCooldown = getHabitEditCooldown();
-        const atCap = habits.length >= 7;
+        const atCap = habits.length >= 20;
+        const catalogFilter = GameState._catalogFilter || 'all';
 
         let html = `
             <div class="section-header">
-                <h2 class="section-title" data-i18n="habits.add_title">${I18N.t('habits.add_title')}</h2>
-                <div class="section-badge">${habits.length}/7</div>
+                <h2 class="section-title" data-i18n="habits.title">${I18N.t('habits.title')}</h2>
+                <div class="section-badge" style="border-color: ${atCap ? 'var(--pixel-red)' : 'var(--pixel-cyan)'}; color: ${atCap ? 'var(--pixel-red)' : 'var(--pixel-gold)'};">
+                    ${habits.length}/20
+                </div>
             </div>
             
             ${editCooldown ? `
             <div class="card" style="border-color: var(--pixel-red); margin-bottom: 12px; text-align: center;">
-                <div style="font-size: 10px; color: var(--pixel-red); margin-bottom: 6px;">🔒 ELIMINACIÓN BLOQUEADA</div>
-                <div style="font-size: 8px; color: var(--text-muted);">
-                    Podrás eliminar hábitos en:<br>
-                    <span style="color:var(--pixel-accent); display:block; margin-top:4px;">${editCooldown}</span>
+                <div style="font-size: 9px; color: var(--pixel-red); margin-bottom: 4px;">🔒 ELIMINACIÓN BLOQUEADA</div>
+                <div style="font-size: 7px; color: var(--text-muted);">
+                    Podrás eliminar hábitos en: <span style="color:var(--pixel-accent);">${editCooldown}</span>
                 </div>
+            </div>
+            ` : ''}
+
+            ${habits.length >= 12 ? `
+            <div class="card" style="border-color: var(--pixel-gold); margin-bottom: 12px; text-align: center; background: rgba(255, 236, 39, 0.05);">
+                <div style="font-size: 8px; color: var(--pixel-gold); margin-bottom: 4px;">⚠️ ALTO RIESGO / ALTA RECOMPENSA</div>
+                <div style="font-size: 7px; color: var(--text-muted);">Tienes ${habits.length} misiones activas. ¡Si descuidas tus hábitos perderás mucha vida en las penalizaciones!</div>
             </div>
             ` : ''}
 
             ${atCap ? `
-            <div class="card" style="border-color: #f7c948; margin-bottom: 12px; text-align: center;">
-                <div style="font-size: 10px; color: #f7c948; margin-bottom: 4px;">⚠️ LÍMITE ALCANZADO (7/7)</div>
-                <div style="font-size: 8px; color: var(--text-muted);">Elimina un hábito para poder agregar otro.</div>
+            <div class="card" style="border-color: var(--pixel-red); margin-bottom: 12px; text-align: center;">
+                <div style="font-size: 9px; color: var(--pixel-red); margin-bottom: 4px;">⚠️ LÍMITE MÁXIMO ALCANZADO (20/20)</div>
+                <div style="font-size: 7px; color: var(--text-muted);">Elimina una misión existente para poder activar otra.</div>
             </div>
             ` : ''}
 
-            <div class="card" style="${atCap ? 'opacity: 0.5; pointer-events: none;' : ''}">
-                <form id="add-habit-form" onsubmit="App.handleAddHabit(event)">
-                    <div class="form-group">
-                        <label class="form-label" data-i18n="habits.habit_name">${I18N.t('habits.habit_name')}</label>
-                        <input type="text" id="habit-title" class="form-input" placeholder="Ej: Beber agua" required maxlength="40" ${atCap ? 'disabled' : ''}>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label" data-i18n="habits.habit_type">${I18N.t('habits.habit_type')}</label>
-                            <select id="habit-type" class="form-select" onchange="App.handleTypeChange()" ${atCap ? 'disabled' : ''}>
-                                <option value="positive" data-i18n="habits.positive">${I18N.t('habits.positive')}</option>
-                                <option value="negative" data-i18n="habits.negative">${I18N.t('habits.negative')}</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" data-i18n="habits.difficulty">${I18N.t('habits.difficulty')}</label>
-                            <select id="habit-value" class="form-select" ${atCap ? 'disabled' : ''}>
-                                <option value="10">Habitual (10)</option>
-                                <option value="20" selected>Normal (20)</option>
-                                <option value="40">Dificil (40)</option>
-                                <option value="80">Epico (80)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style="display:flex; gap:10px;">
-                        <button type="submit" class="btn btn-primary" style="flex:1" data-i18n="habits.btn_add" ${atCap ? 'disabled' : ''}>${I18N.t('habits.btn_add')}</button>
-                    </div>
-                </form>
+            <!-- MISIONES ACTIVAS -->
+            <div class="section-header" style="margin-top: 10px;">
+                <span class="section-title" data-i18n="habits.active_title">${I18N.t('habits.active_title')}</span>
+                <span class="section-badge">${habits.length}</span>
             </div>
-
-            <div class="habit-list">
         `;
 
         if (habits.length === 0) {
             html += `
-                <div class="empty-state">
+                <div class="empty-state" style="margin-bottom: 20px;">
                     <span class="empty-state-icon">📜</span>
                     <div class="empty-state-text" data-i18n="habits.empty">${I18N.t('habits.empty')}</div>
-                    <button class="btn btn-secondary btn-sm" onclick="App.loadDefaults()" data-i18n="habits.btn_defaults">${I18N.t('habits.btn_defaults')}</button>
+                    <p style="font-size: 7px; color: var(--pixel-gold); margin-top: 6px;">¡Explora el catálogo abajo para activar tus primeras misiones!</p>
                 </div>
             `;
         } else {
+            html += '<div class="habit-list" style="margin-bottom: 20px;">';
             habits.forEach(h => {
                 const typeClass = h.type === 'positive' ? 'positive' : 'negative';
                 const rewardText = h.type === 'positive'
-                    ? `<span class="habit-reward">+${h.xpReward}XP</span>`
+                    ? `<span class="habit-reward">+${h.xpReward}XP +${h.goldReward}G</span>`
                     : `<span class="habit-penalty">-${h.hpPenalty}HP</span>`;
+                const freqInfo = FREQUENCY_CONFIGS[h.frequency] || FREQUENCY_CONFIGS.daily;
 
                 html += `
                     <div class="habit-item ${typeClass}">
@@ -352,11 +342,16 @@ const Views = {
                         </div>
                         <div class="habit-info">
                             <div class="habit-title">${h.title}</div>
-                            ${rewardText}
+                            <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
+                                ${rewardText}
+                                <span style="font-size: 6px; padding: 1px 4px; background: var(--bg-input); border: 1px solid var(--pixel-dark-gray); color: var(--pixel-cyan);">
+                                    ${freqInfo.label}
+                                </span>
+                            </div>
                         </div>
                         ${!editCooldown
-                            ? `<button class="habit-delete" onclick="App.deleteHabit('${h.id}')">X</button>`
-                            : `<span style="font-size:12px; opacity:0.45; padding:4px 6px;" title="Bloqueado ${editCooldown}">🔒</span>`
+                            ? `<button class="habit-delete" onclick="App.deleteHabit('${h.id}')" title="Eliminar">X</button>`
+                            : `<span style="font-size:10px; opacity:0.45; padding:4px 6px;" title="Bloqueado ${editCooldown}">🔒</span>`
                         }
                     </div>
                 `;
@@ -364,8 +359,88 @@ const Views = {
             html += '</div>';
         }
 
+        // EXPLORADOR DEL CATÁLOGO DE HÁBITOS
         html += `
             <div class="divider"></div>
+            <div class="catalog-explorer">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title" data-i18n="habits.catalog_title">${I18N.t('habits.catalog_title')}</h2>
+                        <div style="font-size: 7px; color: var(--text-muted); margin-top: 4px;" data-i18n="habits.catalog_desc">${I18N.t('habits.catalog_desc')}</div>
+                    </div>
+                </div>
+
+                <div class="catalog-filter-tabs">
+                    <button class="catalog-filter-btn ${catalogFilter === 'all' ? 'active' : ''}" onclick="App.filterCatalog('all')" data-i18n="habits.filter_all">${I18N.t('habits.filter_all')}</button>
+                    <button class="catalog-filter-btn ${catalogFilter === 'health' ? 'active' : ''}" onclick="App.filterCatalog('health')" data-i18n="habits.filter_health">${I18N.t('habits.filter_health')}</button>
+                    <button class="catalog-filter-btn ${catalogFilter === 'fitness' ? 'active' : ''}" onclick="App.filterCatalog('fitness')" data-i18n="habits.filter_fitness">${I18N.t('habits.filter_fitness')}</button>
+                    <button class="catalog-filter-btn ${catalogFilter === 'productivity' ? 'active' : ''}" onclick="App.filterCatalog('productivity')" data-i18n="habits.filter_productivity">${I18N.t('habits.filter_productivity')}</button>
+                    <button class="catalog-filter-btn ${catalogFilter === 'mind' ? 'active' : ''}" onclick="App.filterCatalog('mind')" data-i18n="habits.filter_mind">${I18N.t('habits.filter_mind')}</button>
+                    <button class="catalog-filter-btn ${catalogFilter === 'finance' ? 'active' : ''}" onclick="App.filterCatalog('finance')" data-i18n="habits.filter_finance">${I18N.t('habits.filter_finance')}</button>
+                    <button class="catalog-filter-btn ${catalogFilter === 'negative' ? 'active' : ''}" onclick="App.filterCatalog('negative')" data-i18n="habits.filter_negative">${I18N.t('habits.filter_negative')}</button>
+                </div>
+
+                <div class="catalog-grid">
+        `;
+
+        const catalog = GameState.presetCatalog || PRESET_HABITS_CATALOG;
+        const filteredCatalog = catalogFilter === 'all' 
+            ? catalog 
+            : catalog.filter(item => item.category === catalogFilter);
+
+        filteredCatalog.forEach(item => {
+            const alreadyActive = GameState.habits.some(h => h.title === item.title);
+            const isNegative = item.type === 'negative';
+
+            html += `
+                <div class="catalog-card ${alreadyActive ? 'active-in-habits' : ''} ${isNegative ? 'negative' : ''}">
+                    <div>
+                        <div class="catalog-card-header">
+                            <span class="catalog-card-icon">${item.icon}</span>
+                            <span class="catalog-card-title">${item.title}</span>
+                        </div>
+                        <div class="catalog-card-desc">${item.description}</div>
+                        <div class="catalog-card-meta">
+                            <span>${!isNegative ? `<span style="color:var(--pixel-green);">+${item.xpReward} XP</span> | <span style="color:var(--pixel-gold);">+${item.goldReward} G</span>` : `<span style="color:var(--pixel-red);">-${item.hpPenalty} HP</span>`}</span>
+                            <span style="font-size:6px; color:var(--text-muted);">${item.category.toUpperCase()}</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="catalog-card-freq">
+                            <label style="font-size: 6px; color: var(--text-muted); display:block; margin-bottom: 2px;" data-i18n="habits.frequency_label">${I18N.t('habits.frequency_label')}</label>
+                            <select id="freq-select-${item.id}" ${alreadyActive ? 'disabled' : ''}>
+                                <option value="daily" ${item.defaultFrequency === 'daily' ? 'selected' : ''}>Diario (24h)</option>
+                                <option value="workdays" ${item.defaultFrequency === 'workdays' ? 'selected' : ''}>Días Laborales (Lun-Vie)</option>
+                                <option value="3x_week" ${item.defaultFrequency === '3x_week' ? 'selected' : ''}>3 veces por semana (48h)</option>
+                                <option value="2x_week" ${item.defaultFrequency === '2x_week' ? 'selected' : ''}>2 veces por semana (72h)</option>
+                                <option value="weekly" ${item.defaultFrequency === 'weekly' ? 'selected' : ''}>Semanal (7 días)</option>
+                            </select>
+                        </div>
+
+                        ${alreadyActive ? `
+                            <button class="btn btn-secondary btn-block" style="font-size:7px; padding: 6px; opacity: 0.7;" disabled data-i18n="habits.btn_activated">
+                                ${I18N.t('habits.btn_activated')}
+                            </button>
+                        ` : atCap ? `
+                            <button class="btn btn-secondary btn-block" style="font-size:7px; padding: 6px; opacity: 0.5;" disabled>
+                                LÍMITE (20/20)
+                            </button>
+                        ` : `
+                            <button class="btn btn-primary btn-block" style="font-size:7px; padding: 6px;" onclick="App.activateCatalogHabit('${item.id}')" data-i18n="habits.btn_activate">
+                                ${I18N.t('habits.btn_activate')}
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+
+            <div class="divider" style="margin-top: 24px;"></div>
             <div class="flex-center gap-8">
                 <button class="btn btn-danger btn-sm" onclick="App.confirmReset()">
                     REINICIAR
@@ -539,10 +614,10 @@ const Views = {
                 <!-- HEALTH HUD - HIGH VISIBILITY PIXEL DESIGN -->
                 <div class="battle-hud">
                     <div class="hud-unit player">
-                        <div class="hud-label">${a.name} LV${a.level}</div>
+                        <div class="hud-label">${a.name} LV${a.level} <span style="font-size:7px; opacity:0.8;">(HP Avatar: ${a.hp}/${a.maxHp})</span></div>
                         <div class="hud-bar-container">
                             <div id="rt-p-hp-fill" class="hud-bar-fill hp" style="width: ${(pHp/pMax)*100}%"></div>
-                            <div id="rt-p-hp-text" class="hud-bar-text">${pHp}/${pMax} HP</div>
+                            <div id="rt-p-hp-text" class="hud-bar-text">${pHp}/${pMax} BHP</div>
                         </div>
                     </div>
                     
@@ -552,7 +627,7 @@ const Views = {
                         <div class="hud-label">${opStats.name} LV${opStats.level}</div>
                         <div class="hud-bar-container">
                             <div id="rt-e-hp-fill" class="hud-bar-fill hp enemy-hp" style="width: ${(eHp/eMax)*100}%"></div>
-                            <div id="rt-e-hp-text" class="hud-bar-text">${eHp}/${eMax} HP</div>
+                            <div id="rt-e-hp-text" class="hud-bar-text">${eHp}/${eMax} BHP</div>
                         </div>
                     </div>
                 </div>
@@ -565,19 +640,19 @@ const Views = {
                 <div class="rt-controls">
                     <!-- Movement cluster (left side) -->
                     <div class="rt-cluster rt-cluster-move">
-                        <button class="rt-btn rt-btn-dir"
+                        <button class="rt-btn rt-btn-dir dpad-left"
                             onmousedown="Engine.handleInput('left', true)" onmouseup="Engine.handleInput('left', false)" onmouseleave="Engine.handleInput('left', false)"
                             ontouchstart="Engine.handleInput('left', true); event.preventDefault();" ontouchend="Engine.handleInput('left', false); event.preventDefault();">
                             <span class="rt-btn-icon">◀</span>
                             <span class="rt-btn-label">IZQ</span>
                         </button>
-                        <button class="rt-btn rt-btn-dir"
+                        <button class="rt-btn rt-btn-dir dpad-right"
                             onmousedown="Engine.handleInput('right', true)" onmouseup="Engine.handleInput('right', false)" onmouseleave="Engine.handleInput('right', false)"
                             ontouchstart="Engine.handleInput('right', true); event.preventDefault();" ontouchend="Engine.handleInput('right', false); event.preventDefault();">
                             <span class="rt-btn-icon">▶</span>
                             <span class="rt-btn-label">DER</span>
                         </button>
-                        <button class="rt-btn rt-btn-jump"
+                        <button class="rt-btn rt-btn-jump dpad-up"
                             onmousedown="Engine.handleInput('up', true)" onmouseup="Engine.handleInput('up', false)" onmouseleave="Engine.handleInput('up', false)"
                             ontouchstart="Engine.handleInput('up', true); event.preventDefault();" ontouchend="Engine.handleInput('up', false); event.preventDefault();">
                             <span class="rt-btn-icon">▲</span>
@@ -587,16 +662,22 @@ const Views = {
 
                     <!-- Keyboard hint -->
                     <div class="rt-kb-hint">
-                        ⌨ Flechas = Mover | Z = Golpe | X = Magia | ↑ = Saltar
+                        ⌨ Flechas = Mover | ↑ = Saltar | Z = Golpe | X = Magia | C = Defensa
                     </div>
 
                     <!-- Action cluster (right side) -->
                     <div class="rt-cluster rt-cluster-action">
-                        <button class="rt-btn rt-btn-attack"
+                        <button class="rt-btn rt-btn-attack action-btn-attack"
                             onmousedown="Engine.handleInput('attack', true)" onmouseup="Engine.handleInput('attack', false)" onmouseleave="Engine.handleInput('attack', false)"
                             ontouchstart="Engine.handleInput('attack', true); event.preventDefault();" ontouchend="Engine.handleInput('attack', false); event.preventDefault();">
                             <span class="rt-btn-icon">⚔️</span>
                             <span class="rt-btn-label">GOLPE</span>
+                        </button>
+                        <button class="rt-btn rt-btn-guard action-btn-guard"
+                            onmousedown="Engine.handleInput('guard', true)" onmouseup="Engine.handleInput('guard', false)" onmouseleave="Engine.handleInput('guard', false)"
+                            ontouchstart="Engine.handleInput('guard', true); event.preventDefault();" ontouchend="Engine.handleInput('guard', false); event.preventDefault();">
+                            <span class="rt-btn-icon">🛡️</span>
+                            <span class="rt-btn-label">DEFENSA</span>
                         </button>
                         ${hasHeal ? `
                         <button class="rt-btn rt-btn-heal"
@@ -615,7 +696,7 @@ const Views = {
                         </button>
                         ` : ''}
                         ${!hasHeal && !hasFire ? `
-                        <button class="rt-btn rt-btn-magic"
+                        <button class="rt-btn rt-btn-magic action-btn-magic"
                             onmousedown="Engine.handleInput('magic', true)" onmouseup="Engine.handleInput('magic', false)" onmouseleave="Engine.handleInput('magic', false)"
                             ontouchstart="Engine.handleInput('magic', true); event.preventDefault();" ontouchend="Engine.handleInput('magic', false); event.preventDefault();">
                             <span class="rt-btn-icon">✨</span>
@@ -627,7 +708,7 @@ const Views = {
                 </div>
 
                 <div class="flex-center" style="margin-top:8px;">
-                    <button class="btn btn-danger" style="font-size:8px; padding:6px 16px; opacity:0.7;" onclick="App.surrenderBattle()">⚑ HUIR DE LA BATALLA</button>
+                    <button id="btn-flee-battle" class="btn btn-danger" style="font-size:8px; padding:8px 18px; opacity:0.85;" onclick="App.surrenderBattle()">⚑ HUIR DE LA BATALLA</button>
                 </div>
 
             `;
@@ -684,9 +765,11 @@ const Views = {
 
             if (GameState._lastBattleResult) {
                 const r = GameState._lastBattleResult;
+                const resultTitle = r.won ? '¡VICTORIA!' : (r.fled ? '⚑ RETIRADA / HUIDA' : 'DERROTA');
+                const resultClass = r.won ? 'victory' : (r.fled ? 'fled' : 'defeat');
                 html += `
-                    <div class="battle-result ${r.won ? 'victory' : 'defeat'}">
-                        <div class="battle-result-title">${r.won ? 'VICTORIA!' : 'DERROTA'}</div>
+                    <div class="battle-result ${resultClass}">
+                        <div class="battle-result-title">${resultTitle}</div>
                         <div class="battle-result-detail">${r.message}</div>
                     </div>
                 `;
@@ -728,5 +811,495 @@ const Views = {
         }
 
         return html;
+    },
+
+    // ========================================
+    // TUTORIAL / ONBOARDING VIEW
+    // ========================================
+    renderTutorialModal(step = 0) {
+        const steps = [
+            {
+                badge: I18N.t('tutorial.badge'),
+                icon: '⚔️',
+                title: I18N.t('tutorial.step1_title'),
+                desc: I18N.t('tutorial.step1_desc')
+            },
+            {
+                badge: I18N.t('tutorial.badge'),
+                icon: '💖',
+                title: I18N.t('tutorial.step2_title'),
+                desc: I18N.t('tutorial.step2_desc')
+            },
+            {
+                badge: I18N.t('tutorial.badge'),
+                icon: '🏪',
+                title: I18N.t('tutorial.step3_title'),
+                desc: I18N.t('tutorial.step3_desc')
+            },
+            {
+                badge: I18N.t('tutorial.badge'),
+                icon: '📜',
+                title: I18N.t('tutorial.step4_title'),
+                desc: I18N.t('tutorial.step4_desc')
+            }
+        ];
+
+        const s = steps[step] || steps[0];
+        const isFirst = step === 0;
+        const isLast = step === steps.length - 1;
+
+        let dotsHtml = '';
+        for (let i = 0; i < steps.length; i++) {
+            dotsHtml += `<div class="tutorial-dot ${i === step ? 'active' : ''}"></div>`;
+        }
+
+        return `
+            <div class="pixel-modal-backdrop" id="tutorial-modal">
+                <div class="pixel-modal">
+                    <button class="pixel-modal-close" onclick="App.closeTutorial()">X</button>
+                    
+                    <div class="tutorial-card">
+                        <span class="tutorial-badge">${s.badge} [${step + 1}/${steps.length}]</span>
+                        <div class="tutorial-icon">${s.icon}</div>
+                        <h3 class="tutorial-title">${s.title}</h3>
+                        <p class="tutorial-desc">${s.desc}</p>
+                        
+                        <div class="tutorial-dots">
+                            ${dotsHtml}
+                        </div>
+
+                        <div class="tutorial-nav">
+                            ${!isFirst ? `
+                                <button class="btn btn-secondary" onclick="App.prevTutorialStep()" style="flex:1;">
+                                    ${I18N.t('tutorial.btn_prev')}
+                                </button>
+                            ` : `
+                                <button class="btn btn-secondary" onclick="App.closeTutorial()" style="flex:1;">
+                                    ${I18N.t('tutorial.btn_close')}
+                                </button>
+                            `}
+
+                            ${!isLast ? `
+                                <button class="btn btn-primary" onclick="App.nextTutorialStep()" style="flex:1;">
+                                    ${I18N.t('tutorial.btn_next')}
+                                </button>
+                            ` : `
+                                <button class="btn btn-gold" onclick="App.finishTutorialAndGoToHabits()" style="flex:2;">
+                                    ${I18N.t('tutorial.btn_start')}
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    // ========================================
+    // ADMIN LOGIN MODAL
+    // ========================================
+    renderAdminLoginModal() {
+        return `
+            <div class="pixel-modal-backdrop" id="admin-login-modal">
+                <div class="pixel-modal" style="max-width: 400px;">
+                    <button class="pixel-modal-close" onclick="App.closeAdminLogin()">X</button>
+                    <div style="text-align:center; margin-bottom:14px;">
+                        <span style="font-size:32px;">🛡️</span>
+                        <h3 style="font-size:10px; color:var(--pixel-gold); margin-top:8px;">ACCESO ADMINISTRADOR</h3>
+                        <p style="font-size:7px; color:var(--text-muted); margin-top:4px;">Control del sistema y desarrollo</p>
+                    </div>
+
+                    <form onsubmit="App.handleAdminLogin(event)">
+                        <div class="form-group">
+                            <label class="form-label">USUARIO O EMAIL</label>
+                            <input type="text" id="admin-login-user" class="form-input" placeholder="admin@habify.dev" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">CONTRASEÑA</label>
+                            <input type="password" id="admin-login-pass" class="form-input" placeholder="Min 6 caracteres" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" style="margin-top:10px;">
+                            >> ENTRAR AL PANEL <<
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-block" style="margin-top:8px; font-size:6px;" onclick="App.enterAdminDevMode()">
+                            ⚡ ACCESO RÁPIDO DESARROLLADOR
+                        </button>
+                    </form>
+                </div>
+            </div>
+        `;
+    },
+
+    // ========================================
+    // ADMIN DASHBOARD VIEW
+    // ========================================
+    renderAdminDashboard() {
+        const tab = GameState.adminTab || 'stats';
+        const users = GameState.adminUsersList || [];
+        const activeUsers = users.filter(u => u.is_active);
+        const inactiveUsers = users.filter(u => !u.is_active);
+        const totalGold = users.reduce((sum, u) => sum + (u.gold || 0), 0);
+        const avgLevel = users.length > 0 ? (users.reduce((sum, u) => sum + (u.level || 1), 0) / users.length).toFixed(1) : 1;
+
+        let contentHtml = '';
+
+        if (tab === 'stats') {
+            contentHtml = `
+                <div class="admin-kpi-grid">
+                    <div class="admin-kpi-card">
+                        <div class="admin-kpi-val">${users.length}</div>
+                        <div class="admin-kpi-label">TOTAL USUARIOS</div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <div class="admin-kpi-val" style="color:var(--pixel-green);">${activeUsers.length}</div>
+                        <div class="admin-kpi-label">USUARIOS ACTIVOS</div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <div class="admin-kpi-val" style="color:var(--pixel-red);">${inactiveUsers.length}</div>
+                        <div class="admin-kpi-label">INACTIVOS (+48H)</div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <div class="admin-kpi-val" style="color:var(--pixel-gold);">${totalGold} G</div>
+                        <div class="admin-kpi-label">ORO EN CIRCULACIÓN</div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <div class="admin-kpi-val">LV ${avgLevel}</div>
+                        <div class="admin-kpi-label">NIVEL PROMEDIO</div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <div class="admin-kpi-val">${GameState.shopItems.length}</div>
+                        <div class="admin-kpi-label">ÍTEMS EN TIENDA</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="font-size:8px; color:var(--pixel-gold); margin-bottom:8px;">RESUMEN DE ESTADO DEL SISTEMA</div>
+                    <div style="font-size:7px; line-height:1.8; color:var(--text-primary);">
+                        • Base de datos Supabase conectada.<br>
+                        • Catálogo precargado: ${GameState.presetCatalog.length} hábitos estructurados.<br>
+                        • Modo PVP Realtime activo en canales de presencia.<br>
+                        • Monstruos en Arena: ${GameState.monsters.length} oponentes escalables.
+                    </div>
+                </div>
+            `;
+        } else if (tab === 'users') {
+            contentHtml = `
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>JUGADOR</th>
+                                <th>CLASE</th>
+                                <th>NIVEL</th>
+                                <th>HP</th>
+                                <th>ORO</th>
+                                <th>ESTADO</th>
+                                <th>ACCIONES DEV</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            users.forEach(u => {
+                contentHtml += `
+                    <tr>
+                        <td><strong>${u.name}</strong></td>
+                        <td>${u.avatar_class}</td>
+                        <td>LV${u.level}</td>
+                        <td><span style="color:${u.hp > 0 ? 'var(--pixel-green)' : 'var(--pixel-red)'};">${u.hp}/${u.max_hp}</span></td>
+                        <td><span style="color:var(--pixel-gold);">${u.gold}G</span></td>
+                        <td><span class="admin-badge ${u.is_active ? 'active' : 'inactive'}">${u.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td>
+                        <td>
+                            <button class="admin-action-btn" onclick="App.adminReviveUser('${u.id}')" title="Revivir">💖 REVIVIR</button>
+                            <button class="admin-action-btn" onclick="App.adminGrantGold('${u.id}', 100)" title="+100G">+100G</button>
+                            <button class="admin-action-btn" onclick="App.adminGrantXP('${u.id}', 50)" title="+50XP">+50XP</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            contentHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else if (tab === 'store') {
+            contentHtml = `
+                <div style="font-size:8px; color:var(--pixel-gold); margin-bottom:10px;">GESTIÓN DEL MERCADO NEGRO (MODIFICAR PRECIOS)</div>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ICON</th>
+                                <th>NOMBRE</th>
+                                <th>TIPO</th>
+                                <th>PRECIO ACTUAL</th>
+                                <th>NUEVO PRECIO</th>
+                                <th>ACCIÓN</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            GameState.shopItems.forEach(item => {
+                contentHtml += `
+                    <tr>
+                        <td style="font-size:16px;">${item.icon}</td>
+                        <td><strong>${item.name}</strong><br><span style="font-size:6px; color:var(--text-muted);">${item.description}</span></td>
+                        <td>${item.type}</td>
+                        <td style="color:var(--pixel-gold);">${item.cost} G</td>
+                        <td>
+                            <input type="number" id="admin-cost-${item.id}" value="${item.cost}" min="0" max="9999" style="width:60px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;">
+                        </td>
+                        <td>
+                            <button class="admin-action-btn" onclick="App.adminSaveShopPrice('${item.id}')">💾 GUARDAR</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            contentHtml += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                    <div style="font-size:8px; color:var(--pixel-green); margin-bottom:8px;">+ AÑADIR NUEVO ÍTEM A LA TIENDA</div>
+                    <form onsubmit="App.adminCreateShopItem(event)">
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">ID ÚNICO</label>
+                                <input type="text" id="new-item-id" class="form-input" placeholder="ej: wpn_katana" required>
+                            </div>
+                            <div class="form-group" style="flex:2;">
+                                <label class="form-label">NOMBRE</label>
+                                <input type="text" id="new-item-name" class="form-input" placeholder="Katana Legendaria" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">COSTO (G)</label>
+                                <input type="number" id="new-item-cost" class="form-input" placeholder="100" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">ICONO (EMOJI)</label>
+                                <input type="text" id="new-item-icon" class="form-input" placeholder="🗡️" required maxlength="4">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">TIPO</label>
+                                <select id="new-item-type" class="form-select">
+                                    <option value="weapon">Arma</option>
+                                    <option value="shield">Escudo</option>
+                                    <option value="spell">Hechizo</option>
+                                    <option value="pet">Mascota</option>
+                                    <option value="background">Fondo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">DESCRIPCIÓN</label>
+                            <input type="text" id="new-item-desc" class="form-input" placeholder="Efecto o detalle estético" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">+ AGREGAR A LA TIENDA</button>
+                    </form>
+                </div>
+            `;
+        } else if (tab === 'arena') {
+            contentHtml = `
+                <div style="font-size:8px; color:var(--pixel-gold); margin-bottom:10px;">BALANCE DE MONSTRUOS Y JEFES EN ARENA</div>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>SPRITE</th>
+                                <th>NOMBRE</th>
+                                <th>NIVEL</th>
+                                <th>HP BASE</th>
+                                <th>ATAQUE</th>
+                                <th>XP</th>
+                                <th>ORO</th>
+                                <th>ACCIÓN</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            GameState.monsters.forEach(m => {
+                contentHtml += `
+                    <tr>
+                        <td><img src="assets/sprites/${m.sprite}.png" onerror="this.src='assets/sprites/goblin.png';" style="width:24px; height:24px; image-rendering:pixelated;"></td>
+                        <td><strong>${m.name}</strong></td>
+                        <td><input type="number" id="m-lvl-${m.id}" value="${m.base_level}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-hp-${m.id}" value="${m.base_hp}" style="width:50px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-atk-${m.id}" value="${m.base_attack}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-xp-${m.id}" value="${m.xp_reward}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-gold-${m.id}" value="${m.gold_reward}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><button class="admin-action-btn" onclick="App.adminSaveMonsterStats('${m.id}')">💾 GUARDAR</button></td>
+                    </tr>
+                `;
+            });
+            contentHtml += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                    <div style="font-size:8px; color:var(--pixel-red); margin-bottom:8px;">+ CREAR NUEVO JEFE O MONSTRUO</div>
+                    <form onsubmit="App.adminCreateMonster(event)">
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2;">
+                                <label class="form-label">NOMBRE DEL MONSTRUO</label>
+                                <input type="text" id="new-m-name" class="form-input" placeholder="Dragón Ancestral" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">SPRITE</label>
+                                <select id="new-m-sprite" class="form-select">
+                                    <option value="goblin">Goblin</option>
+                                    <option value="skeleton">Esqueleto</option>
+                                    <option value="slime">Slime</option>
+                                    <option value="orc">Orco</option>
+                                    <option value="ghost">Espectro</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">NIVEL BASE</label>
+                                <input type="number" id="new-m-lvl" class="form-input" value="5" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">HP BASE</label>
+                                <input type="number" id="new-m-hp" class="form-input" value="250" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">ATAQUE</label>
+                                <input type="number" id="new-m-atk" class="form-input" value="35" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">XP RECOMPENSA</label>
+                                <input type="number" id="new-m-xp" class="form-input" value="100" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">ORO RECOMPENSA</label>
+                                <input type="number" id="new-m-gold" class="form-input" value="60" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">+ INVOCAR MONSTRUO EN LA ARENA</button>
+                    </form>
+                </div>
+            `;
+        } else if (tab === 'catalog') {
+            contentHtml = `
+                <div style="font-size:8px; color:var(--pixel-gold); margin-bottom:10px;">BIBLIOTECA DE HÁBITOS PRECARGADOS (${GameState.presetCatalog.length})</div>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ICON</th>
+                                <th>TÍTULO</th>
+                                <th>CATEGORÍA</th>
+                                <th>TIPO</th>
+                                <th>RECOMPENSA / PENALIZACIÓN</th>
+                                <th>FREC. DEFAULT</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            GameState.presetCatalog.forEach(c => {
+                contentHtml += `
+                    <tr>
+                        <td style="font-size:16px;">${c.icon}</td>
+                        <td><strong>${c.title}</strong></td>
+                        <td>${c.category}</td>
+                        <td>${c.type}</td>
+                        <td>${c.type === 'positive' ? `+${c.xpReward}XP / +${c.goldReward}G` : `-${c.hpPenalty}HP`}</td>
+                        <td>${c.defaultFrequency}</td>
+                    </tr>
+                `;
+            });
+            contentHtml += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                    <div style="font-size:8px; color:var(--pixel-cyan); margin-bottom:8px;">+ AÑADIR NUEVO HÁBITO PRECARGADO AL CATÁLOGO GLOBAL</div>
+                    <form onsubmit="App.adminAddCatalogHabit(event)">
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2;">
+                                <label class="form-label">TÍTULO</label>
+                                <input type="text" id="new-cat-title" class="form-input" placeholder="Estudiar historia 20 min" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">ICONO (EMOJI)</label>
+                                <input type="text" id="new-cat-icon" class="form-input" placeholder="📜" required maxlength="4">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">CATEGORÍA</label>
+                                <select id="new-cat-category" class="form-select">
+                                    <option value="health">Salud</option>
+                                    <option value="fitness">Fitness</option>
+                                    <option value="productivity">Estudio/Productividad</option>
+                                    <option value="mind">Mente</option>
+                                    <option value="finance">Finanzas</option>
+                                    <option value="negative">A Evitar (Negativo)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">TIPO</label>
+                                <select id="new-cat-type" class="form-select">
+                                    <option value="positive">Positivo</option>
+                                    <option value="negative">Negativo</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">XP / PENALTY</label>
+                                <input type="number" id="new-cat-val" class="form-input" value="20" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label class="form-label">FRECUENCIA DEFAULT</label>
+                                <select id="new-cat-freq" class="form-select">
+                                    <option value="daily">Diario</option>
+                                    <option value="workdays">Días Laborales</option>
+                                    <option value="3x_week">3 veces por semana</option>
+                                    <option value="2x_week">2 veces por semana</option>
+                                    <option value="weekly">Semanal</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">DESCRIPCIÓN</label>
+                            <input type="text" id="new-cat-desc" class="form-input" placeholder="Detalle pedagógico o motivo del hábito" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">+ AGREGAR AL CATÁLOGO GLOBAL</button>
+                    </form>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="pixel-modal-backdrop" id="admin-dashboard-modal">
+                <div class="pixel-modal admin-modal">
+                    <button class="pixel-modal-close" onclick="App.closeAdminDashboard()">X</button>
+                    
+                    <div class="admin-header">
+                        <div>
+                            <div class="admin-title">⚡ HABIFY - PANEL DE ADMINISTRADOR / DEV</div>
+                            <div style="font-size:6px; color:var(--text-muted); margin-top:2px;">Centro de comando del juego</div>
+                        </div>
+                        <span class="admin-badge active" style="font-size:7px;">ADMIN ACTIVO</span>
+                    </div>
+
+                    <div class="admin-nav-tabs">
+                        <button class="admin-tab-btn ${tab === 'stats' ? 'active' : ''}" onclick="App.setAdminTab('stats')">📊 MÉTRICAS</button>
+                        <button class="admin-tab-btn ${tab === 'users' ? 'active' : ''}" onclick="App.setAdminTab('users')">👥 USUARIOS</button>
+                        <button class="admin-tab-btn ${tab === 'store' ? 'active' : ''}" onclick="App.setAdminTab('store')">🏪 TIENDA</button>
+                        <button class="admin-tab-btn ${tab === 'arena' ? 'active' : ''}" onclick="App.setAdminTab('arena')">⚔️ ARENA</button>
+                        <button class="admin-tab-btn ${tab === 'catalog' ? 'active' : ''}" onclick="App.setAdminTab('catalog')">📜 CATÁLOGO</button>
+                    </div>
+
+                    <div class="admin-tab-content">
+                        ${contentHtml}
+                    </div>
+                </div>
+            </div>
+        `;
     }
 };

@@ -40,6 +40,7 @@
                     <option value="es">ES</option>
                     <option value="en">EN</option>
                 </select>
+                <button onclick="App.openTutorial()" class="btn btn-secondary" title="Guía / Tutorial" style="padding: 2px 5px; font-size: 6px; border-width: 1px;">❓</button>
                 <button onclick="App.logout()" class="btn btn-secondary" data-i18n="btn.logout"
                     style="padding: 2px 6px; font-size: 6px; border-width: 1px; border-bottom-width: 2px;">SALIR</button>
             </div>
@@ -53,6 +54,9 @@
             <div class="loading-text">CARGANDO...</div>
         </div>
     </main>
+
+    <!-- Modal Root Container -->
+    <div id="modal-root"></div>
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav" id="bottom-nav" style="display: none;">

@@ -128,6 +128,14 @@ const App = {
 
         // Start cooldown timer
         this.startCooldownTimer();
+
+        // Auto-show tutorial if first time or 0 habits
+        const seenTutorial = localStorage.getItem('habify_tutorial_seen_' + GameState.user.id);
+        if (!seenTutorial || GameState.habits.length === 0) {
+            setTimeout(() => {
+                this.openTutorial();
+            }, 600);
+        }
     },
 
     showMainApp() {
@@ -328,43 +336,227 @@ const App = {
         this.navigate('dashboard');
     },
 
-    async handleAddHabit(event) {
-        event.preventDefault();
-        
-        if (GameState.habits.length >= 7) {
-            this.showToast('Límite de hábitos alcanzado (Máx 7)', 'error');
-            return;
-        }
-
-        const title = document.getElementById('habit-title').value.trim();
-        const type = document.getElementById('habit-type').value;
-        const value = parseInt(document.getElementById('habit-value').value) || 20;
-
-        if (!title) return;
-
-        await Engine.addHabit(title, type, value, value);
-        this.showToast('HABITO CREADO!', 'success');
+    filterCatalog(category) {
+        GameState._catalogFilter = category;
         this.navigate('habits');
     },
 
-    handleTypeChange() {
-        const type = document.getElementById('habit-type').value;
-        const label = document.getElementById('reward-label');
-        if (label) {
-            label.textContent = type === 'positive' ? 'XP' : 'HP PENALTY';
+    async activateCatalogHabit(catalogId) {
+        if (GameState.habits.length >= 20) {
+            this.showToast('Límite de 20 misiones alcanzado', 'error');
+            return;
+        }
+        const selectEl = document.getElementById(`freq-select-${catalogId}`);
+        const chosenFreq = selectEl ? selectEl.value : 'daily';
+        const res = await Engine.addHabitFromCatalog(catalogId, chosenFreq);
+        if (res.success) {
+            this.showToast('¡MISIÓN ACTIVADA!', 'success');
+            this.navigate('habits');
+        } else {
+            this.showToast(res.message, 'error');
         }
     },
 
     async deleteHabit(id) {
         await Engine.removeHabit(id);
-        this.showToast('ELIMINADO', 'gold');
+        this.showToast('MISIÓN ELIMINADA', 'gold');
         this.navigate('habits');
     },
 
     async loadDefaults() {
         await Engine.loadDefaultHabits();
-        this.showToast('DEFAULTS CARGADOS!', 'success');
+        this.showToast('HÁBITOS PRECARGADOS!', 'success');
         this.navigate('habits');
+    },
+
+    // --- Tutorial & Onboarding Handlers ---
+
+    openTutorial(step = 0) {
+        GameState.tutorialStep = step;
+        const root = document.getElementById('modal-root');
+        if (root) root.innerHTML = Views.renderTutorialModal(step);
+    },
+
+    nextTutorialStep() {
+        GameState.tutorialStep = (GameState.tutorialStep || 0) + 1;
+        const root = document.getElementById('modal-root');
+        if (root) root.innerHTML = Views.renderTutorialModal(GameState.tutorialStep);
+    },
+
+    prevTutorialStep() {
+        GameState.tutorialStep = Math.max(0, (GameState.tutorialStep || 0) - 1);
+        const root = document.getElementById('modal-root');
+        if (root) root.innerHTML = Views.renderTutorialModal(GameState.tutorialStep);
+    },
+
+    closeTutorial() {
+        if (GameState.user) {
+            localStorage.setItem('habify_tutorial_seen_' + GameState.user.id, 'true');
+        }
+        const root = document.getElementById('modal-root');
+        if (root) root.innerHTML = '';
+    },
+
+    finishTutorialAndGoToHabits() {
+        this.closeTutorial();
+        this.navigate('habits');
+    },
+
+    // --- Admin & Developer Handlers ---
+
+    async openAdminPanel() {
+        if (GameState.isAdmin) {
+            await loadAllUsersForAdmin();
+            const root = document.getElementById('modal-root');
+            if (root) root.innerHTML = Views.renderAdminDashboard();
+        } else {
+            const root = document.getElementById('modal-root');
+            if (root) root.innerHTML = Views.renderAdminLoginModal();
+        }
+    },
+
+    closeAdminLogin() {
+        const root = document.getElementById('modal-root');
+        if (root) root.innerHTML = '';
+    },
+
+    closeAdminDashboard() {
+        const root = document.getElementById('modal-root');
+        if (root) root.innerHTML = '';
+    },
+
+    async handleAdminLogin(e) {
+        e.preventDefault();
+        const user = document.getElementById('admin-login-user').value.trim();
+        const pass = document.getElementById('admin-login-pass').value;
+
+        if ((user.toLowerCase().includes('admin') || user === 'admin@habify.dev') && pass.length >= 4) {
+            GameState.isAdmin = true;
+            this.showToast('¡ACCESO ADMINISTRADOR CONCEDIDO!', 'gold');
+            this.closeAdminLogin();
+            await this.openAdminPanel();
+        } else {
+            this.showToast('Credenciales administrativas incorrectas', 'error');
+        }
+    },
+
+    async enterAdminDevMode() {
+        GameState.isAdmin = true;
+        this.showToast('⚡ MODO DESARROLLADOR ACTIVADO', 'gold');
+        this.closeAdminLogin();
+        await this.openAdminPanel();
+    },
+
+    async setAdminTab(tab) {
+        GameState.adminTab = tab;
+        if (tab === 'users') {
+            await loadAllUsersForAdmin();
+        }
+        const root = document.getElementById('modal-root');
+        if (root) root.innerHTML = Views.renderAdminDashboard();
+    },
+
+    async adminReviveUser(userId) {
+        await Engine.adminReviveUser(userId);
+        this.showToast('¡USUARIO REVIVIDO CON 100 HP!', 'success');
+        await this.setAdminTab('users');
+        if (userId === GameState.avatarId) {
+            this.updateHeader();
+        }
+    },
+
+    async adminGrantGold(userId, amount) {
+        await Engine.adminGrantGold(userId, amount);
+        this.showToast(`+${amount} ORO OTORGADO`, 'gold');
+        await this.setAdminTab('users');
+        this.updateHeader();
+    },
+
+    async adminGrantXP(userId, amount) {
+        await Engine.adminGrantXP(userId, amount);
+        this.showToast(`+${amount} XP OTORGADA`, 'success');
+        await this.setAdminTab('users');
+        this.updateHeader();
+    },
+
+    async adminSaveShopPrice(itemId) {
+        const input = document.getElementById(`admin-cost-${itemId}`);
+        if (!input) return;
+        const newCost = parseInt(input.value);
+        await Engine.adminUpdateShopItemPrice(itemId, newCost);
+        this.showToast('¡PRECIO DE TIENDA ACTUALIZADO!', 'gold');
+        await this.setAdminTab('store');
+    },
+
+    async adminCreateShopItem(e) {
+        e.preventDefault();
+        const id = document.getElementById('new-item-id').value.trim();
+        const name = document.getElementById('new-item-name').value.trim();
+        const cost = parseInt(document.getElementById('new-item-cost').value);
+        const icon = document.getElementById('new-item-icon').value.trim();
+        const type = document.getElementById('new-item-type').value;
+        const description = document.getElementById('new-item-desc').value.trim();
+
+        await adminSaveShopItem({ id, name, cost, icon, type, description });
+        this.showToast('¡NUEVO ÍTEM CREADO EN LA TIENDA!', 'success');
+        await this.setAdminTab('store');
+    },
+
+    async adminSaveMonsterStats(monsterId) {
+        const lvl = parseInt(document.getElementById(`m-lvl-${monsterId}`).value);
+        const hp = parseInt(document.getElementById(`m-hp-${monsterId}`).value);
+        const atk = parseInt(document.getElementById(`m-atk-${monsterId}`).value);
+        const xp = parseInt(document.getElementById(`m-xp-${monsterId}`).value);
+        const gold = parseInt(document.getElementById(`m-gold-${monsterId}`).value);
+
+        await Engine.adminUpdateMonsterStats(parseInt(monsterId), {
+            base_level: lvl, base_hp: hp, base_attack: atk, xp_reward: xp, gold_reward: gold
+        });
+        this.showToast('¡STATS DEL MONSTRUO ACTUALIZADOS!', 'success');
+        await this.setAdminTab('arena');
+    },
+
+    async adminCreateMonster(e) {
+        e.preventDefault();
+        const name = document.getElementById('new-m-name').value.trim();
+        const sprite = document.getElementById('new-m-sprite').value;
+        const base_level = parseInt(document.getElementById('new-m-lvl').value);
+        const base_hp = parseInt(document.getElementById('new-m-hp').value);
+        const base_attack = parseInt(document.getElementById('new-m-atk').value);
+        const xp_reward = parseInt(document.getElementById('new-m-xp').value);
+        const gold_reward = parseInt(document.getElementById('new-m-gold').value);
+
+        await adminSaveMonster({ name, sprite, base_level, base_hp, base_attack, xp_reward, gold_reward });
+        this.showToast('¡NUEVO MONSTRUO EN LA ARENA!', 'success');
+        await this.setAdminTab('arena');
+    },
+
+    async adminAddCatalogHabit(e) {
+        e.preventDefault();
+        const title = document.getElementById('new-cat-title').value.trim();
+        const icon = document.getElementById('new-cat-icon').value.trim();
+        const category = document.getElementById('new-cat-category').value;
+        const type = document.getElementById('new-cat-type').value;
+        const val = parseInt(document.getElementById('new-cat-val').value) || 20;
+        const defaultFrequency = document.getElementById('new-cat-freq').value;
+        const description = document.getElementById('new-cat-desc').value.trim();
+
+        const newHabit = {
+            id: 'hab_custom_' + Date.now(),
+            title,
+            icon,
+            category,
+            type,
+            xpReward: type === 'positive' ? val : 0,
+            hpPenalty: type === 'negative' ? val : 0,
+            goldReward: type === 'positive' ? Math.floor(val / 2) : 0,
+            defaultFrequency,
+            description
+        };
+
+        GameState.presetCatalog.unshift(newHabit);
+        this.showToast('¡HÁBITO AÑADIDO AL CATÁLOGO GLOBAL!', 'success');
+        await this.setAdminTab('catalog');
     },
 
     confirmReset() {
@@ -503,10 +695,8 @@ const App = {
     },
 
     surrenderBattle() {
-        if (confirm('¿Huir cuenta como derrota. Perderás la vida de la batalla actual. ¿Seguro?')) {
-            Engine.stopGameLoop();
-            Engine._endBattle(false);
-        }
+        if (!GameState.currentBattle || GameState.currentBattle.isFinished) return;
+        Engine.fleeBattle();
     },
 
     async startPvP() {

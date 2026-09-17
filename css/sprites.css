@@ -1670,6 +1670,106 @@
 
 
 
+/* ─── GUARDING / DEFENSE STANCE (STREET FIGHTER BLOCK) ─── */
+.fighter-container[data-state="GUARDING"] .sprite-wrapper {
+    transform: scaleX(0.94) scaleY(0.88) translateY(8px) rotate(-4deg);
+    filter: drop-shadow(0 0 12px #38bdf8) brightness(1.2);
+    transition: transform 0.1s ease-out;
+}
+
+.fighter-container[data-state="GUARDING"] .sprite-wrapper::before {
+    content: '';
+    position: absolute;
+    right: -14px;
+    top: 6px;
+    width: 32px;
+    height: 52px;
+    border-radius: 4px 16px 16px 4px;
+    border: 3px solid #38bdf8;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.45), rgba(14, 165, 233, 0.2));
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.8), inset 0 0 10px rgba(56, 189, 248, 0.5);
+    pointer-events: none;
+    animation: guard-pulse 0.4s ease-in-out infinite alternate;
+}
+
+.fighter-container[data-facing="left"][data-state="GUARDING"] .sprite-wrapper {
+    transform: scaleX(-0.94) scaleY(0.88) translateY(8px) rotate(4deg);
+}
+
+.fighter-container[data-facing="left"][data-state="GUARDING"] .sprite-wrapper::before {
+    right: auto;
+    left: -14px;
+    border-radius: 16px 4px 4px 16px;
+}
+
+@keyframes guard-pulse {
+    0% { opacity: 0.7; transform: scale(0.96); }
+    100% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Guard Shield Spark on hit */
+.guard-shield-spark {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 4px solid #38bdf8;
+    background: radial-gradient(circle, #fff 0%, rgba(56, 189, 248, 0.6) 40%, transparent 80%);
+    box-shadow: 0 0 25px #38bdf8, 0 0 45px #0284c7;
+    pointer-events: none;
+    z-index: 180;
+    animation: shield-spark-anim 0.35s ease-out forwards;
+}
+
+@keyframes shield-spark-anim {
+    0% { transform: scale(0.3); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.9; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Standalone dynamic sword slash visual */
+.sword-slash-effect {
+    position: absolute;
+    width: 65px;
+    height: 65px;
+    pointer-events: none;
+    z-index: 190;
+}
+
+.sword-slash-effect.dir-right {
+    border-right: 5px solid #fff;
+    border-bottom: 4px solid #facc15;
+    border-top: 3px solid #f59e0b;
+    border-radius: 0 70% 70% 0;
+    box-shadow: 4px 0 20px #f59e0b, inset -4px 0 10px #fef08a;
+    animation: slash-arc-fx 0.28s ease-out forwards;
+    transform-origin: top left;
+}
+
+.sword-slash-effect.dir-left {
+    border-left: 5px solid #fff;
+    border-bottom: 4px solid #facc15;
+    border-top: 3px solid #f59e0b;
+    border-radius: 70% 0 0 70%;
+    box-shadow: -4px 0 20px #f59e0b, inset 4px 0 10px #fef08a;
+    animation: slash-arc-fx-left 0.28s ease-out forwards;
+    transform-origin: top right;
+}
+
+@keyframes slash-arc-fx {
+    0% { opacity: 0; transform: rotate(-70deg) scale(0.4); }
+    30% { opacity: 1; transform: rotate(-15deg) scale(1.3); }
+    70% { opacity: 0.9; transform: rotate(30deg) scale(1.1); }
+    100% { opacity: 0; transform: rotate(65deg) scale(0.6); }
+}
+
+@keyframes slash-arc-fx-left {
+    0% { opacity: 0; transform: rotate(70deg) scale(0.4); }
+    30% { opacity: 1; transform: rotate(15deg) scale(1.3); }
+    70% { opacity: 0.9; transform: rotate(-30deg) scale(1.1); }
+    100% { opacity: 0; transform: rotate(-65deg) scale(0.6); }
+}
+
 .fighter-container[data-state="HIT_STUN"] .sprite-wrapper {
     animation: hit-stun 0.25s ease-out;
     filter: drop-shadow(0 0 8px #ff004d) brightness(1.5);

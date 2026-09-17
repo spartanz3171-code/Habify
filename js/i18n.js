@@ -4,83 +4,123 @@ const I18N = {
     dict: {
         es: {
             'nav.home': 'Inicio',
-            'nav.habits': 'Habitos',
+            'nav.habits': 'Hábitos',
             'nav.store': 'Tienda',
             'nav.arena': 'Arena',
             'btn.logout': 'SALIR',
-            'auth.login': 'INICIAR SESION',
+            'auth.login': 'INICIAR SESIÓN',
             'auth.register': 'REGISTRARSE',
-            'auth.email': 'CORREO ELECTRONICO',
+            'auth.email': 'CORREO ELECTRÓNICO',
             'auth.password': 'CONTRASEÑA',
             'auth.name': 'NOMBRE DEL AVATAR',
             'auth.class': 'CLASE DEL AVATAR',
-            'class.hero': 'Heroe Aventurero',
+            'class.hero': 'Héroe Aventurero',
             'class.mage': 'Mago Arcano',
             'class.knight': 'Caballero Real',
             'class.elf': 'Elfo del Bosque',
-            'dashboard.stats': 'Estadisticas Visuales',
+            'dashboard.stats': 'Estadísticas Visuales',
             'dashboard.inventory': 'Inventario Activo',
             'dashboard.gold': 'ORO',
             'dashboard.level': 'NIVEL',
             'dashboard.hp': 'VIDA',
             'dashboard.exp': 'EXP',
             'dashboard.health': 'SALUD VITAL',
-            'dashboard.dead_title': 'TU AVATAR HA CAIDO',
-            'dashboard.dead_desc': 'Completa habitos para revivir',
-            'dashboard.habits': 'HABITOS',
-            'dashboard.empty_title': 'Sin habitos aun.<br>Ve a Habitos para agregar.',
-            'dashboard.btn_go': 'IR A HABITOS',
-            'habits.add_title': 'NUEVO HABITO RPG',
-            'habits.habit_name': 'Titulo del Habito',
-            'habits.habit_type': 'Tipo',
-            'habits.positive': 'Positivo (Da XP / Oro)',
-            'habits.negative': 'Negativo (Quita Vida)',
-            'habits.difficulty': 'Dificultad (Valor)',
-            'habits.btn_add': '+ AÑADIR MISION',
-            'habits.btn_defaults': 'Cargar por Defecto',
-            'habits.empty': 'No tienes misiones activas.',
+            'dashboard.dead_title': 'TU AVATAR HA CAÍDO',
+            'dashboard.dead_desc': 'Completa hábitos para revivir',
+            'dashboard.habits': 'HÁBITOS',
+            'dashboard.empty_title': 'Sin hábitos activos aún.<br>Explora el catálogo para agregar.',
+            'dashboard.btn_go': 'IR A HÁBITOS',
+            
+            // Habits section
+            'habits.title': 'MISIONES Y HÁBITOS',
+            'habits.active_title': 'Tus Misiones Activas',
+            'habits.catalog_title': 'CATÁLOGO DE HÁBITOS',
+            'habits.catalog_desc': 'Elige tus misiones de nuestra biblioteca RPG precargada',
+            'habits.empty': 'No tienes misiones activas todavía.',
+            'habits.filter_all': 'TODOS',
+            'habits.filter_health': 'SALUD',
+            'habits.filter_fitness': 'FITNESS',
+            'habits.filter_productivity': 'ESTUDIO',
+            'habits.filter_mind': 'MENTE',
+            'habits.filter_finance': 'FINANZAS',
+            'habits.filter_negative': 'A EVITAR',
+            'habits.frequency_label': 'Frecuencia:',
+            'habits.btn_activate': '+ ACTIVAR MISIÓN',
+            'habits.btn_activated': '✓ YA ACTIVA',
+            
+            // Frequencies
+            'freq.daily': 'Diario (24h)',
+            'freq.workdays': 'Días Laborales (Lun-Vie)',
+            'freq.3x_week': '3 veces por semana',
+            'freq.2x_week': '2 veces por semana',
+            'freq.weekly': 'Semanal (1 vez/sem)',
+            
+            // Store
             'store.header': 'MERCADO NEGRO',
             'store.all': 'TODO',
             'store.weapons': 'ARMAS',
             'store.spells': 'HECHIZOS',
             'store.pets': 'MASCOTAS',
             'store.backgrounds': 'FONDOS',
-            'arena.versus': 'DESAFIO EPICO',
-            'arena.btn_attack': 'ATAQUE FISICO',
+            'arena.versus': 'DESAFÍO ÉPICO',
+            'arena.btn_attack': 'ATAQUE FÍSICO',
             'arena.btn_flee': 'HUIR',
             'toast.loading': 'CARGANDO...',
             
-            // Store Items - ES (Sin Acentos)
+            // Onboarding & Tutorial
+            'tutorial.badge': 'GUÍA DEL AVENTURERO',
+            'tutorial.step1_title': '¡BIENVENIDO A HABIFY!',
+            'tutorial.step1_desc': 'Habify convierte tus hábitos del mundo real en una épica aventura RPG. Cada hábito cumplido fortalece a tu Avatar con Experiencia (XP) para subir de nivel y Monedas de Oro (G).',
+            'tutorial.step2_title': 'VIDA (HP) Y PENALIZACIONES',
+            'tutorial.step2_desc': '¡Cuidado con descuidarte! Si olvidas cumplir tus hábitos en su frecuencia o caes en hábitos negativos, tu Avatar perderá Vida (HP). Si tu HP llega a 0, tu héroe caerá (-20 XP) y no podrás combatir hasta que cumplas hábitos para revivir.',
+            'tutorial.step3_title': 'MERCADO NEGRO Y ARENA',
+            'tutorial.step3_desc': 'Con el oro ganado puedes comprar armas, escudos, hechizos arcanos, mascotas y fondos para tu avatar. ¡Luego pon a prueba tu poder en combates en tiempo real dentro de la Arena!',
+            'tutorial.step4_title': '¡ELIGE TUS MISIONES!',
+            'tutorial.step4_desc': 'Para comenzar con control total, los hábitos ya están precargados y equilibrados. ¡Puedes elegir hasta 20 hábitos con diferentes frecuencias! Vamos a la sección de hábitos a seleccionar tus primeras misiones.',
+            'tutorial.btn_next': 'SIGUIENTE ▶',
+            'tutorial.btn_prev': '◀ ANTERIOR',
+            'tutorial.btn_start': '>> ¡VAMOS A ELEGIR HÁBITOS! <<',
+            'tutorial.btn_close': 'CERRAR',
+
+            // Admin Panel
+            'admin.title': 'PANEL DE CONTROL ADMINISTRADOR',
+            'admin.tab_stats': 'MÉTRICAS',
+            'admin.tab_users': 'USUARIOS',
+            'admin.tab_store': 'TIENDA',
+            'admin.tab_arena': 'ARENA',
+            'admin.tab_catalog': 'CATÁLOGO',
+            
+            // Store Items - ES
             'item.bg_tokyo.name': 'Fondo de Tokio',
-            'item.bg_tokyo.desc': 'Un paisaje nocturno de Tokio con luces de neon.',
-            'item.bg_paris.name': 'Fondo de Paris',
+            'item.bg_tokyo.desc': 'Un paisaje nocturno de Tokio con luces de neón.',
+            'item.bg_paris.name': 'Fondo de París',
             'item.bg_paris.desc': 'Vista de la Torre Eiffel al atardecer.',
             'item.bg_space.name': 'Fondo Espacial',
             'item.bg_space.desc': 'Una galaxia lejana llena de estrellas.',
             'item.bg_forest.name': 'Bosque Encantado',
-            'item.bg_forest.desc': 'Un bosque magico lleno de misterio.',
-            'item.bg_japan.name': 'Fondo de Japon',
+            'item.bg_forest.desc': 'Un bosque mágico lleno de misterio.',
+            'item.bg_japan.name': 'Fondo de Japón',
             'item.bg_japan.desc': 'El majestuoso Monte Fuji y cerezos en flor.',
             'item.pet_trex.name': 'Mascota Mini T-Rex',
             'item.pet_trex.desc': 'Un pequeño dinosaurio que te acompaña.',
-            'item.pet_dragon.name': 'Mascota Dragon',
-            'item.pet_dragon.desc': 'Un dragon bebe que escupe fuego.',
-            'item.pet_cat.name': 'Gato Magico',
-            'item.pet_cat.desc': 'Un gato con poderes misticos.',
-            'item.pet_phoenix.name': 'Fenix Dorado',
-            'item.pet_phoenix.desc': 'Un ave fenix renacida de las cenizas.',
+            'item.pet_dragon.name': 'Mascota Dragón',
+            'item.pet_dragon.desc': 'Un dragón bebé que escupe fuego.',
+            'item.pet_cat.name': 'Gato Mágico',
+            'item.pet_cat.desc': 'Un gato con poderes místicos.',
+            'item.pet_phoenix.name': 'Fénix Dorado',
+            'item.pet_phoenix.desc': 'Un ave fénix renacida de las cenizas.',
             'item.wpn_sword.name': 'Espada de Madera',
-            'item.wpn_sword.desc': 'Una espada basica para principiantes.',
-            'item.wpn_staff.name': 'Baston Arcano',
-            'item.wpn_staff.desc': 'Un baston cargado de energia magica.',
-            'item.wpn_bow.name': 'Arco Elfico',
+            'item.wpn_sword.desc': 'Una espada básica para principiantes.',
+            'item.wpn_staff.name': 'Bastón Arcano',
+            'item.wpn_staff.desc': 'Un bastón cargado de energía mágica.',
+            'item.wpn_bow.name': 'Arco Élfico',
             'item.wpn_bow.desc': 'Un arco forjado por elfos ancestrales.',
             'item.wpn_shield.name': 'Escudo de Hierro',
-            'item.wpn_shield.desc': 'Proteccion resistente contra ataques.',
+            'item.wpn_shield.desc': 'Protección resistente contra ataques.',
             'item.spell_fire.name': 'Bola de Fuego',
-            'item.spell_fire.desc': 'Hechizo de Daño Altisimo',
-            'item.spell_heal.name': 'Curacion Menor',
-            'item.spell_heal.desc': 'Recupera el 35% de Vida Maxima'
+            'item.spell_fire.desc': 'Hechizo de Daño Altísimo',
+            'item.spell_heal.name': 'Curación Menor',
+            'item.spell_heal.desc': 'Recupera el 35% de Vida Máxima'
         },
         en: {
             'nav.home': 'Home',
@@ -108,17 +148,34 @@ const I18N = {
             'dashboard.dead_title': 'YOUR AVATAR HAS FALLEN',
             'dashboard.dead_desc': 'Complete habits to revive',
             'dashboard.habits': 'HABITS',
-            'dashboard.empty_title': 'No habits yet.<br>Go to Habits to add.',
+            'dashboard.empty_title': 'No active habits yet.<br>Explore the catalog to add quests.',
             'dashboard.btn_go': 'GO TO HABITS',
-            'habits.add_title': 'NEW RPG HABIT',
-            'habits.habit_name': 'Habit Title',
-            'habits.habit_type': 'Type',
-            'habits.positive': 'Positive (Gives XP / Gold)',
-            'habits.negative': 'Negative (Takes HP)',
-            'habits.difficulty': 'Difficulty (Value)',
-            'habits.btn_add': '+ ADD QUEST',
-            'habits.btn_defaults': 'Load Defaults',
-            'habits.empty': 'No active quests.',
+            
+            // Habits section
+            'habits.title': 'QUESTS & HABITS',
+            'habits.active_title': 'Your Active Quests',
+            'habits.catalog_title': 'HABIT CATALOG',
+            'habits.catalog_desc': 'Choose your quests from our curated preset RPG library',
+            'habits.empty': 'You have no active quests yet.',
+            'habits.filter_all': 'ALL',
+            'habits.filter_health': 'HEALTH',
+            'habits.filter_fitness': 'FITNESS',
+            'habits.filter_productivity': 'STUDY',
+            'habits.filter_mind': 'MIND',
+            'habits.filter_finance': 'FINANCE',
+            'habits.filter_negative': 'TO AVOID',
+            'habits.frequency_label': 'Frequency:',
+            'habits.btn_activate': '+ ACTIVATE QUEST',
+            'habits.btn_activated': '✓ ALREADY ACTIVE',
+
+            // Frequencies
+            'freq.daily': 'Daily (24h)',
+            'freq.workdays': 'Workdays (Mon-Fri)',
+            'freq.3x_week': '3 times a week',
+            'freq.2x_week': '2 times a week',
+            'freq.weekly': 'Weekly (1x/week)',
+
+            // Store
             'store.header': 'BLACK MARKET',
             'store.all': 'ALL',
             'store.weapons': 'WEAPONS',
@@ -129,6 +186,29 @@ const I18N = {
             'arena.btn_attack': 'PHYSICAL ATTACK',
             'arena.btn_flee': 'FLEE',
             'toast.loading': 'LOADING...',
+
+            // Onboarding & Tutorial
+            'tutorial.badge': "ADVENTURER'S GUIDE",
+            'tutorial.step1_title': 'WELCOME TO HABIFY!',
+            'tutorial.step1_desc': 'Habify turns your real-world habits into an epic RPG quest. Every completed habit grants Experience (XP) to level up and Gold Coins (G) to buy gear.',
+            'tutorial.step2_title': 'HEALTH (HP) & PENALTIES',
+            'tutorial.step2_desc': 'Be careful! If you neglect habits or trigger negative habits, your avatar will lose Health (HP). If your HP reaches 0, you fall defeated (-20 XP) and must fulfill habits to revive.',
+            'tutorial.step3_title': 'BLACK MARKET & COMBAT ARENA',
+            'tutorial.step3_desc': 'Spend your hard-earned gold on weapons, shields, spells, pets, and backgrounds. Then enter the Arena to battle monsters in real-time!',
+            'tutorial.step4_title': 'SELECT YOUR QUESTS!',
+            'tutorial.step4_desc': 'To keep balance, habits are preset with verified rewards. You can choose up to 20 habits with custom safe frequencies. Let us pick your first quests now!',
+            'tutorial.btn_next': 'NEXT ▶',
+            'tutorial.btn_prev': '◀ PREV',
+            'tutorial.btn_start': '>> SELECT HABITS NOW! <<',
+            'tutorial.btn_close': 'CLOSE',
+
+            // Admin Panel
+            'admin.title': 'ADMIN DEVELOPER DASHBOARD',
+            'admin.tab_stats': 'METRICS',
+            'admin.tab_users': 'USERS',
+            'admin.tab_store': 'STORE',
+            'admin.tab_arena': 'ARENA',
+            'admin.tab_catalog': 'CATALOG',
 
             // Store Items - EN
             'item.bg_tokyo.name': 'Tokyo Background',
@@ -165,7 +245,7 @@ const I18N = {
     },
 
     t(key) {
-        return this.dict[this.current][key] || key;
+        return (this.dict[this.current] && this.dict[this.current][key]) || key;
     },
 
     setLang(lang) {
@@ -173,13 +253,12 @@ const I18N = {
             this.current = lang;
             this.updateStaticUI();
             if (window.App && window.GameState && GameState.currentView) {
-                App.navigate(GameState.currentView); // Refresh current view
+                App.navigate(GameState.currentView);
             }
         }
     },
 
     updateStaticUI() {
-        // Update elements that are always in DOM (Nav, Header)
         const els = document.querySelectorAll('[data-i18n]');
         els.forEach(el => {
             const key = el.getAttribute('data-i18n');

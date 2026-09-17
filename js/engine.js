@@ -7,10 +7,10 @@ const Engine = {
 
     // --- Habit Management ---
 
-    async addHabit(title, type, xpReward = 20, hpPenalty = 10, isDefault = false) {
-        // Adding is always allowed — only blocked at the 7-habit cap
-        if (!isDefault && GameState.habits.length >= 7) {
-            console.warn("Habit cap reached (7 max).");
+    async addHabit(title, type, xpReward = 20, hpPenalty = 10, isDefault = false, frequency = 'daily', goldReward = null) {
+        // Adding is allowed up to 20 habits max
+        if (!isDefault && GameState.habits.length >= 20) {
+            console.warn("Habit cap reached (20 max).");
             return null;
         }
 
@@ -20,13 +20,38 @@ const Engine = {
             type: type,
             xpReward: type === 'positive' ? xpReward : 0,
             hpPenalty: type === 'negative' ? hpPenalty : 0,
-            goldReward: type === 'positive' ? Math.floor(xpReward / 2) : 0,
-            completedAt: null
+            goldReward: goldReward !== null ? goldReward : (type === 'positive' ? Math.floor(xpReward / 2) : 0),
+            completedAt: null,
+            frequency: frequency || 'daily'
         };
         GameState.habits.push(habit);
         await saveHabitToDB(habit);
-        // NOTE: Do NOT update lastHabitModified here — adding is always free.
         return habit;
+    },
+
+    async addHabitFromCatalog(catalogId, frequencyOverride = null) {
+        if (GameState.habits.length >= 20) {
+            return { success: false, message: 'Límite alcanzado (Máximo 20 misiones activas)' };
+        }
+        const preset = GameState.presetCatalog.find(p => p.id === catalogId);
+        if (!preset) return { success: false, message: 'Misión no encontrada en el catálogo' };
+
+        const alreadyHas = GameState.habits.some(h => h.title === preset.title);
+        if (alreadyHas) {
+            return { success: false, message: 'Ya tienes esta misión en tus hábitos activos' };
+        }
+
+        const freq = frequencyOverride || preset.defaultFrequency || 'daily';
+        const habit = await this.addHabit(
+            preset.title,
+            preset.type,
+            preset.xpReward,
+            preset.hpPenalty,
+            false,
+            freq,
+            preset.goldReward
+        );
+        return { success: true, habit };
     },
 
     async removeHabit(id) {
@@ -45,16 +70,10 @@ const Engine = {
     },
 
     async loadDefaultHabits() {
-        const defaults = [
-            { titulo: 'Completar un ejercicio de programación', tipo: 'positive', recompensaXP: 30, penalizacionHP: 0 },
-            { titulo: 'Escuchar un álbum de pop rock en inglés prestando atención a la letra', tipo: 'positive', recompensaXP: 25, penalizacionHP: 0 },
-            { titulo: 'Beber 2 litros de agua', tipo: 'positive', recompensaXP: 20, penalizacionHP: 0 }
-        ];
-        for (const dh of defaults) {
-            const exists = GameState.habits.some(h => h.title === dh.titulo);
-            if (!exists) {
-                await this.addHabit(dh.titulo, dh.tipo, dh.recompensaXP, dh.penalizacionHP, true);
-            }
+        // Load initial 3 defaults from catalog if empty
+        const defaultIds = ['hab_water', 'hab_cardio', 'hab_code'];
+        for (const id of defaultIds) {
+            await this.addHabitFromCatalog(id);
         }
     },
 
@@ -112,15 +131,24 @@ const Engine = {
             ? new Date(GameState.avatar.lastPenaltyCheck).getTime()
             : now;
 
-        // Only apply penalties if 24h have passed since last check
-        if (now - lastCheck < COOLDOWN_MS) return [];
+        // Check if at least 12h have passed since last global check
+        if (now - lastCheck < (12 * 60 * 60 * 1000)) return [];
+
+        const currentDate = new Date();
+        const dayOfWeek = currentDate.getDay(); // 0 = Sun, 6 = Sat
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
 
         const penalties = [];
         for (const habit of GameState.habits) {
             if (habit.type !== 'positive') continue;
 
-            // If habit was NOT completed in the last 24h cycle
-            if (!habit.completedAt || (now - habit.completedAt) > COOLDOWN_MS) {
+            // Habits for workdays are not penalized on weekends
+            if (habit.frequency === 'workdays' && isWeekend) continue;
+
+            const cycleMs = getHabitCooldownMs(habit);
+
+            // If habit was NOT completed in its frequency cycle
+            if (!habit.completedAt || (now - habit.completedAt) > cycleMs) {
                 const penalty = 10; // HP penalty per missed habit
                 GameState.avatar.hp = Math.max(0, GameState.avatar.hp - penalty);
                 penalties.push({
@@ -276,7 +304,7 @@ const Engine = {
 
     // --- Real-Time Battle Engine ---
 
-    _rtInputs: { left: false, right: false, up: false, attack: false, magic: false, heal: false, fire: false },
+    _rtInputs: { left: false, right: false, up: false, attack: false, magic: false, heal: false, fire: false, guard: false },
 
     _rtEntities: [],
     _rtProjectiles: [],
@@ -285,8 +313,8 @@ const Engine = {
 
     handleInput(action, isPressed) {
         if (this._rtInputs[action] !== undefined) {
-            // Unify action handling: For action buttons, stick to true if pressed, clearing is handled by the loop.
-            if (action === 'attack' || action === 'magic' || action === 'up') {
+            // Instant trigger for action buttons, hold/release for directional & guard
+            if (action === 'attack' || action === 'magic' || action === 'up' || action === 'heal' || action === 'fire') {
                 if (isPressed) this._rtInputs[action] = true;
             } else {
                 this._rtInputs[action] = isPressed;
@@ -295,18 +323,16 @@ const Engine = {
     },
 
     startPvEBattle(opponent) {
-        // Use exact HP value — 0 is intentional (dead). Use explicit null/undefined check
-        const startHp = (GameState.avatar.hp != null && GameState.avatar.hp !== undefined)
-            ? GameState.avatar.hp
-            : GameState.avatar.maxHp;
-        const maxHp = GameState.avatar.maxHp || 100;
-
+        // Dedicated Battle HP: Fighter enters arena with independent combat HP (100 + level * 10)
+        // Defeat or surrender will penalize real HP, but will NEVER wipe the character to 0 HP!
+        const playerBattleMaxHp = 100 + (GameState.avatar.level || 1) * 10;
+        const playerBattleHp = playerBattleMaxHp;
         
         GameState.currentBattle = {
             mode: 'pve',
             opponent: opponent,
-            playerHp: startHp,
-            playerMaxHp: maxHp,
+            playerHp: playerBattleHp,
+            playerMaxHp: playerBattleMaxHp,
             oppHp: opponent.hp,
             oppMaxHp: opponent.maxHp,
             logs: [],
@@ -317,11 +343,11 @@ const Engine = {
         
         // Setup real time entities
         this._rtEntities = [
-            this._createFighter('player', true, 80, 200, GameState.avatar),
-            this._createFighter('enemy', false, 280, 200, opponent)
+            this._createFighter('player', true, 80, 240, GameState.avatar),
+            this._createFighter('enemy', false, 280, 240, opponent)
         ];
         this._rtProjectiles = [];
-        this._rtInputs = { left: false, right: false, up: false, attack: false, magic: false, heal: false, fire: false };
+        this._rtInputs = { left: false, right: false, up: false, attack: false, magic: false, heal: false, fire: false, guard: false };
         this._gameLoopRunning = false;
 
         return GameState.currentBattle;
@@ -385,17 +411,30 @@ const Engine = {
         if (!p || !e) return;
 
         // Player Input
-        if (p.state !== 'HIT_STUN' && p.state !== 'DEAD' && p.state !== 'ATTACKING') {
-            if (this._rtInputs.left) { p.vx = -moveSpeed; p.facing = 'left'; p.state = 'RUNNING'; }
-            else if (this._rtInputs.right) { p.vx = moveSpeed; p.facing = 'right'; p.state = 'RUNNING'; }
-            else { p.vx = 0; p.state = 'IDLE'; }
+        if (p.state !== 'HIT_STUN' && p.state !== 'DEAD' && p.state !== 'ATTACKING' && p.state !== 'CASTING') {
+            if (this._rtInputs.guard) {
+                p.vx = 0;
+                p.state = 'GUARDING';
+            } else if (this._rtInputs.left) {
+                p.vx = -moveSpeed;
+                p.state = 'RUNNING';
+            } else if (this._rtInputs.right) {
+                p.vx = moveSpeed;
+                p.state = 'RUNNING';
+            } else {
+                p.vx = 0;
+                p.state = 'IDLE';
+            }
+
+            // Direction facing: Street Fighter style facing opponent
+            p.facing = (p.x <= e.x) ? 'right' : 'left';
 
             if (this._rtInputs.up) {
                 if (p.y >= floorY) { p.vy = jumpSpeed; p.state = 'JUMPING'; }
                 this._rtInputs.up = false; // consume
             }
 
-            // Attacks
+            // Attacks cooldowns
             if (p.cooldowns.attack > 0) p.cooldowns.attack -= dt;
             if (p.cooldowns.magic > 0) p.cooldowns.magic -= dt;
 
@@ -414,18 +453,16 @@ const Engine = {
                 if (p.cooldowns.magic <= 0) {
                     if (GameState.currentBattle.healUses < 1) {
                         GameState.currentBattle.healUses++;
-                        const healAmt = Math.floor(GameState.avatar.maxHp * 0.35);
-                        GameState.currentBattle.playerHp = Math.min(GameState.avatar.maxHp, GameState.currentBattle.playerHp + healAmt);
-                        GameState.avatar.hp = GameState.currentBattle.playerHp;
-                        // ✅ Instant HP bar update — no waiting for next re-render
+                        const healAmt = Math.floor(GameState.currentBattle.playerMaxHp * 0.35);
+                        GameState.currentBattle.playerHp = Math.min(GameState.currentBattle.playerMaxHp, GameState.currentBattle.playerHp + healAmt);
                         this._updateHpBars();
-                        if (App.showToast) App.showToast(`♥ ¡Curación! +${healAmt}HP`, 'success');
+                        if (typeof App !== 'undefined' && App.showToast) App.showToast(`♥ ¡Curación! +${healAmt} BHP`, 'success');
                         this._spawnHealBurst(p);
                         p.state = 'CASTING';
                         p.attackTimer = 0.6;
                         p.cooldowns.magic = 1.2;
                     } else {
-                        if (App.showToast) App.showToast('Ya usaste la curación esta batalla', 'error');
+                        if (typeof App !== 'undefined' && App.showToast) App.showToast('Ya usaste la curación esta batalla', 'error');
                     }
                 }
                 this._rtInputs.heal = false;
@@ -441,7 +478,7 @@ const Engine = {
                         p.attackTimer = 0.6;
                         p.cooldowns.magic = 1.2;
                     } else {
-                        if (App.showToast) App.showToast('Ya usaste la bola de fuego esta batalla', 'error');
+                        if (typeof App !== 'undefined' && App.showToast) App.showToast('Ya usaste la bola de fuego esta batalla', 'error');
                     }
                 }
                 this._rtInputs.fire = false;
@@ -467,9 +504,10 @@ const Engine = {
         // Enemy AI (Walk towards player and attack periodically)
         if (e.state !== 'HIT_STUN' && e.state !== 'DEAD' && e.state !== 'ATTACKING') {
             const dist = p.x - e.x;
-            if (Math.abs(dist) > 50) {
+            e.facing = dist >= 0 ? 'right' : 'left';
+
+            if (Math.abs(dist) > 55) {
                 e.vx = dist > 0 ? moveSpeed * 0.6 : -moveSpeed * 0.6;
-                e.facing = dist > 0 ? 'right' : 'left';
                 e.state = 'RUNNING';
             } else {
                 e.vx = 0;
@@ -481,6 +519,29 @@ const Engine = {
                 }
             }
             if (e.cooldowns.attack > 0) e.cooldowns.attack -= dt;
+        }
+
+        // Arena dimensions
+        const arena = document.getElementById('real-time-arena');
+        const arenaW = arena ? arena.clientWidth : 400;
+
+        // Solid body pushback collision resolution (Street Fighter style: fighters cannot pass through each other)
+        const minBodyDist = 55;
+        const dx = e.x - p.x;
+        const absDx = Math.abs(dx);
+        if (absDx < minBodyDist && p.state !== 'DEAD' && e.state !== 'DEAD') {
+            const overlap = minBodyDist - absDx;
+            if (dx > 0) { // p is left, e is right
+                p.x = Math.max(15, p.x - overlap * 0.5);
+                e.x = Math.min(arenaW - 15, e.x + overlap * 0.5);
+                if (p.vx > 0) p.vx = 0;
+                if (e.vx < 0) e.vx = 0;
+            } else { // p is right, e is left
+                p.x = Math.min(arenaW - 15, p.x + overlap * 0.5);
+                e.x = Math.max(15, e.x - overlap * 0.5);
+                if (p.vx < 0) p.vx = 0;
+                if (e.vx > 0) e.vx = 0;
+            }
         }
 
         // Update physics & timers for all entities
@@ -502,11 +563,8 @@ const Engine = {
                 }
 
                 // Stage bounds
-                if (ent.x < 10) ent.x = 10;
-                // Get dynamic width if possible, else 100% approximate
-                const arena = document.getElementById('real-time-arena');
-                const arenaW = arena ? arena.clientWidth : 400;
-                if (ent.x > arenaW - 10) ent.x = arenaW - 10; 
+                if (ent.x < 15) ent.x = 15;
+                if (ent.x > arenaW - 15) ent.x = arenaW - 15; 
 
                 // Timers: attackTimer controls ATTACKING, CASTING states
                 if (ent.attackTimer > 0) {
@@ -540,9 +598,6 @@ const Engine = {
                     proj.life = 0; // destroy
                 }
             }
-            
-            const arena = document.getElementById('real-time-arena');
-            const arenaW = arena ? arena.clientWidth : 400;
 
             if (proj.life <= 0 || proj.x < 0 || proj.x > arenaW) {
                 if (proj.dom) proj.dom.remove();
@@ -592,7 +647,10 @@ const Engine = {
                 dmg = Math.max(1, dmg - 8);
             }
 
-            // ✅ Screen shake on successful hit
+            // Visual slash effect on target
+            this._spawnSwordSlash(target.x, target.y - 35, attacker.facing);
+
+            // Screen shake on successful hit
             const arenaEl = document.getElementById('real-time-arena');
             if (arenaEl) {
                 arenaEl.classList.remove('hit-shake');
@@ -605,44 +663,91 @@ const Engine = {
         }
     },
 
+    _spawnSwordSlash(x, y, dir) {
+        const arena = document.getElementById('real-time-arena');
+        if (!arena) return;
+        const slash = document.createElement('div');
+        slash.className = 'sword-slash-effect ' + (dir === 'left' ? 'dir-left' : 'dir-right');
+        slash.style.left = (x - 32) + 'px';
+        slash.style.top = (y - 32) + 'px';
+        arena.appendChild(slash);
+        setTimeout(() => slash.remove(), 320);
+    },
+
+    _spawnBlockSpark(x, y) {
+        const arena = document.getElementById('real-time-arena');
+        if (!arena) return;
+        
+        const spark = document.createElement('div');
+        spark.className = 'guard-shield-spark';
+        spark.style.left = (x - 25) + 'px';
+        spark.style.top = (y - 25) + 'px';
+        arena.appendChild(spark);
+        setTimeout(() => spark.remove(), 350);
+
+        const txt = document.createElement('div');
+        txt.textContent = '🛡️ BLOQUEO';
+        txt.style.cssText = `
+            position: absolute; left: ${x - 35}px; top: ${y - 30}px;
+            color: #38bdf8; font-size: 10px; font-weight: bold;
+            font-family: 'Press Start 2P', monospace;
+            z-index: 210; text-shadow: 1px 1px 0 #000;
+            pointer-events: none; transition: all 0.5s ease-out;
+        `;
+        arena.appendChild(txt);
+        requestAnimationFrame(() => {
+            txt.style.top = (y - 55) + 'px';
+            txt.style.opacity = '0';
+        });
+        setTimeout(() => txt.remove(), 550);
+    },
+
     applyDamage(targetId, sourceId, damage) {
         const target = this._rtEntities.find(e => e.id === targetId);
-        if (!target) return;
+        if (!target || target.state === 'DEAD') return;
 
-        target.state = 'HIT_STUN';
-        target.hitStunTimer = 0.3;
+        let finalDamage = damage;
+        const isGuarding = target.isPlayer && target.state === 'GUARDING';
 
-        this._spawnDamageText(target.x, target.y - 60, damage);
+        if (isGuarding) {
+            finalDamage = Math.max(1, Math.floor(damage * 0.25)); // 75% damage mitigation!
+            this._spawnBlockSpark(target.x, target.y - 40);
+            target.hitStunTimer = 0.12; // minimal stun while guarding
+        } else {
+            target.state = 'HIT_STUN';
+            target.hitStunTimer = 0.3;
+        }
+
+        this._spawnDamageText(target.x, target.y - 60, finalDamage, isGuarding);
 
         if (target.isPlayer) {
-            GameState.currentBattle.playerHp = Math.max(0, GameState.currentBattle.playerHp - damage);
-            GameState.avatar.hp = GameState.currentBattle.playerHp;
+            GameState.currentBattle.playerHp = Math.max(0, GameState.currentBattle.playerHp - finalDamage);
+            // Battle HP is isolated: DO NOT overwrite GameState.avatar.hp during combat!
             this._updateHpBars();
 
             if (GameState.currentBattle.playerHp <= 0) {
                 target.state = 'DEAD';
-                setTimeout(() => this._endBattle(false), 1500);
+                setTimeout(() => this._endBattle(false, false), 1200);
             }
         } else {
-            GameState.currentBattle.oppHp = Math.max(0, GameState.currentBattle.oppHp - damage);
+            GameState.currentBattle.oppHp = Math.max(0, GameState.currentBattle.oppHp - finalDamage);
             this._updateHpBars();
 
             if (GameState.currentBattle.oppHp <= 0) {
                 target.state = 'DEAD';
-                setTimeout(() => this._endBattle(true), 1500);
+                setTimeout(() => this._endBattle(true, false), 1200);
             }
         }
-
     },
 
-    _spawnDamageText(x, y, dmg) {
+    _spawnDamageText(x, y, dmg, isBlocked = false) {
         const arena = document.getElementById('real-time-arena');
         if (!arena) return;
         const el = document.createElement('div');
-        el.textContent = '-' + dmg;
+        el.textContent = isBlocked ? `🛡️ -${dmg}` : `-${dmg}`;
         el.style.cssText = `
-            position: absolute; left: ${x - 15}px; top: ${y}px;
-            color: #ff004d; font-size: 18px; font-weight: bold;
+            position: absolute; left: ${x - 20}px; top: ${y}px;
+            color: ${isBlocked ? '#38bdf8' : '#ff004d'}; font-size: ${isBlocked ? '14px' : '18px'}; font-weight: bold;
             font-family: 'Press Start 2P', monospace;
             z-index: 200; text-shadow: 2px 2px 0 #000;
             pointer-events: none; transition: all 0.6s ease-out;
@@ -651,7 +756,7 @@ const Engine = {
         requestAnimationFrame(() => {
             el.style.top = (y - 40) + 'px';
             el.style.opacity = '0';
-            el.style.fontSize = '22px';
+            el.style.fontSize = isBlocked ? '16px' : '22px';
         });
         setTimeout(() => el.remove(), 650);
     },
@@ -709,18 +814,17 @@ const Engine = {
         const pText = document.getElementById('rt-p-hp-text');
         if (pFill) {
             pFill.style.width = `${Math.max(0, (b.playerHp / b.playerMaxHp) * 100)}%`;
-            // Color based on HP percentage
             if (b.playerHp > b.playerMaxHp * 0.5) pFill.style.background = '#00e436';
             else if (b.playerHp > b.playerMaxHp * 0.25) pFill.style.background = '#f7c948';
             else pFill.style.background = '#ff004d';
         }
-        if (pText) pText.textContent = `${b.playerHp}/${b.playerMaxHp} HP`;
+        if (pText) pText.textContent = `${b.playerHp}/${b.playerMaxHp} BHP`;
 
         // Enemy HP bar
         const eFill = document.getElementById('rt-e-hp-fill');
         const eText = document.getElementById('rt-e-hp-text');
         if (eFill) eFill.style.width = `${Math.max(0, (b.oppHp / b.oppMaxHp) * 100)}%`;
-        if (eText) eText.textContent = `${b.oppHp}/${b.oppMaxHp} HP`;
+        if (eText) eText.textContent = `${b.oppHp}/${b.oppMaxHp} BHP`;
     },
 
     _renderRT() {
@@ -841,7 +945,7 @@ const Engine = {
     },
 
 
-    async _endBattle(playerWon) {
+    async _endBattle(playerWon, fled = false) {
         if (!GameState.currentBattle || GameState.currentBattle.isFinished) return null;
         const b = GameState.currentBattle;
         b.isFinished = true;
@@ -850,31 +954,46 @@ const Engine = {
         this._gameLoopRunning = false;
         
         let result;
-        if (playerWon) {
+        if (fled) {
+            // Player retreated from the fight
+            const penalty = 10;
+            // Floor at 1 HP: never kills the avatar, daily habit system is safe
+            GameState.avatar.hp = Math.max(1, (GameState.avatar.hp || 100) - penalty);
+            GameState.avatar.isDead = false;
+            result = {
+                won: false, fled: true, xpGain: 0, goldGain: 0, hpLost: penalty,
+                message: `⚑ Huiste del combate. Penalización: -${penalty} HP a tu avatar. (HP restante: ${GameState.avatar.hp}/${GameState.avatar.maxHp})`
+            };
+            if (typeof App !== 'undefined' && App.showToast) App.showToast(`⚑ Huiste de la batalla (-${penalty} HP)`, 'warning');
+        } else if (playerWon) {
             const xpGain = b.opponent.xp;
             const goldGain = b.opponent.goldRaw;
             GameState.avatar.currentXP += xpGain;
             GameState.avatar.gold += goldGain;
-            // Keep the HP the player had at end of battle — no free restore!
-            // Player must complete habits to recover HP
-            GameState.avatar.hp = b.playerHp;
+            // Victory bonus: restore +5 HP to real avatar
+            GameState.avatar.hp = Math.min(GameState.avatar.maxHp, (GameState.avatar.hp || 100) + 5);
             this._checkLevelUp();
             result = {
-                won: true, xpGain, goldGain, hpLost: b.playerMaxHp - b.playerHp,
-                message: `VICTORIA! +${xpGain}XP +${goldGain}G | HP restante: ${b.playerHp}/${b.playerMaxHp}`
+                won: true, fled: false, xpGain, goldGain, hpLost: 0,
+                message: `¡VICTORIA! +${xpGain}XP +${goldGain}G (+5 HP avatar recuperados)`
             };
+            if (typeof App !== 'undefined' && App.showToast) App.showToast(`¡VICTORIA! +${xpGain}XP +${goldGain}G`, 'gold');
         } else {
-            GameState.avatar.hp = 0;
-            this._handleGameOver();
+            // Defeat in the arena
+            const penalty = 20;
+            // Floor at 1 HP: defeat in arcade combat does not wipe your real habit progress
+            GameState.avatar.hp = Math.max(1, (GameState.avatar.hp || 100) - penalty);
+            GameState.avatar.isDead = false;
             result = {
-                won: false, hpLoss: b.playerMaxHp, xpGain: 0, goldGain: 0,
-                message: `DERROTA! Tu avatar ha caído. ¡Completa Hábitos para revivir!`
+                won: false, fled: false, hpLoss: penalty, xpGain: 0, goldGain: 0,
+                message: `DERROTA EN ARENA: Caíste en combate. Penalización: -${penalty} HP a tu avatar. (HP restante: ${GameState.avatar.hp}/${GameState.avatar.maxHp})`
             };
+            if (typeof App !== 'undefined' && App.showToast) App.showToast(`Derrota en arena (-${penalty} HP)`, 'error');
         }
 
         const logEntry = {
-            opponent: b.opponent.name, won: result.won,
-            xpGained: result.xpGain, goldGained: result.goldGain, hpLost: result.hpLost
+            opponent: b.opponent.name, won: result.won, fled: !!result.fled,
+            xpGained: result.xpGain, goldGained: result.goldGain, hpLost: result.hpLost || result.hpLoss || 0
         };
         GameState.battleLog.unshift({ ...logEntry, date: new Date().toLocaleDateString() });
         await addBattleLogToDB(logEntry);
@@ -890,9 +1009,68 @@ const Engine = {
         return result;
     },
 
+    fleeBattle() {
+        if (!GameState.currentBattle || GameState.currentBattle.isFinished) return;
+        this._gameLoopRunning = false;
+        this._endBattle(false, true);
+    },
+
     getCompletionRate() {
         if (GameState.habits.length === 0) return 0;
         const completed = GameState.habits.filter(h => isOnCooldown(h)).length;
         return Math.round((completed / GameState.habits.length) * 100);
+    },
+
+    // --- Admin Engine Operations ---
+
+    async adminReviveUser(userId) {
+        await adminUpdateUserAvatar(userId, { hp: 100, is_dead: false });
+        if (userId === GameState.avatarId) {
+            GameState.avatar.hp = 100;
+            GameState.avatar.isDead = false;
+            await saveAvatarToDB();
+        }
+        return true;
+    },
+
+    async adminGrantGold(userId, amount) {
+        const user = GameState.adminUsersList.find(u => u.id === userId);
+        const currentGold = user ? user.gold : (userId === GameState.avatarId ? GameState.avatar.gold : 0);
+        const newGold = Math.max(0, currentGold + amount);
+        await adminUpdateUserAvatar(userId, { gold: newGold });
+        if (userId === GameState.avatarId) {
+            GameState.avatar.gold = newGold;
+            await saveAvatarToDB();
+        }
+        return newGold;
+    },
+
+    async adminGrantXP(userId, amount) {
+        const user = GameState.adminUsersList.find(u => u.id === userId);
+        const currentXP = user ? (user.current_xp || 0) : (userId === GameState.avatarId ? GameState.avatar.currentXP : 0);
+        const newXP = currentXP + amount;
+        await adminUpdateUserAvatar(userId, { current_xp: newXP });
+        if (userId === GameState.avatarId) {
+            GameState.avatar.currentXP = newXP;
+            this._checkLevelUp();
+            await saveAvatarToDB();
+        }
+        return newXP;
+    },
+
+    async adminUpdateShopItemPrice(itemId, newCost) {
+        const item = GameState.shopItems.find(i => i.id === itemId);
+        if (!item) return false;
+        item.cost = Math.max(0, parseInt(newCost) || item.cost);
+        await adminSaveShopItem(item);
+        return true;
+    },
+
+    async adminUpdateMonsterStats(monsterId, updates) {
+        const monster = GameState.monsters.find(m => m.id === monsterId);
+        if (!monster) return false;
+        Object.assign(monster, updates);
+        await adminSaveMonster(monster);
+        return true;
     }
 };
