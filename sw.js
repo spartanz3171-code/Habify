@@ -2,7 +2,7 @@
 // HABIFY - Service Worker for PWA Offline Support
 // ==========================================
 
-const CACHE_NAME = 'habify-v1.0.0';
+const CACHE_NAME = 'habify-v2.0.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -19,11 +19,12 @@ const ASSETS_TO_CACHE = [
 
 // Install Event - Caching App Shell
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('[Service Worker] Caching App Shell');
+            console.log('[Service Worker] Caching App Shell v2');
             return cache.addAll(ASSETS_TO_CACHE);
-        }).then(() => self.skipWaiting())
+        })
     );
 });
 
