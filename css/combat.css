@@ -1,0 +1,241 @@
+/* Combat runs in stage pixels. Feet and ground shadows share the same floor. */
+#real-time-arena {
+    position: relative;
+    height: 320px;
+    padding: 0;
+    overflow: hidden;
+    isolation: isolate;
+    touch-action: none;
+    user-select: none;
+    contain: layout paint;
+}
+
+@media (max-width: 560px) {
+    #real-time-arena { height: 280px; }
+}
+
+#real-time-arena::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--combat-floor, 34px);
+    border-top: 2px solid rgba(210, 216, 241, .24);
+    background: repeating-linear-gradient(100deg, transparent 0 64px, rgba(126, 139, 173, .13) 65px 66px), linear-gradient(#24273eaa, #141529);
+}
+
+.combat-fighter {
+    position: absolute;
+    width: 128px;
+    height: 128px;
+    top: 0;
+    left: 0;
+    z-index: 5;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.combat-fighter > .character-art {
+    --character-size: 128px;
+    display: block;
+    width: 128px;
+    height: 128px;
+    overflow: visible;
+    filter: drop-shadow(0 2px 1px #0c0b21b3);
+}
+
+.combat-fighter > .character-art svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.combat-fighter[data-state='HIT_STUN'] > .character-art {
+    filter: brightness(1.8) drop-shadow(0 0 5px #ff9580);
+}
+
+.combat-shadow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 56px;
+    height: 9px;
+    border-radius: 50%;
+    background: #06091b;
+    z-index: 2;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.combat-tell {
+    display: none;
+    position: absolute;
+    top: -21px;
+    left: 54px;
+    color: #ffe2ac;
+    font: 900 23px/1 'Press Start 2P', monospace;
+    text-shadow: 2px 2px #50182d, 0 0 12px #ffad4a;
+}
+
+.combat-enemy[data-phase='startup'] .combat-tell {
+    display: block;
+    animation: combat-warning .16s steps(2) infinite;
+}
+
+.combat-enemy[data-phase='startup'][data-heavy='true'] .combat-tell {
+    color: #ff6c81;
+    text-shadow: 2px 2px #461724, 0 0 14px #ff385c;
+}
+
+.combat-effect {
+    position: absolute;
+    z-index: 12;
+    pointer-events: none;
+    display: block;
+}
+
+.combat-impact,
+.combat-block {
+    width: 52px;
+    height: 52px;
+    margin: -26px;
+    background: #fff6b7;
+    clip-path: polygon(50% 0, 58% 35%, 91% 12%, 68% 44%, 100% 50%, 66% 59%, 89% 92%, 56% 69%, 50% 100%, 42% 66%, 8% 89%, 31% 56%, 0 50%, 32% 43%, 9% 9%, 43% 33%);
+    animation: combat-impact .22s ease-out forwards;
+}
+
+.combat-block {
+    background: #b9f6ff;
+    width: 42px;
+    height: 42px;
+    margin: -21px;
+}
+
+.combat-damage,
+.combat-blocked-number,
+.combat-combo,
+.combat-heal {
+    font: 900 16px/1.3 'Press Start 2P', monospace;
+    color: #ffd7c9;
+    text-shadow: 2px 2px #441c37;
+    white-space: nowrap;
+    animation: combat-number .68s ease-out forwards;
+}
+
+.combat-blocked-number { color: #a3e9ff; font-size: 11px; }
+.combat-combo { color: #ffce75; font-size: 11px; }
+.combat-heal { color: #85f5b0; }
+
+.combat-dust {
+    width: 48px;
+    height: 13px;
+    margin: -9px -24px;
+    border-radius: 60% 60% 10% 10%;
+    background: radial-gradient(ellipse, #f0dab096, transparent 70%);
+    box-shadow: -12px -3px 0 -3px #ecd3a558, 14px -4px 0 -3px #ecd3a558;
+    animation: combat-dust .32s ease-out forwards;
+}
+
+.combat-knockout {
+    color: #ffcc7f;
+    font: 900 clamp(30px, 8vw, 52px)/1 'Press Start 2P', monospace;
+    text-shadow: 4px 4px #763140, 7px 7px #151325;
+    animation: combat-knockout .9s ease-out forwards;
+    white-space: nowrap;
+}
+
+.combat-projectile {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30px;
+    height: 30px;
+    z-index: 8;
+    pointer-events: none;
+    --spell-color: #ac7bff;
+    --spell-light: #ede1ff;
+    --spell-deep: #7041d8;
+}
+
+.combat-projectile-fire {
+    --spell-color: #ff9d42;
+    --spell-light: #fff4bc;
+    --spell-deep: #ef4c3d;
+}
+
+.combat-orb { position: absolute; inset: 0; transform: scaleX(var(--projectile-direction, 1)); }
+.combat-orb i { position: absolute; display: block; }
+.orb-aura { inset: -18px; border-radius: 50%; background: radial-gradient(circle, var(--spell-color), transparent 68%); opacity: .5; }
+.orb-core { inset: 2px; border-radius: 45% 55% 50% 40%; background: radial-gradient(circle at 65% 40%, #fff 0 9%, var(--spell-light) 18% 32%, var(--spell-color) 42% 58%, var(--spell-deep) 70%); box-shadow: 0 0 8px var(--spell-color), inset -3px -3px 0 #75244933; animation: orb-flicker .18s steps(2) infinite; }
+.orb-tail { right: 12px; top: -5px; width: 65px; height: 40px; transform-origin: right center; clip-path: polygon(100% 18%, 100% 86%, 65% 92%, 39% 71%, 10% 85%, 26% 54%, 0 29%, 43% 35%, 29% 8%, 70% 23%); background: linear-gradient(90deg, transparent, var(--spell-deep) 40%, var(--spell-color)); opacity: .85; animation: orb-tail .16s steps(2) infinite alternate; }
+.orb-tail-inner { width: 48px; top: 5px; height: 22px; background: linear-gradient(90deg, transparent, var(--spell-color), var(--spell-light)); animation-delay: -.08s; }
+.orb-ring { inset: -7px -3px; border: 2px solid var(--spell-light); border-left-color: transparent; border-radius: 50%; transform: rotate(-30deg); opacity: .75; }
+.combat-projectile-fire .orb-ring { border-right-color: transparent; transform: rotate(28deg); }
+.orb-spark { width: 4px; height: 4px; top: -8px; left: -12px; background: var(--spell-light); box-shadow: -17px 21px var(--spell-color), -27px 5px var(--spell-deep), 20px 40px var(--spell-color); animation: orb-flicker .25s steps(2) infinite reverse; }
+.combat-projectile[data-charging='true'] .orb-tail,
+.combat-projectile[data-charging='true'] .orb-spark { visibility: hidden; }
+.combat-projectile[data-charging='true'] .orb-core { scale: .65; }
+
+.combat-cast-fire, .combat-burst-fire, .combat-trail-fire { --spell-color: #ff9d42; --spell-light: #fff4bc; --spell-deep: #ef4c3d; }
+.combat-cast-magic, .combat-burst-magic, .combat-trail-magic { --spell-color: #ac7bff; --spell-light: #ede1ff; --spell-deep: #7041d8; }
+.combat-burst-heal { --spell-color: #74e3aa; --spell-light: #e0ffe6; --spell-deep: #289a91; }
+.spell-flash, .spell-ring, .spell-particle { position: absolute; display: block; }
+.spell-flash { width: 58px; height: 58px; margin: -29px; background: var(--spell-light); clip-path: polygon(50% 0, 61% 31%, 90% 12%, 70% 43%, 100% 52%, 68% 63%, 83% 94%, 53% 74%, 30% 100%, 34% 68%, 0 57%, 31% 43%, 12% 13%, 43% 30%); animation: spell-flash .35s ease-out forwards; }
+.spell-ring { width: 48px; height: 48px; margin: -24px; border: 3px solid var(--spell-color); box-shadow: 0 0 10px var(--spell-deep), inset 0 0 6px var(--spell-color); border-radius: 50%; animation: spell-ring .55s ease-out both; }
+.spell-ring-second { border: 1px solid var(--spell-light); animation-delay: .08s; animation-duration: .65s; }
+.spell-particle { width: 5px; height: 5px; margin: -2px; background: var(--spell-light); box-shadow: 0 0 7px var(--spell-color); animation: spell-particle .55s ease-out var(--particle-delay) both; }
+.combat-cast-fire .spell-flash, .combat-cast-magic .spell-flash { animation: spell-charge .28s ease-out both; }
+.combat-cast-fire .spell-ring, .combat-cast-magic .spell-ring { animation: spell-gather .25s ease-in both; }
+.combat-cast-fire .spell-particle, .combat-cast-magic .spell-particle { animation: spell-particle .22s ease-out both reverse; }
+.combat-burst-heal .spell-flash { background: radial-gradient(circle, var(--spell-color), transparent 70%); clip-path: none; width: 100px; height: 100px; margin: -50px; animation-duration: .65s; }
+.combat-burst-heal .spell-ring { transform-origin: center; animation-name: spell-heal-ring; }
+.combat-burst-heal .spell-particle { width: 11px; height: 11px; clip-path: polygon(35% 0,65% 0,65% 35%,100% 35%,100% 65%,65% 65%,65% 100%,35% 100%,35% 65%,0 65%,0 35%,35% 35%); }
+.combat-trail-fire, .combat-trail-magic { width: 15px; height: 15px; margin: -7px; background: var(--spell-color); box-shadow: 0 0 9px var(--spell-deep); clip-path: polygon(50% 0,100% 35%,70% 100%,10% 70%,0 20%); animation: spell-trail .32s ease-out forwards; }
+
+.combat-enemy[data-recovery='true'] > .character-art { filter: drop-shadow(2px 0 0 #ffd58e) drop-shadow(-2px 0 0 #ffd58e) drop-shadow(0 0 5px #ffc26f88); }
+.combat-recovery { color: #ffe0a1; margin-left: -8px; font: 900 22px/1 monospace; text-shadow: 0 0 9px #ffa74b; animation: combat-number .75s ease-out forwards; }
+
+/* Pause the art together with the simulation, including nested SVG limbs. */
+#real-time-arena[data-paused='true'] *, #real-time-arena[data-paused='true'] *::after { animation-play-state: paused !important; }
+@keyframes orb-flicker { to { opacity: .8; transform: scale(.92, 1.08); } }
+@keyframes orb-tail { to { transform: scale(.82, .9); opacity: .65; } }
+@keyframes spell-flash { 0% { transform: scale(.4) rotate(-15deg); opacity: 1; } 35% { transform: scale(1.1) rotate(5deg); opacity: .9; } 100% { transform: scale(.75) rotate(20deg); opacity: 0; } }
+@keyframes spell-ring { from { transform: scale(.4); opacity: .9; } to { transform: scale(2); opacity: 0; } }
+@keyframes spell-heal-ring { from { transform: translateY(28px) scale(.6, .25); opacity: .9; } to { transform: translateY(-30px) scale(1.8, .45); opacity: 0; } }
+@keyframes spell-particle { from { transform: translate(0, 0) scale(1.3); opacity: 1; } to { transform: translate(var(--particle-x), var(--particle-y)) scale(.3); opacity: 0; } }
+@keyframes spell-charge { from { transform: scale(.1) rotate(-30deg); opacity: 0; } 60% { transform: scale(.75); opacity: .9; } to { transform: scale(.4) rotate(30deg); opacity: 0; } }
+@keyframes spell-gather { from { transform: scale(1.2); opacity: 0; } 40% { opacity: .8; } to { transform: scale(.1); opacity: 0; } }
+@keyframes spell-trail { from { transform: scale(1); opacity: .65; } to { transform: translateX(calc(-15px * var(--effect-direction))) translateY(-10px) scale(.1) rotate(45deg); opacity: 0; } }
+
+@keyframes combat-warning { to { transform: translateY(-4px); opacity: .65; } }
+@keyframes combat-impact {
+    0% { transform: rotate(-15deg) scale(.55); opacity: 1; }
+    40% { transform: rotate(10deg) scale(1.15); opacity: 1; }
+    100% { transform: rotate(22deg) scale(.8); opacity: 0; }
+}
+@keyframes combat-number {
+    from { transform: translate(-50%, 0) scale(.8); opacity: 1; }
+    20% { transform: translate(-50%, -8px) scale(1); opacity: 1; }
+    to { transform: translate(-50%, -36px) scale(1); opacity: 0; }
+}
+@keyframes combat-dust {
+    from { transform: scale(.5); opacity: .9; }
+    to { transform: scale(1.9, .7); opacity: 0; }
+}
+@keyframes combat-knockout {
+    0% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+    18%, 80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.05); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .combat-tell { animation: none !important; }
+    .combat-effect { animation-duration: .15s; }
+    .combat-orb i { animation: none; }
+    .orb-spark, .spell-particle, .spell-ring-second { display: none; }
+    .spell-flash, .spell-ring { animation: spell-reduced .3s ease-out both !important; }
+}
+@keyframes spell-reduced { from { opacity: .6; } to { opacity: 0; } }

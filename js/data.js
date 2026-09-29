@@ -413,12 +413,16 @@ const GameState = {
         equippedSpell: null,
         lastPenaltyCheck: null,
         lastHabitModified: null,
-        avatarClass: 'hero'
+        avatarClass: 'hero',
+        appearance: null
     },
 
     habits: [],
     shopItems: [],
     inventory: [],
+    cosmeticInventory: [],
+    cosmeticsReady: false,
+    appearanceSaveStatus: null,
     monsters: [],
     battleLog: [],
     currentView: 'dashboard',
@@ -474,16 +478,19 @@ async function initSupabase() {
 }
 
 async function loadGameFromDB() {
-    if (!GameState.user) return false;
+    const userId = GameState.user?.id;
+    if (!userId) return false;
+    const isCurrentUser = () => GameState.user?.id === userId;
 
     try {
         // Load avatar
         const { data: avatar, error: avatarErr } = await supabase
             .from('avatars')
             .select('*')
-            .eq('user_id', GameState.user.id)
+            .eq('user_id', userId)
             .single();
 
+        if (!isCurrentUser()) return false;
         if (avatarErr) throw avatarErr;
 
         GameState.avatarId = avatar.id;
@@ -516,6 +523,7 @@ async function loadGameFromDB() {
             .eq('avatar_id', avatar.id)
             .order('created_at', { ascending: true });
 
+        if (!isCurrentUser()) return false;
         GameState.habits = (habits || []).map(h => ({
             id: h.id,
             title: h.title,
@@ -533,12 +541,14 @@ async function loadGameFromDB() {
             .select('*')
             .order('cost', { ascending: true });
 
+        if (!isCurrentUser()) return false;
         // Load user inventory to mark purchased items
         const { data: inv } = await supabase
             .from('inventory')
             .select('item_id')
             .eq('avatar_id', avatar.id);
 
+        if (!isCurrentUser()) return false;
         const ownedIds = new Set((inv || []).map(i => i.item_id));
         GameState.shopItems = (shopItems || []).map(si => {
             const transName = I18N.t(`item.${si.id}.name`);
@@ -556,8 +566,14 @@ async function loadGameFromDB() {
             return item ? { ...item, purchased: true } : null;
         }).filter(Boolean);
 
+        // Cosmetics have their own inventory and save path. Older databases can
+        // still load the rest of the game before the wardrobe migration is run.
+        if (typeof Wardrobe !== 'undefined') await Wardrobe.hydrate(avatar);
+        if (!isCurrentUser()) return false;
+
         // Load monsters
         const { data: monstersInfo } = await supabase.from('monsters').select('*');
+        if (!isCurrentUser()) return false;
         GameState.monsters = monstersInfo || [];
 
         // Load battle log
@@ -568,41 +584,59 @@ async function loadGameFromDB() {
             .order('created_at', { ascending: false })
             .limit(10);
 
+        if (!isCurrentUser()) return false;
         GameState.battleLog = (battles || []).map(b => ({
             opponent: b.opponent,
             won: b.won,
             date: new Date(b.created_at).toLocaleDateString()
         }));
 
-        return true;
+        return isCurrentUser();
     } catch (e) {
+        if (!isCurrentUser()) return false;
         console.error('Error loading from DB:', e);
         return false;
     }
 }
 
+// Serialize writes which affect gold so a shop purchase cannot be overwritten
+// by an older save still in flight. Each queued save reads the latest state.
+let avatarWriteQueue = Promise.resolve();
+function queueAvatarWrite(task) {
+    const result = avatarWriteQueue.then(task, task);
+    avatarWriteQueue = result.catch(() => undefined);
+    return result;
+}
+
 async function saveAvatarToDB() {
-    if (!GameState.avatarId) return;
-    const a = GameState.avatar;
-    await supabase.from('avatars').update({
-        name: a.name,
-        level: a.level,
-        current_xp: a.currentXP,
-        xp_to_level: a.xpToLevel,
-        gold: a.gold,
-        hp: a.hp,
-        max_hp: a.maxHp,
-        is_dead: a.isDead,
-        equipped_background: a.equippedBackground,
-        equipped_pet: a.equippedPet,
-        equipped_weapon: a.equippedWeapon,
-        equipped_shield: a.equippedShield,
-        equipped_spell: a.equippedSpell,
-        last_penalty_check: a.lastPenaltyCheck ? new Date(a.lastPenaltyCheck).toISOString() : null,
-        last_habit_modified: a.lastHabitModified ? new Date(a.lastHabitModified).toISOString() : null,
-        avatar_class: a.avatarClass || 'hero',
-        updated_at: new Date().toISOString()
-    }).eq('id', GameState.avatarId);
+    const avatarId = GameState.avatarId;
+    const userId = GameState.user && GameState.user.id;
+    if (!avatarId || !userId) return;
+    return queueAvatarWrite(async () => {
+        if (GameState.avatarId !== avatarId || GameState.user?.id !== userId) return;
+        const a = GameState.avatar;
+        // Appearance is intentionally excluded: wardrobe saves cannot be
+        // reverted by a habit, equipment, or combat save.
+        return supabase.from('avatars').update({
+            name: a.name,
+            level: a.level,
+            current_xp: a.currentXP,
+            xp_to_level: a.xpToLevel,
+            gold: a.gold,
+            hp: a.hp,
+            max_hp: a.maxHp,
+            is_dead: a.isDead,
+            equipped_background: a.equippedBackground,
+            equipped_pet: a.equippedPet,
+            equipped_weapon: a.equippedWeapon,
+            equipped_shield: a.equippedShield,
+            equipped_spell: a.equippedSpell,
+            last_penalty_check: a.lastPenaltyCheck ? new Date(a.lastPenaltyCheck).toISOString() : null,
+            last_habit_modified: a.lastHabitModified ? new Date(a.lastHabitModified).toISOString() : null,
+            avatar_class: a.avatarClass || 'hero',
+            updated_at: new Date().toISOString()
+        }).eq('id', avatarId).eq('user_id', userId);
+    });
 }
 
 async function saveHabitToDB(habit) {

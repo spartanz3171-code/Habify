@@ -2,19 +2,28 @@
 // HABIFY - Service Worker for PWA Offline Support
 // ==========================================
 
-const CACHE_NAME = 'habify-v2.0.0';
+const CACHE_NAME = 'habify-v3.1.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './css/style.css',
-    './css/sprites.css',
-    './js/i18n.js',
-    './js/data.js',
-    './js/engine.js',
-    './js/views.js',
-    './js/app.js',
-    './js/supabase.min.js'
+    './assets/backgrounds/arena_ruins.svg',
+    './css/style.css?v=3.1',
+    './css/sprites.css?v=3.1',
+    './css/characters.css?v=3.1',
+    './css/pets.css?v=3.1',
+    './css/combat.css?v=3.1',
+    './css/polish.css?v=3.1',
+    './js/i18n.js?v=3.1',
+    './js/characters.js?v=3.1',
+    './js/pets.js?v=3.1',
+    './js/data.js?v=3.1',
+    './js/wardrobe.js?v=3.1',
+    './js/engine.js?v=3.1',
+    './js/views.js?v=3.1',
+    './js/atelier.js?v=3.1',
+    './js/app.js?v=3.1',
+    './js/supabase.min.js?v=3.1'
 ];
 
 // Install Event - Caching App Shell
@@ -22,7 +31,7 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('[Service Worker] Caching App Shell v2');
+            console.log('[Service Worker] Caching App Shell v3');
             return cache.addAll(ASSETS_TO_CACHE);
         })
     );
@@ -33,7 +42,7 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keyList) => {
             return Promise.all(keyList.map((key) => {
-                if (key !== CACHE_NAME) {
+                if (key.startsWith('habify-') && key !== CACHE_NAME) {
                     console.log('[Service Worker] Removing old cache', key);
                     return caches.delete(key);
                 }
@@ -42,10 +51,10 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch Event - Network First with Cache Fallback for dynamic content, Cache First for assets
+// Network first for app files; authentication and API traffic stay on the network.
 self.addEventListener('fetch', (event) => {
     // Ignore non-GET requests or Supabase API calls from hard caching
-    if (event.request.method !== 'GET' || event.request.url.includes('supabase.co')) {
+    if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) {
         return;
     }
 
@@ -63,7 +72,7 @@ self.addEventListener('fetch', (event) => {
             })
             .catch(() => {
                 // If offline, serve from cache
-                return caches.match(event.request);
+                return caches.match(event.request).then(cached => cached || Response.error());
             })
     );
 });

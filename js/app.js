@@ -4,8 +4,11 @@
 // ==========================================
 
 const App = {
+    shopBusy: false,
 
     async init() {
+        I18N.updateStaticUI();
+        document.getElementById('lang-switch').value = I18N.current;
         try {
             await initSupabase();
         } catch (e) {
@@ -29,10 +32,12 @@ const App = {
             if (event === 'SIGNED_IN' && session) {
                 // Prevent redundant DB reloading when switching tabs/refreshing tokens
                 if (!GameState.user || GameState.user.id !== session.user.id) {
+                    this.clearAccountView();
                     GameState.user = session.user;
                     await this.loadUserData();
                 }
             } else if (event === 'SIGNED_OUT') {
+                this.clearAccountView();
                 GameState.user = null;
                 this.showAuth('login');
             }
@@ -41,84 +46,111 @@ const App = {
         this.initInput();
     },
 
+    clearAccountView() {
+        Engine.stopGameLoop();
+        Wardrobe.reset();
+        Atelier.draft = null;
+        Atelier.previewItem = null;
+        Atelier.savedMessage = '';
+        document.getElementById('modal-root').innerHTML = '';
+        GameState.currentBattle = null;
+        GameState._currentOpponent = null;
+        GameState._lastBattleResult = null;
+    },
+
     initInput() {
-        // Keyboard controls
-        window.addEventListener('keydown', (e) => {
-            if (!GameState.currentBattle || GameState.currentBattle.isFinished) return;
-            switch(e.code) {
-                case 'ArrowLeft': Engine.handleInput('left', true); break;
-                case 'ArrowRight': Engine.handleInput('right', true); break;
-                case 'ArrowUp': Engine.handleInput('up', true); break;
-                case 'Space':
-                case 'KeyZ': Engine.handleInput('attack', true); break;
-                case 'KeyX': Engine.handleInput('magic', true); break;
-                case 'KeyC': Engine.handleInput('guard', true); break;
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            if (!GameState.currentBattle || GameState.currentBattle.isFinished) return;
-            switch(e.code) {
-                case 'ArrowLeft': Engine.handleInput('left', false); break;
-                case 'ArrowRight': Engine.handleInput('right', false); break;
-                case 'ArrowUp': Engine.handleInput('up', false); break;
-                case 'Space':
-                case 'KeyZ': Engine.handleInput('attack', false); break;
-                case 'KeyX': Engine.handleInput('magic', false); break;
-                case 'KeyC': Engine.handleInput('guard', false); break;
-            }
-        });
-
-        // Touch Virtual Gamepad handler
-        const setupTouchControl = (selector, actionKey) => {
-            document.querySelectorAll(selector).forEach(btn => {
-                const startAction = (e) => {
-                    e.preventDefault();
-                    if (!GameState.currentBattle || GameState.currentBattle.isFinished) return;
-                    btn.classList.add('active');
-                    Engine.handleInput(actionKey, true);
-                };
-                const stopAction = (e) => {
-                    e.preventDefault();
-                    btn.classList.remove('active');
-                    Engine.handleInput(actionKey, false);
-                };
-
-                btn.addEventListener('touchstart', startAction, { passive: false });
-                btn.addEventListener('touchend', stopAction, { passive: false });
-                btn.addEventListener('touchcancel', stopAction, { passive: false });
-                btn.addEventListener('mousedown', startAction);
-                btn.addEventListener('mouseup', stopAction);
-            });
+        if (this._inputReady) return;
+        this._inputReady = true;
+        const sources = new Map();
+        const pointers = new Map();
+        const keys = new Map();
+        const active = () => GameState.currentView === 'arena' && GameState.currentBattle && !GameState.currentBattle.isFinished && !document.querySelector('[role="dialog"]');
+        const input = (action, source, pressed) => {
+            const held = sources.get(action) || new Set();
+            const wasPressed = held.size > 0;
+            if (pressed) held.add(source); else held.delete(source);
+            sources.set(action, held);
+            if (wasPressed !== (held.size > 0)) Engine.handleInput(action, held.size > 0);
         };
-
-        // Attach controls dynamically
-        document.addEventListener('DOMContentLoaded', () => {
-            setupTouchControl('.dpad-left', 'left');
-            setupTouchControl('.dpad-right', 'right');
-            setupTouchControl('.dpad-up', 'up');
-            setupTouchControl('.action-btn-attack', 'attack');
-            setupTouchControl('.action-btn-magic', 'magic');
-            setupTouchControl('.action-btn-guard', 'guard');
+        const keyAction = code => ({ ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', Space: 'attack', KeyZ: 'attack', KeyV: 'heavy', KeyC: 'guard', KeyH: 'heal', KeyX: GameState.avatar.equippedSpell?.includes('spell_fire') ? 'fire' : (GameState.avatar.equippedSpell?.includes('spell_heal') ? 'heal' : 'magic') })[code];
+        window.addEventListener('keydown', event => {
+            if (!active() || event.target.closest?.('input,select,textarea,[contenteditable="true"]')) return;
+            if (event.code === 'Space' && event.target.closest?.('button:not([data-action])')) return;
+            const action = keyAction(event.code);
+            if (!action) return;
+            event.preventDefault();
+            if (event.repeat) return;
+            keys.set(event.code, action);
+            input(action, event.code, true);
         });
+        window.addEventListener('keyup', event => {
+            const action = keys.get(event.code);
+            if (!action) return;
+            input(action, event.code, false);
+            keys.delete(event.code);
+        });
+        document.addEventListener('pointerdown', event => {
+            const button = event.target.closest?.('[data-action]');
+            if (!button || !active() || button.disabled) return;
+            event.preventDefault();
+            button.setPointerCapture?.(event.pointerId);
+            pointers.set(event.pointerId, { button, action: button.dataset.action });
+            button.classList.add('active');
+            input(button.dataset.action, event.pointerId, true);
+        });
+        const release = event => {
+            const pointer = pointers.get(event.pointerId);
+            if (!pointer) return;
+            pointers.delete(event.pointerId);
+            input(pointer.action, event.pointerId, false);
+            if (![...pointers.values()].some(p => p.button === pointer.button)) pointer.button.classList.remove('active');
+        };
+        document.addEventListener('pointerup', release);
+        document.addEventListener('pointercancel', release);
+        document.addEventListener('lostpointercapture', release);
+        this.releaseBattleInputs = () => {
+            sources.clear(); keys.clear(); pointers.clear();
+            Engine.resetInputs();
+            document.querySelectorAll('[data-action].active').forEach(b => b.classList.remove('active'));
+        };
+        const pause = () => { this.releaseBattleInputs(); Engine.stopGameLoop(); };
+        const resume = () => { if (!document.hidden && active()) Engine.startGameLoop(); };
+        window.addEventListener('blur', pause);
+        window.addEventListener('focus', resume);
+        document.addEventListener('visibilitychange', () => document.hidden ? pause() : resume());
+    },
+
+    updateRegistrationPreview() {
+        const root = document.getElementById('registration-preview');
+        if (!root) return;
+        const body = document.getElementById('auth-avatar-body').value;
+        root.innerHTML = CharacterArt.render({ avatarClass: document.getElementById('auth-avatar-class').value, appearance: { body, hairStyle: body === 'female' ? 'ponytail' : 'short' } });
     },
 
     async loadUserData() {
+        const userId = GameState.user?.id;
+        const isCurrentUser = () => !!userId && GameState.user?.id === userId;
+        if (!isCurrentUser()) return;
         const content = document.getElementById('app-content');
         content.innerHTML = Views.renderLoading();
 
         const loaded = await loadGameFromDB();
+        if (!isCurrentUser()) return;
         if (!loaded) {
             // If avatar wasn't created yet (trigger may be slow), wait and retry
             await new Promise(r => setTimeout(r, 1500));
+            if (!isCurrentUser()) return;
             await loadGameFromDB();
+            if (!isCurrentUser()) return;
         }
 
         // Check daily penalties
         const penalties = await Engine.checkDailyPenalties();
+        if (!isCurrentUser()) return;
         if (penalties.length > 0) {
             const totalHp = penalties.reduce((sum, p) => sum + p.hpLost, 0);
             setTimeout(() => {
+                if (!isCurrentUser()) return;
                 this.showToast(`PENALIZACION: -${totalHp}HP por habitos no cumplidos`, 'error');
             }, 500);
         }
@@ -133,12 +165,14 @@ const App = {
         const seenTutorial = localStorage.getItem('habify_tutorial_seen_' + GameState.user.id);
         if (!seenTutorial || GameState.habits.length === 0) {
             setTimeout(() => {
+                if (!isCurrentUser()) return;
                 this.openTutorial();
             }, 600);
         }
     },
 
     showMainApp() {
+        I18N.updateStaticUI();
         // Show header and nav
         const header = document.getElementById('app-header');
         const nav = document.getElementById('bottom-nav');
@@ -153,6 +187,8 @@ const App = {
     // --- Auth ---
 
     showAuth(mode) {
+        Engine.stopGameLoop();
+        document.body.dataset.view = 'auth';
         // Hide header and nav
         const header = document.getElementById('app-header');
         const nav = document.getElementById('bottom-nav');
@@ -178,12 +214,14 @@ const App = {
             if (mode === 'register') {
                 const avatarName = document.getElementById('auth-avatar-name').value.trim() || 'Héroe';
                 const avatarClass = document.getElementById('auth-avatar-class').value || 'hero';
+                const body = document.getElementById('auth-avatar-body').value;
+                const initialAppearance = CharacterArt.normalizeAppearance({ body, hairStyle: body === 'female' ? 'ponytail' : 'short' });
 
                 const { data, error } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
-                        data: { avatar_name: avatarName, avatar_class: avatarClass }
+                        data: { avatar_name: avatarName, avatar_class: avatarClass, appearance: initialAppearance }
                     }
                 });
 
@@ -210,6 +248,7 @@ const App = {
                     if (GameState.avatar) {
                         GameState.avatar.name = avatarName;
                         GameState.avatar.avatarClass = avatarClass;
+                        if (GameState.user?.id === userId && GameState.avatarId) await Wardrobe.saveAppearance(initialAppearance);
                         if (GameState.currentView === 'dashboard') {
                             this.navigate('dashboard');
                         }
@@ -251,35 +290,29 @@ const App = {
 
     setupNavigation() {
         document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.navigate(item.dataset.view);
-            });
+            item.onclick = event => { event.preventDefault(); this.navigate(item.dataset.view); };
         });
     },
 
     navigate(viewName) {
+        const previous = GameState.currentView;
+        this.releaseBattleInputs?.();
+        Engine.stopGameLoop();
         GameState.currentView = viewName;
+        if (viewName === 'character' && (previous !== 'character' || !Atelier.draft)) Atelier.begin();
         const content = document.getElementById('app-content');
-
-        content.style.opacity = '0';
-
-        setTimeout(() => {
-            switch (viewName) {
-                case 'dashboard': content.innerHTML = Views.renderDashboard(); break;
-                case 'habits': content.innerHTML = Views.renderHabits(); break;
-                case 'store': content.innerHTML = Views.renderStore(); break;
-                case 'arena': content.innerHTML = Views.renderArena(); break;
-                default: content.innerHTML = Views.renderDashboard();
-            }
-
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.toggle('active', item.dataset.view === viewName);
-            });
-
-            content.style.opacity = '1';
-            this.updateHeader();
-        }, 100);
+        const renderers = { dashboard: () => Views.renderDashboard(), habits: () => Views.renderHabits(), store: () => Views.renderStore(), arena: () => Views.renderArena(), character: () => Atelier.render() };
+        content.innerHTML = (renderers[viewName] || renderers.dashboard)();
+        content.style.opacity = '1';
+        document.body.dataset.view = viewName;
+        document.querySelectorAll('.nav-item').forEach(item => {
+            const selected = item.dataset.view === viewName;
+            item.classList.toggle('active', selected);
+            if (selected) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
+        });
+        this.updateHeader();
+        if (viewName === 'arena' && GameState.currentBattle && !GameState.currentBattle.isFinished && !document.hidden) Engine.startGameLoop();
+        if (previous !== viewName) window.scrollTo({ top: 0, behavior: 'instant' });
     },
 
     updateHeader() {
@@ -574,22 +607,37 @@ const App = {
     },
 
     async buyItem(itemId) {
-        const result = await Engine.buyItem(itemId);
-        if (result.success) {
-            this.showToast(result.message, 'gold');
-            await Engine.equipItem(itemId);
-        } else {
-            this.showToast(result.message, 'error');
-        }
-        this.navigate('store');
+        await this.performShopAction(async isCurrentUser => {
+            const result = await Engine.buyItem(itemId);
+            if (!isCurrentUser()) return;
+            this.showToast(result.message, result.success ? 'gold' : 'error');
+            if (result.success) await Engine.equipItem(itemId);
+        });
     },
 
     async equipItem(itemId) {
-        const result = await Engine.equipItem(itemId);
-        if (result && result.status === 'success') {
-            this.showToast(result.equipped ? 'EQUIPADO!' : 'DESEQUIPADO', result.equipped ? 'success' : 'gold');
+        await this.performShopAction(async isCurrentUser => {
+            const result = await Engine.equipItem(itemId);
+            if (isCurrentUser() && result?.status === 'success') {
+                this.showToast(result.equipped ? 'EQUIPADO!' : 'DESEQUIPADO', result.equipped ? 'success' : 'gold');
+            }
+        });
+    },
+
+    async performShopAction(action) {
+        if (this.shopBusy || Atelier.busy) return;
+        const userId = GameState.user?.id;
+        if (!userId) return;
+        const isCurrentUser = () => GameState.user?.id === userId;
+        this.shopBusy = true;
+        Atelier.refresh();
+        try { await action(isCurrentUser); }
+        catch {
+            if (isCurrentUser()) this.showToast(Atelier.text('No se pudo completar. Inténtalo de nuevo.', 'Could not complete. Please try again.'), 'error');
+        } finally {
+            this.shopBusy = false;
+            if (isCurrentUser()) { Atelier.refresh(); this.updateHeader(); }
         }
-        this.navigate('store');
     },
 
     // --- Battle ---
@@ -613,6 +661,7 @@ const App = {
         }
 
         setTimeout(() => {
+            if (GameState.currentView !== 'arena') return;
             const opponent = GameState._currentOpponent || Engine.generateOpponent();
             Engine.startPvEBattle(opponent);
             GameState._lastBattleResult = null;
@@ -757,3 +806,5 @@ const App = {
 document.addEventListener('DOMContentLoaded', () => {
     App.init();
 });
+
+window.App = App;

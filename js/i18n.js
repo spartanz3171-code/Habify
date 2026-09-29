@@ -1,9 +1,10 @@
 const I18N = {
-    current: 'es',
+    current: (() => { try { return localStorage.getItem('habify_language') === 'en' ? 'en' : 'es'; } catch { return 'es'; } })(),
     
     dict: {
         es: {
             'nav.home': 'Inicio',
+            'nav.character': 'Personaje',
             'nav.habits': 'Hábitos',
             'nav.store': 'Tienda',
             'nav.arena': 'Arena',
@@ -124,6 +125,7 @@ const I18N = {
         },
         en: {
             'nav.home': 'Home',
+            'nav.character': 'Character',
             'nav.habits': 'Habits',
             'nav.store': 'Shop',
             'nav.arena': 'Arena',
@@ -251,8 +253,9 @@ const I18N = {
     setLang(lang) {
         if (this.dict[lang]) {
             this.current = lang;
+            try { localStorage.setItem('habify_language', lang); } catch { /* Private browsing may disable storage. */ }
             this.updateStaticUI();
-            if (window.App && window.GameState && GameState.currentView) {
+            if (typeof App !== 'undefined' && typeof GameState !== 'undefined' && GameState.currentView) {
                 App.navigate(GameState.currentView);
             }
         }

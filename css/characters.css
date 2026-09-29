@@ -1,0 +1,148 @@
+/* All artwork is drawn in integer pixels; joints animate in the shared SVG space. */
+.character-art {
+    --character-size: 160px;
+    display: inline-block;
+    width: var(--character-size);
+    height: auto;
+    aspect-ratio: 96 / 108;
+    line-height: 0;
+    position: relative;
+    vertical-align: bottom;
+    flex-shrink: 0;
+    pointer-events: none;
+    user-select: none;
+    filter: drop-shadow(0 3px 0 rgba(12, 9, 27, .3));
+}
+.character-art .character-svg { display: block; width: 100%; height: 100%; overflow: visible; image-rendering: pixelated; }
+.character-art .char-facing { transform-origin: 48px 54px; }
+.character-art[data-facing="left"] .char-facing { transform: scaleX(-1); }
+.character-art .char-body { transform-origin: 48px 108px; }
+.character-art .char-upper-body { transform-origin: 48px 73px; }
+.character-art .char-head { transform-origin: 50px 42px; }
+.character-art .char-arm-front { transform-origin: 65px 48px; }
+.character-art .char-arm-back { transform-origin: 34px 48px; }
+.character-art .char-leg-front { transform-origin: 57px 74px; }
+.character-art .char-leg-back { transform-origin: 42px 74px; }
+.character-art .char-leg-front .char-shin { transform-origin: 57px 91px; }
+.character-art .char-leg-back .char-shin { transform-origin: 42px 91px; }
+.character-art .char-cape { transform-origin: 45px 45px; }
+.character-art .char-hair-tail { transform-origin: 37px 25px; }
+.character-art .char-scarf { transform-origin: 47px 44px; }
+.character-art .char-attack-fx, .character-art .char-cast-fx { opacity: 0; }
+.character-art[data-state="IDLE"] .char-upper-body { animation: character-breathe 2.4s steps(4, end) infinite; }
+.character-art[data-state="IDLE"] .char-cape { animation: character-cape 3s steps(4, end) infinite; }
+.character-art[data-state="IDLE"] .char-arm-front { animation: character-ready 2.4s steps(4, end) infinite; }
+.character-art .char-magic-glint { animation: character-glimmer 1.8s steps(3, end) infinite; }
+
+/* The feet and hands move independently. Engine position provides world movement. */
+.character-art[data-state="RUNNING"] .char-body { animation: character-run-bob .34s steps(4, end) infinite; }
+.character-art[data-state="RUNNING"] .char-upper-body { transform: rotate(7deg) translateY(1px); }
+.character-art[data-state="RUNNING"] .char-leg-front { animation: character-stride .34s linear infinite; }
+.character-art[data-state="RUNNING"] .char-leg-back { animation: character-stride .34s linear -.17s infinite; }
+.character-art[data-state="RUNNING"] .char-leg-front .char-shin { animation: character-knee .34s linear infinite; }
+.character-art[data-state="RUNNING"] .char-leg-back .char-shin { animation: character-knee .34s linear -.17s infinite; }
+.character-art[data-state="RUNNING"] .char-arm-front { animation: character-arm-swing .34s linear -.17s infinite; }
+.character-art[data-state="RUNNING"] .char-arm-back { animation: character-arm-swing .34s linear infinite; }
+.character-art[data-state="RUNNING"] .char-cape { transform: rotate(17deg); animation: character-run-cape .34s steps(3, end) infinite; }
+.character-art[data-state="RUNNING"] .char-hair-tail { transform: rotate(16deg); }
+
+.character-art[data-state="JUMPING"] .char-upper-body { transform: rotate(-7deg) translateY(-2px); }
+.character-art[data-state="JUMPING"] .char-leg-front { transform: rotate(-39deg); }
+.character-art[data-state="JUMPING"] .char-leg-front .char-shin { transform: rotate(67deg); }
+.character-art[data-state="JUMPING"] .char-leg-back { transform: rotate(26deg); }
+.character-art[data-state="JUMPING"] .char-leg-back .char-shin { transform: rotate(34deg); }
+.character-art[data-state="JUMPING"] .char-arm-front { transform: rotate(-35deg); }
+.character-art[data-state="JUMPING"] .char-arm-back { transform: rotate(35deg); }
+.character-art[data-state="JUMPING"] .char-cape { transform: rotate(16deg); }
+.character-art[data-state="FALLING"] .char-leg-front { transform: rotate(-14deg); }
+.character-art[data-state="FALLING"] .char-leg-back { transform: rotate(18deg); }
+.character-art[data-state="FALLING"] .char-arm-front { transform: rotate(-48deg); }
+.character-art[data-state="FALLING"] .char-arm-back { transform: rotate(30deg); }
+.character-art[data-state="FALLING"] .char-cape { transform: rotate(24deg) scaleY(.87); }
+
+.character-art[data-state="ATTACKING"] .char-arm-front { animation: character-strike .32s ease-out both; }
+.character-art[data-state="ATTACKING"] .char-upper-body { animation: character-lunge .32s ease-out both; }
+.character-art[data-state="ATTACKING"] .char-leg-back { transform: rotate(18deg); }
+.character-art[data-state="ATTACKING"] .char-arm-back { transform: rotate(24deg); }
+.character-art[data-state="ATTACKING"] .char-attack-fx { animation: character-slash .32s steps(2, end) both; }
+.character-art[data-state="ATTACKING"][data-combo="2"] .char-arm-front { animation-name: character-uppercut; }
+.character-art[data-state="ATTACKING"][data-combo="3"] .char-arm-front { animation-name: character-heavy; }
+.character-art[data-state="HEAVY_ATTACK"] .char-arm-front { animation: character-heavy .52s ease-out both; }
+.character-art[data-state="HEAVY_ATTACK"] .char-upper-body { animation: character-lunge .52s ease-out both; }
+.character-art[data-state="HEAVY_ATTACK"] .char-leg-back { transform: rotate(23deg); }
+.character-art[data-state="HEAVY_ATTACK"] .char-attack-fx { animation: character-slash .52s steps(2, end) both; }
+
+/* Combat synchronizes startup/contact/recovery with its hit detection. */
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase] .char-arm-front,
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase] .char-upper-body,
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase] .char-attack-fx {
+    animation: none;
+    transition: transform 65ms linear, opacity 50ms linear;
+}
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase="startup"] .char-arm-front { transform: rotate(-65deg) translateY(-2px); }
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase="startup"] .char-upper-body { transform: rotate(-9deg) translateX(-2px); }
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase="active"] .char-arm-front { transform: rotate(72deg) translate(5px, -9px); }
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase="active"] .char-upper-body { transform: rotate(11deg) translateX(7px); }
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase="active"] .char-attack-fx { opacity: .9; }
+.character-art:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"])[data-phase="recovery"] .char-arm-front { transform: rotate(24deg); }
+.character-art[data-state="ATTACKING"][data-combo="2"][data-phase="startup"] .char-arm-front { transform: rotate(78deg); }
+.character-art[data-state="ATTACKING"][data-combo="2"][data-phase="active"] .char-arm-front { transform: rotate(-38deg) translate(12px, -4px); }
+.character-art[data-state="ATTACKING"][data-combo="2"][data-phase="active"] .char-attack-fx { transform: translate(1px, 1px) rotate(-31deg); transform-origin: 73px 64px; }
+.character-art[data-state="HEAVY_ATTACK"][data-phase="startup"] .char-arm-front { transform: rotate(-110deg); }
+.character-art[data-state="HEAVY_ATTACK"][data-phase="active"] .char-arm-front { transform: rotate(101deg) translate(5px, -9px); }
+.character-art[data-state="HEAVY_ATTACK"][data-phase="active"] .char-attack-fx { transform: scale(1.13); transform-origin: 68px 66px; }
+
+.character-art[data-state="GUARDING"] .char-body { transform: translateY(5px) scaleY(.95); }
+.character-art[data-state="GUARDING"] .char-arm-front { transform: rotate(-38deg) translate(-3px, -5px); }
+.character-art[data-state="GUARDING"] .char-arm-back { transform: translate(17px, -11px) rotate(-20deg); }
+.character-art[data-state="GUARDING"] .char-leg-front { transform: rotate(-12deg); }
+.character-art[data-state="GUARDING"] .char-leg-back { transform: rotate(14deg); }
+.character-art[data-state="CASTING"] .char-arm-front { transform: rotate(31deg) translate(1px, -7px); }
+.character-art[data-state="CASTING"] .char-arm-back { transform: rotate(-51deg); }
+.character-art[data-state="CASTING"] .char-upper-body { animation: character-cast .6s steps(4, end) infinite; }
+.character-art[data-state="CASTING"] .char-cast-fx { animation: character-magic .45s steps(3, end) infinite; }
+.character-art[data-state="CASTING"] .char-cape { transform: rotate(17deg); }
+.character-art[data-state="HIT_STUN"] .char-body { transform: rotate(-12deg) translate(-4px, 0); animation: character-hit .18s steps(2, end) infinite; }
+.character-art[data-state="HIT_STUN"] .char-head { transform: rotate(-9deg); }
+.character-art[data-state="HIT_STUN"] .char-arm-front { transform: rotate(23deg); }
+.character-art[data-state="DEAD"] .char-body { transform: translate(-12px, -4px) rotate(-77deg); opacity: .55; transition: transform .4s ease-out, opacity .4s; }
+.character-art[data-state="DEAD"] .char-magic-glint { display: none; }
+.character-art:is([data-state="JUMPING"], [data-state="FALLING"]) .char-ground-shadow { opacity: 0; }
+
+.character-art .char-slime { transform-origin: 48px 108px; }
+.character-slime[data-state="IDLE"] .char-slime { animation: character-slime-rest 1.7s steps(5, end) infinite; }
+.character-slime[data-state="RUNNING"] .char-slime { animation: character-slime-hop .4s ease-in-out infinite; }
+.character-slime:is([data-state="ATTACKING"], [data-state="HEAVY_ATTACK"]) .char-slime { animation: character-slime-strike .35s ease-out both; }
+.character-slime[data-state="JUMPING"] .char-slime { transform: scale(.86, 1.18); }
+.character-slime[data-state="FALLING"] .char-slime { transform: scale(1.13, .92); }
+.character-ghost[data-state="IDLE"] .char-ghost { animation: character-float 2.4s steps(6, end) infinite; }
+.character-ghost[data-state="RUNNING"] .char-ghost { transform: rotate(12deg); transform-origin: 48px 80px; }
+.character-orc .char-body { transform: scaleX(1.09); }
+
+@keyframes character-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.5px); } }
+@keyframes character-ready { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-3deg); } }
+@keyframes character-cape { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(3deg); } }
+@keyframes character-glimmer { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+@keyframes character-run-bob { 0%, 50%, 100% { transform: translateY(-2px); } 25%, 75% { transform: translateY(1px); } }
+@keyframes character-stride { 0%, 100% { transform: rotate(-32deg); } 50% { transform: rotate(32deg); } }
+@keyframes character-knee { 0%, 100% { transform: rotate(4deg); } 35% { transform: rotate(46deg); } 70% { transform: rotate(8deg); } }
+@keyframes character-arm-swing { 0%, 100% { transform: rotate(21deg); } 50% { transform: rotate(-23deg); } }
+@keyframes character-run-cape { 0%, 100% { transform: rotate(18deg); } 50% { transform: rotate(26deg); } }
+@keyframes character-strike { 0% { transform: rotate(-25deg); } 25% { transform: rotate(-65deg); } 48%, 66% { transform: rotate(72deg) translate(5px, -9px); } 100% { transform: rotate(0); } }
+@keyframes character-uppercut { 0%, 20% { transform: rotate(78deg); } 48%, 67% { transform: rotate(-38deg) translate(12px, -4px); } 100% { transform: rotate(0); } }
+@keyframes character-heavy { 0%, 40% { transform: rotate(-110deg); } 60%, 73% { transform: rotate(101deg) translate(5px, -9px); } 100% { transform: rotate(0); } }
+@keyframes character-lunge { 0%, 24% { transform: rotate(-6deg) translateX(-2px); } 48%, 68% { transform: rotate(11deg) translateX(7px); } 100% { transform: none; } }
+@keyframes character-slash { 0%, 34%, 87%, 100% { opacity: 0; } 40%, 66% { opacity: .95; } }
+@keyframes character-cast { 0%, 100% { transform: translateY(-1px) rotate(-4deg); } 50% { transform: translateY(-3px) rotate(-2deg); } }
+@keyframes character-magic { 0%, 100% { opacity: .35; transform: translateY(2px); } 50% { opacity: 1; transform: translateY(-3px); } }
+@keyframes character-hit { 0%, 100% { filter: brightness(1.1); } 50% { filter: brightness(1.8) saturate(.6); } }
+@keyframes character-slime-rest { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.05, .94); } }
+@keyframes character-slime-hop { 0%, 100% { transform: scale(1.08, .91); } 50% { transform: translateY(-6px) scale(.96, 1.07); } }
+@keyframes character-slime-strike { 0% { transform: scale(.88, 1.1); } 45%, 65% { transform: translateX(15px) scale(1.2, .83); } 100% { transform: none; } }
+@keyframes character-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .character-art *, .character-art[data-state] * { animation: none !important; transition: none !important; }
+    .character-art[data-state="RUNNING"] .char-leg-front { transform: rotate(-18deg); }
+    .character-art[data-state="RUNNING"] .char-leg-back { transform: rotate(18deg); }
+}

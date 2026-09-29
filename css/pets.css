@@ -1,0 +1,29 @@
+.pet-art { display: inline-block; width: var(--pet-size, 110px); aspect-ratio: 80 / 88; line-height: 0; flex-shrink: 0; pointer-events: none; vertical-align: bottom; filter: drop-shadow(0 2px 0 #100e2533); }
+.pet-art svg { display: block; width: 100%; height: 100%; overflow: visible; image-rendering: pixelated; }
+.pet-facing { transform-origin: 40px 44px; }
+.pet-art[data-facing='left'] .pet-facing { transform: scaleX(-1); }
+.pet-body { transform-origin: 40px 83px; animation: pet-breathe 2.8s steps(4) infinite; }
+.pet-head { transform-origin: 40px 44px; animation: pet-look 6s steps(4) infinite; }
+.pet-tail { transform-origin: 30px 64px; animation: pet-wag 2.1s steps(5) infinite; }
+.pet-dragon .pet-tail { transform-origin: 52px 69px; }
+.pet-cat .pet-tail { transform-origin: 23px 69px; animation-duration: 3s; }
+.pet-eye { transform-box: fill-box; transform-origin: center; animation: pet-blink 6.7s steps(1) infinite; }
+.pet-wing { transform-origin: 50px 46px; animation: pet-wing 3s steps(5) infinite; }
+.pet-arm { transform-origin: 49px 53px; animation: pet-paw 4s steps(4) infinite; }
+.pet-cat .pet-arm { transform-origin: 61px 65px; animation-duration: 5s; }
+.pet-phoenix .pet-body { animation: pet-hover 2.8s ease-in-out infinite; }
+.pet-phoenix .pet-wing { animation: pet-feather 2.8s steps(5) infinite; }
+.pet-phoenix .pet-wing-left { transform-origin: 30px 45px; animation-direction: reverse; }
+.pet-phoenix .pet-tail { transform-origin: 39px 61px; animation-duration: 3.2s; }
+.pet-shadow { opacity: .25; }
+.pet-dragon .pet-body { animation-delay: -.6s; }
+.pet-cat .pet-body { animation-delay: -.9s; }
+@keyframes pet-breathe { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1px) scaleY(1.015); } }
+@keyframes pet-look { 0%,60%,100% { transform: rotate(0); } 70%,85% { transform: rotate(-3deg); } }
+@keyframes pet-wag { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(6deg); } }
+@keyframes pet-blink { 0%,45%,49%,100% { transform: scaleY(1); } 46%,48% { transform: scaleY(.12); } }
+@keyframes pet-wing { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(9deg); } }
+@keyframes pet-paw { 0%,65%,100% { transform: rotate(0); } 75%,85% { transform: rotate(-7deg); } }
+@keyframes pet-hover { 0%,100% { transform: translateY(-2px); } 50% { transform: translateY(-5px); } }
+@keyframes pet-feather { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(7deg); } }
+@media (prefers-reduced-motion: reduce) { .pet-art * { animation: none !important; } }

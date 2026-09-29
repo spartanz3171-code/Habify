@@ -213,6 +213,7 @@ const Engine = {
     // --- Store ---
 
     async buyItem(itemId) {
+        const userId = GameState.user?.id;
         const item = GameState.shopItems.find(i => i.id === itemId);
         if (!item || item.purchased) return { success: false, message: 'No disponible.' };
         if (GameState.avatar.gold < item.cost) return { success: false, message: 'Oro insuficiente!' };
@@ -221,6 +222,7 @@ const Engine = {
         item.purchased = true;
         GameState.inventory.push({ ...item });
         await addInventoryToDB(itemId);
+        if (GameState.user?.id !== userId) return { success: false, message: 'La sesión cambió.' };
         await saveAvatarToDB();
         return { success: true, message: `${item.name} comprado!` };
     },
@@ -302,656 +304,608 @@ const Engine = {
         };
     },
 
-    // --- Real-Time Battle Engine ---
+    // --- Real-time combat: coordinates are pixels, y marks the fighter's feet. ---
 
-    _rtInputs: { left: false, right: false, up: false, attack: false, magic: false, heal: false, fire: false, guard: false },
-
+    _combat: { width: 640, height: 320, floor: 286, step: 1 / 120 },
+    _rtInputs: {},
+    _inputBuffer: {},
     _rtEntities: [],
     _rtProjectiles: [],
+    _rtEffects: [],
     _gameLoopRunning: false,
-    _lastTime: 0,
+    _rafId: null,
+    _loopToken: 0,
+    _accumulator: 0,
+    _hitStop: 0,
 
+    resetInputs() {
+        this._rtInputs = { left: false, right: false, up: false, attack: false, heavy: false, magic: false, heal: false, fire: false, guard: false };
+        this._inputBuffer = {};
+        for (const ent of this._rtEntities) ent.queuedCombo = false;
+    },
+
+    // Movement and guard are held; actions are buffered briefly on a fresh press.
     handleInput(action, isPressed) {
-        if (this._rtInputs[action] !== undefined) {
-            // Instant trigger for action buttons, hold/release for directional & guard
-            if (action === 'attack' || action === 'magic' || action === 'up' || action === 'heal' || action === 'fire') {
-                if (isPressed) this._rtInputs[action] = true;
-            } else {
-                this._rtInputs[action] = isPressed;
-            }
+        if (!(action in this._rtInputs)) return;
+        if (isPressed && !this._rtInputs[action] && !['left', 'right', 'guard'].includes(action)) {
+            this._inputBuffer[action] = 0.2;
         }
+        this._rtInputs[action] = !!isPressed;
     },
 
     startPvEBattle(opponent) {
-        // Dedicated Battle HP: Fighter enters arena with independent combat HP (100 + level * 10)
-        // Defeat or surrender will penalize real HP, but will NEVER wipe the character to 0 HP!
-        const playerBattleMaxHp = 100 + (GameState.avatar.level || 1) * 10;
-        const playerBattleHp = playerBattleMaxHp;
-        
+        if (GameState.currentBattle && !GameState.currentBattle.isFinished) return GameState.currentBattle;
+        this.stopGameLoop();
+        const maxHp = 100 + (GameState.avatar.level || 1) * 10;
         GameState.currentBattle = {
-            mode: 'pve',
-            opponent: opponent,
-            playerHp: playerBattleHp,
-            playerMaxHp: playerBattleMaxHp,
-            oppHp: opponent.hp,
-            oppMaxHp: opponent.maxHp,
-            logs: [],
-            isFinished: false,
-            healUses: 0,
-            fireUses: 0
+            mode: 'pve', opponent, playerHp: maxHp, playerMaxHp: maxHp,
+            oppHp: opponent.hp, oppMaxHp: opponent.maxHp,
+            logs: [], isFinished: false, healUses: 0, fireUses: 0, knockout: null
         };
-        
-        // Setup real time entities
         this._rtEntities = [
-            this._createFighter('player', true, 80, 240, GameState.avatar),
-            this._createFighter('enemy', false, 280, 240, opponent)
+            this._createFighter('player', true, 150, this._combat.floor, GameState.avatar),
+            this._createFighter('enemy', false, 490, this._combat.floor, opponent)
         ];
         this._rtProjectiles = [];
-        this._rtInputs = { left: false, right: false, up: false, attack: false, magic: false, heal: false, fire: false, guard: false };
-        this._gameLoopRunning = false;
-
+        this._accumulator = 0;
+        this._hitStop = 0;
+        this._freshBattle = true;
         return GameState.currentBattle;
     },
 
     _createFighter(id, isPlayer, x, y, stats) {
         return {
-            id,
-            isPlayer,
-            x, y,
-            width: 40, height: 60,
-            vx: 0, vy: 0,
-            state: 'IDLE',
-            facing: isPlayer ? 'right' : 'left',
-            stats,
-            attackTimer: 0,
-            hitStunTimer: 0,
-            deadTimer: 0,
-            cooldowns: { attack: 0, magic: 0 },
-            dom: null
+            id, isPlayer, x, y, stats, width: 44, height: 88, vx: 0, vy: 0,
+            grounded: true, state: 'IDLE', facing: isPlayer ? 'right' : 'left',
+            attack: null, combo: 0, comboWindow: 0, queuedCombo: false,
+            hitStunTimer: 0, castTimer: 0, magicCooldown: 0,
+            aiTimer: 0.65, aiCount: 0, aiRetreat: 0,
+            aiGuardTimer: 0, aiGuardCooldown: 0,
+            staggerHits: 0, staggerWindow: 0, recoveryPending: false, recoveryTimer: 0,
+            dom: null, shadow: null, art: null
         };
     },
 
+    _measureArena() {
+        const arena = document.getElementById('real-time-arena');
+        if (!arena) return null;
+        const width = Math.max(240, arena.clientWidth || 640);
+        const height = Math.max(240, arena.clientHeight || 320);
+        const oldWidth = this._combat.width;
+        const oldFloor = this._combat.floor;
+        this._combat = { ...this._combat, width, height, floor: height - 34 };
+        for (const ent of this._rtEntities) {
+            ent.x = this._freshBattle ? width * (ent.isPlayer ? 0.24 : 0.76) : ent.x * width / oldWidth;
+            ent.x = Math.max(30, Math.min(width - 30, ent.x));
+            ent.y += this._combat.floor - oldFloor;
+            if (ent.grounded) ent.y = this._combat.floor;
+        }
+        for (const projectile of this._rtProjectiles) {
+            projectile.x *= width / oldWidth;
+            projectile.y += this._combat.floor - oldFloor;
+        }
+        this._freshBattle = false;
+        arena.style.setProperty('--combat-floor', '34px');
+        return arena;
+    },
+
     startGameLoop() {
-        if (this._gameLoopRunning) return;
+        const battle = GameState.currentBattle;
+        if (this._gameLoopRunning || !battle || battle.isFinished || !this._measureArena()) return;
         this._gameLoopRunning = true;
+        this._accumulator = 0;
         this._lastTime = performance.now();
-        requestAnimationFrame((t) => this._gameLoop(t));
+        const token = ++this._loopToken;
+        const arena = document.getElementById('real-time-arena');
+        if (arena) arena.dataset.paused = 'false';
+        this._renderRT();
+        this._rafId = requestAnimationFrame(time => this._gameLoop(time, token));
     },
 
     stopGameLoop() {
         this._gameLoopRunning = false;
+        this._loopToken++;
+        if (this._rafId !== null) cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+        this._accumulator = 0;
+        this.resetInputs();
+        for (const effect of this._rtEffects) effect.dom.remove();
+        this._rtEffects = [];
         const arena = document.getElementById('real-time-arena');
-        if (arena) arena.innerHTML = '';
+        if (arena) arena.dataset.paused = 'true';
     },
 
-    _gameLoop(time) {
-        if (!this._gameLoopRunning || GameState.currentBattle?.isFinished) {
-            this._gameLoopRunning = false;
-            return;
-        }
-        
-        const dt = Math.min((time - this._lastTime) / 1000, 0.1);
+    _gameLoop(time, token = this._loopToken) {
+        if (token !== this._loopToken || !this._gameLoopRunning || !GameState.currentBattle || GameState.currentBattle.isFinished) return;
+        const arena = document.getElementById('real-time-arena');
+        if (!arena) { this.stopGameLoop(); return; }
+        if (arena.clientWidth !== this._combat.width || arena.clientHeight !== this._combat.height) this._measureArena();
+        this._updateRT(Math.min(Math.max(0, (time - this._lastTime) / 1000), 0.1));
         this._lastTime = time;
-
-        this._updateRT(dt);
         this._renderRT();
-
-        requestAnimationFrame((t) => this._gameLoop(t));
+        if (this._gameLoopRunning && token === this._loopToken) {
+            this._rafId = requestAnimationFrame(next => this._gameLoop(next, token));
+        }
     },
 
     _updateRT(dt) {
-        const floorY = 240;
-        const gravity = 1500;
-        const moveSpeed = 150;
-        const jumpSpeed = -500;
-        
-        const p = this._rtEntities.find(e => e.isPlayer);
-        const e = this._rtEntities.find(e => !e.isPlayer);
-
-        if (!p || !e) return;
-
-        // Player Input
-        if (p.state !== 'HIT_STUN' && p.state !== 'DEAD' && p.state !== 'ATTACKING' && p.state !== 'CASTING') {
-            if (this._rtInputs.guard) {
-                p.vx = 0;
-                p.state = 'GUARDING';
-            } else if (this._rtInputs.left) {
-                p.vx = -moveSpeed;
-                p.state = 'RUNNING';
-            } else if (this._rtInputs.right) {
-                p.vx = moveSpeed;
-                p.state = 'RUNNING';
-            } else {
-                p.vx = 0;
-                p.state = 'IDLE';
-            }
-
-            // Direction facing: Street Fighter style facing opponent
-            p.facing = (p.x <= e.x) ? 'right' : 'left';
-
-            if (this._rtInputs.up) {
-                if (p.y >= floorY) { p.vy = jumpSpeed; p.state = 'JUMPING'; }
-                this._rtInputs.up = false; // consume
-            }
-
-            // Attacks cooldowns
-            if (p.cooldowns.attack > 0) p.cooldowns.attack -= dt;
-            if (p.cooldowns.magic > 0) p.cooldowns.magic -= dt;
-
-            if (this._rtInputs.attack) {
-                if (p.cooldowns.attack <= 0) {
-                    p.state = 'ATTACKING';
-                    p.attackTimer = 0.4;
-                    p.cooldowns.attack = 0.5;
-                    p.vx = 0;
-                }
-                this._rtInputs.attack = false;
-            } 
-            
-            // HEAL button (separate from fire)
-            if (this._rtInputs.heal) {
-                if (p.cooldowns.magic <= 0) {
-                    if (GameState.currentBattle.healUses < 1) {
-                        GameState.currentBattle.healUses++;
-                        const healAmt = Math.floor(GameState.currentBattle.playerMaxHp * 0.35);
-                        GameState.currentBattle.playerHp = Math.min(GameState.currentBattle.playerMaxHp, GameState.currentBattle.playerHp + healAmt);
-                        this._updateHpBars();
-                        if (typeof App !== 'undefined' && App.showToast) App.showToast(`♥ ¡Curación! +${healAmt} BHP`, 'success');
-                        this._spawnHealBurst(p);
-                        p.state = 'CASTING';
-                        p.attackTimer = 0.6;
-                        p.cooldowns.magic = 1.2;
-                    } else {
-                        if (typeof App !== 'undefined' && App.showToast) App.showToast('Ya usaste la curación esta batalla', 'error');
-                    }
-                }
-                this._rtInputs.heal = false;
-            }
-
-            // FIRE button (separate from heal)
-            if (this._rtInputs.fire) {
-                if (p.cooldowns.magic <= 0) {
-                    if (GameState.currentBattle.fireUses < 1) {
-                        GameState.currentBattle.fireUses++;
-                        this._spawnProjectile(p, 'fire');
-                        p.state = 'CASTING';
-                        p.attackTimer = 0.6;
-                        p.cooldowns.magic = 1.2;
-                    } else {
-                        if (typeof App !== 'undefined' && App.showToast) App.showToast('Ya usaste la bola de fuego esta batalla', 'error');
-                    }
-                }
-                this._rtInputs.fire = false;
-            }
-
-            // Generic MAGIC (for players with no specific spell equipped)
-            if (this._rtInputs.magic) {
-                if (p.cooldowns.magic <= 0) {
-                    const hasHeal = GameState.avatar.equippedSpell?.includes('spell_heal');
-                    const hasFire = GameState.avatar.equippedSpell?.includes('spell_fire');
-                    if (!hasHeal && !hasFire && GameState.avatar.level >= 2) {
-                        this._spawnProjectile(p, 'magic');
-                        p.state = 'CASTING';
-                        p.attackTimer = 0.6;
-                        p.cooldowns.magic = 1.2;
-                    }
-                }
-                this._rtInputs.magic = false;
-            }
-
+        this._accumulator = Math.min(this._accumulator + Math.max(0, dt), 0.1);
+        while (this._accumulator + 1e-9 >= this._combat.step) {
+            this._accumulator -= this._combat.step;
+            this._stepCombat(this._combat.step);
         }
+    },
 
-        // Enemy AI (Walk towards player and attack periodically)
-        if (e.state !== 'HIT_STUN' && e.state !== 'DEAD' && e.state !== 'ATTACKING') {
-            const dist = p.x - e.x;
-            e.facing = dist >= 0 ? 'right' : 'left';
-
-            if (Math.abs(dist) > 55) {
-                e.vx = dist > 0 ? moveSpeed * 0.6 : -moveSpeed * 0.6;
-                e.state = 'RUNNING';
-            } else {
-                e.vx = 0;
-                e.state = 'IDLE';
-                if (e.cooldowns.attack <= 0 && p.state !== 'DEAD') {
-                    e.state = 'ATTACKING';
-                    e.attackTimer = 0.4;
-                    e.cooldowns.attack = 1.5;
-                }
-            }
-            if (e.cooldowns.attack > 0) e.cooldowns.attack -= dt;
-        }
-
-        // Arena dimensions
-        const arena = document.getElementById('real-time-arena');
-        const arenaW = arena ? arena.clientWidth : 400;
-
-        // Solid body pushback collision resolution (Street Fighter style: fighters cannot pass through each other)
-        const minBodyDist = 55;
-        const dx = e.x - p.x;
-        const absDx = Math.abs(dx);
-        if (absDx < minBodyDist && p.state !== 'DEAD' && e.state !== 'DEAD') {
-            const overlap = minBodyDist - absDx;
-            if (dx > 0) { // p is left, e is right
-                p.x = Math.max(15, p.x - overlap * 0.5);
-                e.x = Math.min(arenaW - 15, e.x + overlap * 0.5);
-                if (p.vx > 0) p.vx = 0;
-                if (e.vx < 0) e.vx = 0;
-            } else { // p is right, e is left
-                p.x = Math.min(arenaW - 15, p.x + overlap * 0.5);
-                e.x = Math.max(15, e.x - overlap * 0.5);
-                if (p.vx < 0) p.vx = 0;
-                if (e.vx > 0) e.vx = 0;
+    _stepCombat(dt) {
+        const battle = GameState.currentBattle;
+        if (!battle || battle.isFinished) return;
+        this._advanceEffects(dt);
+        if (this._hitStop > 0) { this._hitStop = Math.max(0, this._hitStop - dt); return; }
+        const [player, enemy] = this._rtEntities;
+        if (!player || !enemy) return;
+        for (const ent of this._rtEntities) {
+            ent.magicCooldown = Math.max(0, ent.magicCooldown - dt);
+            ent.comboWindow = Math.max(0, ent.comboWindow - dt);
+            ent.hitStunTimer = Math.max(0, ent.hitStunTimer - dt);
+            ent.castTimer = Math.max(0, ent.castTimer - dt);
+            // Cooldowns keep progressing while stunned, casting or attacking.
+            ent.aiTimer = Math.max(0, ent.aiTimer - dt);
+            ent.aiRetreat = Math.max(0, ent.aiRetreat - dt);
+            ent.aiGuardTimer = Math.max(0, ent.aiGuardTimer - dt);
+            ent.aiGuardCooldown = Math.max(0, ent.aiGuardCooldown - dt);
+            ent.recoveryTimer = Math.max(0, ent.recoveryTimer - dt);
+            ent.staggerWindow = Math.max(0, ent.staggerWindow - dt);
+            if (!ent.staggerWindow && !ent.recoveryPending) ent.staggerHits = 0;
+            if (ent.state === 'HIT_STUN' && !ent.hitStunTimer) ent.state = 'IDLE';
+            if (ent.state === 'CASTING' && !ent.castTimer) ent.state = 'IDLE';
+            if (ent.recoveryPending && !ent.hitStunTimer && ent.state !== 'DEAD') {
+                ent.recoveryPending = false;
+                ent.recoveryTimer = 1.15;
+                ent.staggerHits = 0;
+                ent.aiTimer = 0;
+                ent.aiRetreat = 0;
+                ent.aiGuardTimer = 0;
+                this._effect('recovery', ent.x, ent.y - 112, '◇');
             }
         }
+        if (!battle.knockout) {
+            this._controlPlayer(player, enemy, dt);
+            this._controlEnemy(enemy, player, dt);
+        }
+        for (const ent of this._rtEntities) {
+            this._advanceAttack(ent, dt);
+            this._moveFighter(ent, dt);
+        }
+        this._resolveBodies(player, enemy);
+        this._advanceProjectiles(dt);
+        for (const action of Object.keys(this._inputBuffer)) {
+            this._inputBuffer[action] -= dt;
+            if (this._inputBuffer[action] <= 0) delete this._inputBuffer[action];
+        }
+        if (battle.knockout) {
+            battle.knockout.remaining -= dt;
+            if (battle.knockout.remaining <= 0) this._endBattle(battle.knockout.playerWon, false, battle);
+        }
+    },
 
-        // Update physics & timers for all entities
-        this._rtEntities.forEach(ent => {
-            if (ent.state === 'DEAD') {
-                ent.vx = 0;
-            } else {
-                // Gravity
-                ent.vy += gravity * dt;
-                
-                ent.x += ent.vx * dt;
-                ent.y += ent.vy * dt;
+    _approach(value, target, amount) {
+        return value < target ? Math.min(target, value + amount) : Math.max(target, value - amount);
+    },
 
-                // Floor collision
-                if (ent.y >= floorY) {
-                    ent.y = floorY;
-                    ent.vy = 0;
-                    if (ent.state === 'JUMPING') ent.state = 'IDLE';
-                }
-
-                // Stage bounds
-                if (ent.x < 15) ent.x = 15;
-                if (ent.x > arenaW - 15) ent.x = arenaW - 15; 
-
-                // Timers: attackTimer controls ATTACKING, CASTING states
-                if (ent.attackTimer > 0) {
-                    ent.attackTimer -= dt;
-                    if (ent.attackTimer <= 0) {
-                        // Only execute melee hit for ATTACKING, CASTING handled by projectile
-                        if (ent.state === 'ATTACKING') {
-                            this._executeMeleeHit(ent);
-                        }
-                        ent.state = 'IDLE';
-                    }
-                }
-                if (ent.hitStunTimer > 0) {
-                    ent.hitStunTimer -= dt;
-                    if (ent.hitStunTimer <= 0) ent.state = 'IDLE';
-                }
+    _controlPlayer(player, enemy, dt) {
+        if (player.state === 'DEAD' || player.hitStunTimer > 0 || player.castTimer > 0) return;
+        if (player.attack) {
+            if (this._inputBuffer.attack && player.attack.kind === 'light' && player.combo < 3) {
+                player.queuedCombo = true;
+                delete this._inputBuffer.attack;
             }
-        });
-
-        // Projectiles update
-        for (let i = this._rtProjectiles.length - 1; i >= 0; i--) {
-            const proj = this._rtProjectiles[i];
-            proj.x += proj.vx * dt;
-            proj.life -= dt;
-            
-            // Collision
-            const target = proj.sourceId === 'player' ? e : p;
-            if (target.state !== 'DEAD') {
-                if (Math.abs(proj.x - target.x) < 30 && target.y - proj.y < 50 && target.y - proj.y > -10) {
-                    this.applyDamage(target.id, proj.sourceId, proj.damage);
-                    proj.life = 0; // destroy
+            return;
+        }
+        // Facing locks during a guard, so attacks from behind cannot be blocked.
+        if (player.state !== 'GUARDING') player.facing = player.x <= enemy.x ? 'right' : 'left';
+        if (this._rtInputs.guard && player.grounded) {
+            player.state = 'GUARDING';
+            player.vx = this._approach(player.vx, 0, 2600 * dt);
+            return;
+        }
+        const direction = Number(this._rtInputs.right) - Number(this._rtInputs.left);
+        const acceleration = player.grounded ? 2000 : 850;
+        const friction = player.grounded ? 2400 : 160;
+        player.vx = this._approach(player.vx, direction * 225, (direction ? acceleration : friction) * dt);
+        if (this._inputBuffer.up && player.grounded) {
+            player.vy = -600;
+            player.grounded = false;
+            delete this._inputBuffer.up;
+            this._effect('dust', player.x, this._combat.floor, '');
+        }
+        player.state = player.grounded ? (Math.abs(player.vx) > 15 ? 'RUNNING' : 'IDLE') : (player.vy < 0 ? 'JUMPING' : 'FALLING');
+        if (this._inputBuffer.heavy) {
+            delete this._inputBuffer.heavy;
+            this._startAttack(player, 'heavy');
+        } else if (this._inputBuffer.attack) {
+            delete this._inputBuffer.attack;
+            this._startAttack(player, 'light');
+        } else {
+            for (const action of ['heal', 'fire', 'magic']) {
+                if (this._inputBuffer[action]) {
+                    delete this._inputBuffer[action];
+                    this._castSpell(player, action);
+                    break;
                 }
-            }
-
-            if (proj.life <= 0 || proj.x < 0 || proj.x > arenaW) {
-                if (proj.dom) proj.dom.remove();
-                this._rtProjectiles.splice(i, 1);
             }
         }
     },
 
-    _spawnProjectile(source, type) {
-        const damage = Math.floor(GameState.avatar.level * 2 * 1.5);
-        const dir = source.facing === 'right' ? 1 : -1;
-        const projX = source.x + dir * 30;
-        const projY = source.y - 45; // chest height
-        
-        this._rtProjectiles.push({
-            id: 'proj_' + generateId(),
-            sourceId: source.id,
-            x: projX,
-            y: projY,
-            vx: dir * 320,
-            damage: type === 'fire' ? damage * 2 : damage,
-            life: 2.5,
-            type,
-            dir,
-            dom: null,
-            _trailTimer: 0
-        });
+    _controlEnemy(enemy, player, dt) {
+        if (enemy.aiDisabled || enemy.state === 'DEAD' || enemy.hitStunTimer > 0 || enemy.attack) return;
+        const distance = player.x - enemy.x;
+        const direction = Math.sign(distance) || 1;
+        enemy.facing = direction > 0 ? 'right' : 'left';
+        if (!enemy.recoveryTimer && player.attack && Math.abs(distance) < 100 && enemy.aiCount % 3 === 2 && player.grounded && !enemy.aiGuardCooldown) {
+            enemy.aiGuardTimer = 0.28;
+            enemy.aiGuardCooldown = 1.15;
+        }
+        if (enemy.aiRetreat > 0 && !player.attack && !enemy.recoveryTimer) {
+            enemy.vx = this._approach(enemy.vx, -direction * 85, 1200 * dt);
+            enemy.state = 'RUNNING';
+        } else if (enemy.aiGuardTimer > 0 && !enemy.recoveryTimer) {
+            enemy.state = 'GUARDING';
+            enemy.vx = this._approach(enemy.vx, 0, 1800 * dt);
+        } else if (Math.abs(distance) > 72) {
+            enemy.state = 'RUNNING';
+            enemy.vx = this._approach(enemy.vx, direction * 128, 1150 * dt);
+        } else {
+            enemy.state = 'IDLE';
+            enemy.vx = this._approach(enemy.vx, 0, 1900 * dt);
+            if (enemy.aiTimer <= 0 && Math.abs(player.y - enemy.y) < 60) {
+                enemy.aiCount++;
+                this._startAttack(enemy, enemy.aiCount % 3 === 0 ? 'heavy' : 'light');
+                enemy.aiTimer = 0.8;
+            }
+        }
+    },
+
+    _startAttack(ent, kind, chained = false) {
+        if (ent.state === 'DEAD' || ent.hitStunTimer > 0) return;
+        const combo = kind === 'light' ? (chained ? ent.combo + 1 : (ent.comboWindow > 0 && ent.combo < 3 ? ent.combo + 1 : 1)) : 0;
+        ent.combo = combo;
+        const heavy = kind === 'heavy';
+        ent.attack = {
+            kind, elapsed: 0, startup: ent.isPlayer ? (heavy ? 0.23 : 0.075) : (heavy ? 0.5 : 0.34),
+            active: heavy ? 0.14 : 0.1, recovery: heavy ? 0.36 : 0.19,
+            range: heavy ? 91 : (combo === 3 ? 84 : 76),
+            multiplier: heavy ? 1.85 : [1, 1, 1.15, 1.4][combo || 1],
+            knockback: heavy ? 330 : (combo === 3 ? 220 : 100),
+            phase: 'startup', hit: false
+        };
+        ent.queuedCombo = false;
+        ent.state = heavy ? 'HEAVY_ATTACK' : 'ATTACKING';
+        ent.vx *= ent.grounded ? 0.2 : 0.8;
+    },
+
+    _advanceAttack(ent, dt) {
+        const attack = ent.attack;
+        if (!attack || ent.state === 'DEAD') return;
+        attack.elapsed += dt;
+        if (attack.elapsed < attack.startup) attack.phase = 'startup';
+        else if (attack.elapsed < attack.startup + attack.active) {
+            if (attack.phase === 'startup') {
+                ent.vx += (ent.facing === 'right' ? 1 : -1) * (attack.kind === 'heavy' ? 140 : 90);
+            }
+            attack.phase = 'active';
+            if (!attack.hit) this._executeMeleeHit(ent);
+        } else attack.phase = 'recovery';
+        if (attack.elapsed >= attack.startup + attack.active + attack.recovery) {
+            ent.attack = null;
+            ent.comboWindow = 0.34;
+            ent.state = 'IDLE';
+            if (ent.queuedCombo && ent.combo < 3) this._startAttack(ent, 'light', true);
+            else if (!ent.isPlayer) ent.aiRetreat = 0.22;
+        }
+    },
+
+    _moveFighter(ent, dt) {
+        const floor = this._combat.floor;
+        if (ent.attack || ent.castTimer > 0 || ent.hitStunTimer > 0 || ent.state === 'DEAD') {
+            // A hit keeps its impulse while stunned; input never cancels knockback.
+            ent.vx = this._approach(ent.vx, 0, (ent.hitStunTimer > 0 ? 220 : 600) * dt);
+        }
+        ent.x += ent.vx * dt;
+        if (!ent.grounded || ent.vy < 0) {
+            ent.vy += 1600 * dt;
+            ent.y += ent.vy * dt;
+        }
+        if (ent.y >= floor) {
+            if (!ent.grounded && ent.vy > 100) this._effect('dust', ent.x, floor, '');
+            ent.y = floor;
+            ent.vy = 0;
+            ent.grounded = true;
+        } else ent.grounded = false;
+        if (!ent.grounded && !ent.attack && !ent.hitStunTimer && !ent.castTimer && ent.state !== 'DEAD') ent.state = ent.vy < 0 ? 'JUMPING' : 'FALLING';
+        const min = 27, max = this._combat.width - 27;
+        if (ent.x < min || ent.x > max) {
+            ent.x = Math.max(min, Math.min(max, ent.x));
+            ent.vx = 0;
+        }
+    },
+
+    _resolveBodies(a, b) {
+        if (a.state === 'DEAD' || b.state === 'DEAD') return;
+        // Feet and heads must overlap: an airborne fighter can cross over a rival.
+        if (a.y <= b.y - b.height || b.y <= a.y - a.height) return;
+        const minDistance = (a.width + b.width) / 2;
+        const distance = b.x - a.x;
+        if (Math.abs(distance) >= minDistance) return;
+        const direction = distance >= 0 ? 1 : -1;
+        const push = (minDistance - Math.abs(distance)) / 2;
+        a.x -= push * direction;
+        b.x += push * direction;
+        const min = 27, max = this._combat.width - 27;
+        if (a.x < min) { b.x += min - a.x; a.x = min; }
+        if (b.x < min) { a.x += min - b.x; b.x = min; }
+        if (a.x > max) { b.x -= a.x - max; a.x = max; }
+        if (b.x > max) { a.x -= b.x - max; b.x = max; }
     },
 
     _executeMeleeHit(attacker) {
+        const attack = attacker.attack;
         const target = this._rtEntities.find(ent => ent.id !== attacker.id);
-        if (!target || target.state === 'DEAD') return;
-
-        const dist = target.x - attacker.x;
-        const inRange = Math.abs(dist) < 70;
-        const facingCorrectly = (attacker.facing === 'right' && dist > 0) || (attacker.facing === 'left' && dist < 0);
-        const yDist = Math.abs(target.y - attacker.y);
-
-        if (inRange && facingCorrectly && yDist < 40) {
-            let dmg = attacker.isPlayer
-                ? (GameState.avatar.level * 2) + (GameState.avatar.equippedWeapon ? 10 : 0)
-                : attacker.stats.attack;
-
-            dmg = Math.max(1, Math.floor(dmg * (0.8 + Math.random() * 0.4)));
-
-            if (!attacker.isPlayer && GameState.avatar.equippedShield) {
-                dmg = Math.max(1, dmg - 8);
-            }
-
-            // Visual slash effect on target
-            this._spawnSwordSlash(target.x, target.y - 35, attacker.facing);
-
-            // Screen shake on successful hit
-            const arenaEl = document.getElementById('real-time-arena');
-            if (arenaEl) {
-                arenaEl.classList.remove('hit-shake');
-                void arenaEl.offsetWidth; // force reflow to restart animation
-                arenaEl.classList.add('hit-shake');
-                setTimeout(() => arenaEl.classList.remove('hit-shake'), 280);
-            }
-
-            this.applyDamage(target.id, attacker.id, dmg);
-        }
-    },
-
-    _spawnSwordSlash(x, y, dir) {
-        const arena = document.getElementById('real-time-arena');
-        if (!arena) return;
-        const slash = document.createElement('div');
-        slash.className = 'sword-slash-effect ' + (dir === 'left' ? 'dir-left' : 'dir-right');
-        slash.style.left = (x - 32) + 'px';
-        slash.style.top = (y - 32) + 'px';
-        arena.appendChild(slash);
-        setTimeout(() => slash.remove(), 320);
-    },
-
-    _spawnBlockSpark(x, y) {
-        const arena = document.getElementById('real-time-arena');
-        if (!arena) return;
-        
-        const spark = document.createElement('div');
-        spark.className = 'guard-shield-spark';
-        spark.style.left = (x - 25) + 'px';
-        spark.style.top = (y - 25) + 'px';
-        arena.appendChild(spark);
-        setTimeout(() => spark.remove(), 350);
-
-        const txt = document.createElement('div');
-        txt.textContent = '🛡️ BLOQUEO';
-        txt.style.cssText = `
-            position: absolute; left: ${x - 35}px; top: ${y - 30}px;
-            color: #38bdf8; font-size: 10px; font-weight: bold;
-            font-family: 'Press Start 2P', monospace;
-            z-index: 210; text-shadow: 1px 1px 0 #000;
-            pointer-events: none; transition: all 0.5s ease-out;
-        `;
-        arena.appendChild(txt);
-        requestAnimationFrame(() => {
-            txt.style.top = (y - 55) + 'px';
-            txt.style.opacity = '0';
+        if (!attack || attack.hit || !target || target.state === 'DEAD') return;
+        const direction = attacker.facing === 'right' ? 1 : -1;
+        const distance = (target.x - attacker.x) * direction;
+        const fistY = attacker.y - 55;
+        if (distance < 0 || distance > attack.range || fistY < target.y - target.height || fistY > target.y - 8) return;
+        attack.hit = true;
+        let base = attacker.isPlayer ? 5 + (GameState.avatar.level || 1) * 2 + (GameState.avatar.equippedWeapon ? 8 : 0) : attacker.stats.attack;
+        if (target.isPlayer && GameState.avatar.equippedShield) base = Math.max(2, base - 8);
+        this.applyDamage(target.id, attacker.id, Math.max(1, Math.round(base * attack.multiplier)), {
+            knockback: attack.knockback, heavy: attack.kind === 'heavy', direction
         });
-        setTimeout(() => txt.remove(), 550);
+        if (attacker.isPlayer && attacker.combo > 1) this._effect('combo', attacker.x, attacker.y - 120, `${attacker.combo} HIT`);
     },
 
-    applyDamage(targetId, sourceId, damage) {
-        const target = this._rtEntities.find(e => e.id === targetId);
-        if (!target || target.state === 'DEAD') return;
-
-        let finalDamage = damage;
-        const isGuarding = target.isPlayer && target.state === 'GUARDING';
-
-        if (isGuarding) {
-            finalDamage = Math.max(1, Math.floor(damage * 0.25)); // 75% damage mitigation!
-            this._spawnBlockSpark(target.x, target.y - 40);
-            target.hitStunTimer = 0.12; // minimal stun while guarding
-        } else {
-            target.state = 'HIT_STUN';
-            target.hitStunTimer = 0.3;
+    _castSpell(player, requested) {
+        if (player.magicCooldown > 0) return;
+        const spells = (GameState.avatar.equippedSpell || '').split(',');
+        const battle = GameState.currentBattle;
+        let type = requested;
+        if (type === 'magic') {
+            type = spells.includes('spell_fire') && !battle.fireUses ? 'fire' : spells.includes('spell_heal') && !battle.healUses ? 'heal' : 'magic';
+            if (type === 'magic' && spells.some(id => ['spell_heal', 'spell_fire'].includes(id))) return;
         }
-
-        this._spawnDamageText(target.x, target.y - 60, finalDamage, isGuarding);
-
-        if (target.isPlayer) {
-            GameState.currentBattle.playerHp = Math.max(0, GameState.currentBattle.playerHp - finalDamage);
-            // Battle HP is isolated: DO NOT overwrite GameState.avatar.hp during combat!
+        if (type === 'heal') {
+            if (!spells.includes('spell_heal') || battle.healUses >= 1) return;
+            battle.healUses++;
+            const restored = Math.min(battle.playerMaxHp - battle.playerHp, Math.floor(battle.playerMaxHp * 0.35));
+            battle.playerHp += restored;
+            this._effect('heal', player.x, player.y - 55, `+${restored}`);
+            this._spellBurst('heal', player.x, player.y - 48);
             this._updateHpBars();
-
-            if (GameState.currentBattle.playerHp <= 0) {
-                target.state = 'DEAD';
-                setTimeout(() => this._endBattle(false, false), 1200);
-            }
         } else {
-            GameState.currentBattle.oppHp = Math.max(0, GameState.currentBattle.oppHp - finalDamage);
-            this._updateHpBars();
+            if (type === 'fire') {
+                if (!spells.includes('spell_fire') || battle.fireUses >= 1) return;
+                battle.fireUses++;
+            } else if (GameState.avatar.level < 2) return;
+            this._spawnProjectile(player, type);
+        }
+        player.state = 'CASTING';
+        player.castTimer = 0.45;
+        player.magicCooldown = 1.2;
+        player.vx *= 0.25;
+    },
 
-            if (GameState.currentBattle.oppHp <= 0) {
-                target.state = 'DEAD';
-                setTimeout(() => this._endBattle(true, false), 1200);
+    _spawnProjectile(source, type) {
+        const direction = source.facing === 'right' ? 1 : -1;
+        this._spellBurst(type, source.x + direction * 43, source.y - 56, true, direction);
+        this._rtProjectiles.push({
+            sourceId: source.id, x: source.x + direction * 43, y: source.y - 56,
+            vx: direction * 380, radius: 15, type, life: 2.5, warmup: 0.1, trailTimer: 0, dom: null,
+            damage: Math.max(6, (GameState.avatar.level || 1) * 3) * (type === 'fire' ? 2 : 1)
+        });
+    },
+
+    _advanceProjectiles(dt) {
+        this._rtProjectiles = this._rtProjectiles.filter(projectile => {
+            if (projectile.warmup > 0) {
+                projectile.warmup = Math.max(0, projectile.warmup - dt);
+                const source = this._rtEntities.find(ent => ent.id === projectile.sourceId);
+                if (source) {
+                    projectile.x = source.x + Math.sign(projectile.vx) * 43;
+                    projectile.y = source.y - 56;
+                }
+                return true;
+            }
+            projectile.x += projectile.vx * dt;
+            projectile.life -= dt;
+            projectile.trailTimer -= dt;
+            if (projectile.trailTimer <= 0) {
+                projectile.trailTimer = 0.055;
+                if (!this._prefersReducedMotion()) {
+                    this._effect(`trail-${projectile.type}`, projectile.x - Math.sign(projectile.vx) * 15, projectile.y, '', { direction: Math.sign(projectile.vx), life: 0.32 });
+                }
+            }
+            const target = this._rtEntities.find(ent => ent.id !== projectile.sourceId);
+            if (target && target.state !== 'DEAD' && Math.abs(projectile.x - target.x) < target.width / 2 + projectile.radius && projectile.y >= target.y - target.height && projectile.y <= target.y) {
+                this.applyDamage(target.id, projectile.sourceId, projectile.damage, { knockback: 175, direction: Math.sign(projectile.vx) });
+                this._spellBurst(projectile.type, projectile.x, projectile.y, false, Math.sign(projectile.vx));
+                projectile.life = 0;
+            }
+            const alive = projectile.life > 0 && projectile.x > -30 && projectile.x < this._combat.width + 30;
+            if (!alive && projectile.dom) projectile.dom.remove();
+            return alive;
+        });
+    },
+
+    _prefersReducedMotion() {
+        return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    },
+
+    _spellBurst(type, x, y, charging = false, direction = 1) {
+        const particles = Array.from({ length: 6 }, (_, i) => {
+            const angle = i * Math.PI / 3;
+            const distance = type === 'heal' ? 48 : 35;
+            return `<i class="spell-particle" style="--particle-x:${Math.round(Math.cos(angle) * distance)}px;--particle-y:${Math.round(Math.sin(angle) * distance)}px;--particle-delay:${i * 0.015}s"></i>`;
+        }).join('');
+        this._effect(`${charging ? 'cast' : 'burst'}-${type}`, x, y, '', {
+            life: charging ? 0.28 : 0.8, direction,
+            html: `<i class="spell-flash"></i><i class="spell-ring"></i><i class="spell-ring spell-ring-second"></i>${particles}`
+        });
+    },
+
+    applyDamage(targetId, sourceId, damage, impact = {}) {
+        const battle = GameState.currentBattle;
+        const target = this._rtEntities.find(ent => ent.id === targetId);
+        const source = this._rtEntities.find(ent => ent.id === sourceId);
+        if (!battle || battle.isFinished || battle.knockout || !target || target.state === 'DEAD') return;
+        const direction = impact.direction || (source && source.x > target.x ? -1 : 1);
+        const facingSource = target.facing === (direction > 0 ? 'left' : 'right');
+        const blocked = target.state === 'GUARDING' && target.grounded && facingSource;
+        const finalDamage = Math.max(1, Math.round(damage * (blocked ? 0.25 : 1)));
+        const resistsStagger = !target.isPlayer && target.recoveryTimer > 0;
+        if (!resistsStagger) {
+            target.attack = null;
+            target.queuedCombo = false;
+            target.castTimer = 0;
+            const stun = blocked ? 0.12 : (impact.heavy ? 0.42 : 0.24);
+            // Once the third stagger lands, further hits cannot extend its recovery.
+            target.hitStunTimer = target.recoveryPending ? Math.min(target.hitStunTimer, stun) : stun;
+            target.state = blocked ? 'GUARDING' : 'HIT_STUN';
+            target.vx = direction * (impact.knockback || 140) * (blocked ? 0.32 : 1);
+            if (!blocked && impact.heavy) { target.vy = -135; target.grounded = false; }
+            if (!target.isPlayer && !blocked) {
+                target.staggerHits++;
+                target.staggerWindow = 1.4;
+                if (target.staggerHits >= 3) target.recoveryPending = true;
             }
         }
-    },
-
-    _spawnDamageText(x, y, dmg, isBlocked = false) {
+        // Recovery resists interruption, never damage. Attacks retain their visible windup.
+        this._hitStop = Math.min(0.075, Math.max(this._hitStop, resistsStagger ? 0.012 : blocked ? 0.025 : impact.heavy ? 0.075 : 0.045));
+        const hpKey = target.isPlayer ? 'playerHp' : 'oppHp';
+        battle[hpKey] = Math.max(0, battle[hpKey] - finalDamage);
+        this._effect(blocked ? 'block' : 'impact', target.x - direction * 16, target.y - 55, '');
+        this._effect(blocked ? 'blocked-number' : 'damage', target.x, target.y - 95, `${blocked ? '◇ ' : '−'}${finalDamage}`);
         const arena = document.getElementById('real-time-arena');
-        if (!arena) return;
-        const el = document.createElement('div');
-        el.textContent = isBlocked ? `🛡️ -${dmg}` : `-${dmg}`;
-        el.style.cssText = `
-            position: absolute; left: ${x - 20}px; top: ${y}px;
-            color: ${isBlocked ? '#38bdf8' : '#ff004d'}; font-size: ${isBlocked ? '14px' : '18px'}; font-weight: bold;
-            font-family: 'Press Start 2P', monospace;
-            z-index: 200; text-shadow: 2px 2px 0 #000;
-            pointer-events: none; transition: all 0.6s ease-out;
-        `;
-        arena.appendChild(el);
-        requestAnimationFrame(() => {
-            el.style.top = (y - 40) + 'px';
-            el.style.opacity = '0';
-            el.style.fontSize = isBlocked ? '16px' : '22px';
-        });
-        setTimeout(() => el.remove(), 650);
-    },
-
-    _spawnHealBurst(entity) {
-        const arena = document.getElementById('real-time-arena');
-        if (!arena) return;
-        // Create 5 green sparkles around the player
-        for (let i = 0; i < 6; i++) {
-            const spark = document.createElement('div');
-            const angle = (i / 6) * Math.PI * 2;
-            const dist = 30 + Math.random() * 20;
-            const sx = entity.x + Math.cos(angle) * dist;
-            const sy = entity.y - 40 + Math.sin(angle) * dist;
-            spark.style.cssText = `
-                position:absolute; left:${sx}px; top:${sy}px;
-                width:8px; height:8px; background:#00e436; border-radius:50%;
-                box-shadow:0 0 8px #00e436, 0 0 16px #00ff88;
-                pointer-events:none; transition: all 0.7s ease-out;
-                z-index: 150;
-            `;
-            arena.appendChild(spark);
-            requestAnimationFrame(() => {
-                spark.style.top = (sy - 40) + 'px';
-                spark.style.opacity = '0';
-                spark.style.transform = 'scale(2)';
-            });
-            setTimeout(() => spark.remove(), 750);
+        if (arena && impact.heavy && !blocked && !this._prefersReducedMotion() && typeof arena.animate === 'function') {
+            arena.animate([{ transform: 'translateX(-3px)' }, { transform: 'translateX(3px)' }, { transform: 'translateX(0)' }], { duration: 130 });
         }
-        // Big heal text
-        const el = document.createElement('div');
-        el.textContent = '♥ CURADO';
-        el.style.cssText = `
-            position:absolute; left:${entity.x - 30}px; top:${entity.y - 80}px;
-            color:#00e436; font-size:14px; font-weight:bold;
-            font-family:'Press Start 2P', monospace;
-            z-index:200; text-shadow:1px 1px 0 #004400;
-            pointer-events:none; transition: all 0.8s ease-out;
-        `;
-        arena.appendChild(el);
-        requestAnimationFrame(() => {
-            el.style.top = (entity.y - 120) + 'px';
-            el.style.opacity = '0';
-        });
-        setTimeout(() => el.remove(), 900);
+        this._updateHpBars();
+        if (battle[hpKey] === 0) {
+            target.state = 'DEAD';
+            target.attack = null;
+            target.hitStunTimer = 0;
+            target.recoveryTimer = 0;
+            target.recoveryPending = false;
+            battle.knockout = { remaining: 0.9, playerWon: !target.isPlayer };
+            this.resetInputs();
+            this._effect('knockout', this._combat.width / 2, this._combat.height / 2 - 15, 'K.O.');
+        }
     },
 
-    // Called after any HP change to immediately reflect it in the HUD
+    _effect(kind, x, y, text, options = {}) {
+        const arena = document.getElementById('real-time-arena');
+        if (!arena) return;
+        while (this._rtEffects.length >= 32) this._rtEffects.shift().dom.remove();
+        const effect = document.createElement('span');
+        effect.className = `combat-effect combat-${kind}`;
+        effect.style.left = `${x}px`;
+        effect.style.top = `${y}px`;
+        effect.textContent = text;
+        effect.style.setProperty('--effect-direction', options.direction || 1);
+        if (options.html) effect.innerHTML = options.html;
+        effect.setAttribute('aria-hidden', 'true');
+        arena.appendChild(effect);
+        this._rtEffects.push({ dom: effect, life: options.life || 0.95, arena });
+        return effect;
+    },
+
+    _advanceEffects(dt) {
+        this._rtEffects = this._rtEffects.filter(effect => {
+            effect.life -= dt;
+            const alive = effect.life > 0 && effect.dom.parentNode === effect.arena;
+            if (!alive) effect.dom.remove();
+            return alive;
+        });
+    },
+
     _updateHpBars() {
-        const b = GameState.currentBattle;
-        if (!b) return;
-
-        // Player HP bar
-        const pFill = document.getElementById('rt-p-hp-fill');
-        const pText = document.getElementById('rt-p-hp-text');
-        if (pFill) {
-            pFill.style.width = `${Math.max(0, (b.playerHp / b.playerMaxHp) * 100)}%`;
-            if (b.playerHp > b.playerMaxHp * 0.5) pFill.style.background = '#00e436';
-            else if (b.playerHp > b.playerMaxHp * 0.25) pFill.style.background = '#f7c948';
-            else pFill.style.background = '#ff004d';
+        const battle = GameState.currentBattle;
+        if (!battle) return;
+        for (const [prefix, hp, max] of [['p', battle.playerHp, battle.playerMaxHp], ['e', battle.oppHp, battle.oppMaxHp]]) {
+            const fill = document.getElementById(`rt-${prefix}-hp-fill`);
+            const label = document.getElementById(`rt-${prefix}-hp-text`);
+            if (fill) {
+                fill.style.width = `${Math.max(0, hp / max * 100)}%`;
+                fill.style.background = hp > max * 0.5 ? (prefix === 'p' ? '#7ae2a4' : '#fb7a79') : hp > max * 0.25 ? '#f7c948' : '#ff4e64';
+            }
+            if (label) label.textContent = `${hp}/${max} BHP`;
         }
-        if (pText) pText.textContent = `${b.playerHp}/${b.playerMaxHp} BHP`;
-
-        // Enemy HP bar
-        const eFill = document.getElementById('rt-e-hp-fill');
-        const eText = document.getElementById('rt-e-hp-text');
-        if (eFill) eFill.style.width = `${Math.max(0, (b.oppHp / b.oppMaxHp) * 100)}%`;
-        if (eText) eText.textContent = `${b.oppHp}/${b.oppMaxHp} BHP`;
     },
 
     _renderRT() {
         const arena = document.getElementById('real-time-arena');
         if (!arena) return;
-
-        const arenaH = arena.clientHeight || 260;
-
-        this._rtEntities.forEach(ent => {
-            if (!ent.dom) {
+        for (const ent of this._rtEntities) {
+            if (!ent.dom || ent.dom.parentNode !== arena) {
+                ent.shadow = document.createElement('div');
+                ent.shadow.className = 'combat-shadow';
+                arena.appendChild(ent.shadow);
                 ent.dom = document.createElement('div');
-                ent.dom.className = 'fighter-container ' + (ent.isPlayer ? 'is-player' : 'is-monster');
-                
-                const wrapper = document.createElement('div');
-                wrapper.className = 'sprite-wrapper';
-
-                // Use PNG image only — no CSS box-shadow sprites
-                const img = document.createElement('img');
-                const imgName = ent.isPlayer
-                    ? (GameState.avatar.avatarClass || 'hero')
-                    : (ent.stats.sprite || 'goblin');
-                
-                img.src = 'assets/sprites/' + imgName + '.png';
-                // Monsters usually face left in their PNGs, Player faces right.
-                if (!ent.isPlayer) {
-                    img.classList.add('monster-sprite');
-                }
-
-                img.onerror = () => {
-                    // Fallback: small colored circle if image fails
-                    img.style.display = 'none';
-                    const fallback = document.createElement('div');
-                    fallback.style.cssText = `width:40px;height:60px;background:${ent.isPlayer ? '#00e436' : '#ff004d'};border-radius:4px;`;
-                    wrapper.appendChild(fallback);
-                };
-                img.style.cssText = 'display:block;width:90px;height:auto;object-fit:contain;image-rendering:pixelated;pointer-events:none;user-select:none;';
-                
-                if (!ent.isPlayer) {
-                    // Enemies are bigger and nastier-looking
-                    img.style.width = '120px';
-                    img.style.filter = 'drop-shadow(0 0 6px rgba(255,0,77,0.5))';
-                }
-                
-                if (ent.isPlayer && GameState.avatar.isDead) {
-                    img.style.filter = 'grayscale(1) brightness(0.5)';
-                }
-                
-                wrapper.appendChild(img);
-
-                // Ground shadow - makes fighters look grounded, not floating
-                const shadow = document.createElement('div');
-                shadow.className = 'fighter-shadow';
-                ent.dom.appendChild(shadow);
-
-                ent.dom.appendChild(wrapper);
+                ent.dom.className = `combat-fighter ${ent.isPlayer ? 'combat-player' : 'combat-enemy'}`;
+                ent.dom.innerHTML = ent.isPlayer
+                    ? CharacterArt.render(GameState.avatar, { state: ent.state, facing: ent.facing })
+                    : CharacterArt.renderMonster(ent.stats.sprite, { state: ent.state, facing: ent.facing });
+                ent.art = ent.dom.querySelector('.character-art');
+                const tell = document.createElement('span');
+                tell.className = 'combat-tell';
+                tell.textContent = '!';
+                tell.setAttribute('aria-hidden', 'true');
+                ent.dom.appendChild(tell);
                 arena.appendChild(ent.dom);
             }
-
-            // Position: center of fighter container = ent.x
-            const spriteHalfW = 50; // Standardized to half of 100px container
-            ent.dom.style.left = (ent.x - spriteHalfW) + 'px';
-            const bottomPx = arenaH - ent.y;
-            ent.dom.style.bottom = Math.max(0, bottomPx) + 'px';
-            ent.dom.style.top = 'auto';
-
-            // Scale ground shadow by proximity to floor (smaller when airborne)
-            const shadowEl = ent.dom.querySelector('.fighter-shadow');
-            if (shadowEl) {
-                const floorDist = 240 - ent.y; // 0 on floor, negative if above
-                const floorRatio = Math.max(0, 1 - Math.abs(floorDist) / 80);
-                shadowEl.style.transform = `scaleX(${floorRatio})`;
-                shadowEl.style.opacity = (0.15 + floorRatio * 0.35).toString();
+            ent.dom.style.transform = `translate3d(${ent.x - 64}px, ${ent.y - 128}px, 0)`;
+            ent.dom.dataset.state = ent.state;
+            ent.dom.dataset.phase = ent.attack ? ent.attack.phase : '';
+            ent.dom.dataset.heavy = ent.attack && ent.attack.kind === 'heavy' ? 'true' : 'false';
+            ent.dom.dataset.recovery = ent.recoveryTimer > 0 ? 'true' : 'false';
+            if (ent.art) {
+                ent.art.dataset.state = ent.state;
+                ent.art.dataset.facing = ent.facing;
+                ent.art.dataset.combo = String(ent.combo || 1);
+                ent.art.dataset.phase = ent.attack ? ent.attack.phase : '';
+                ent.art.style.setProperty('--attack-duration', `${ent.attack ? ent.attack.startup + ent.attack.active + ent.attack.recovery : 0.4}s`);
             }
+            const altitude = Math.max(0, this._combat.floor - ent.y);
+            ent.shadow.style.transform = `translate3d(${ent.x - 28}px, ${this._combat.floor - 4}px, 0) scale(${Math.max(0.4, 1 - altitude / 220)})`;
+            ent.shadow.style.opacity = String(Math.max(0.18, 0.5 - altitude / 350));
+        }
+        for (const projectile of this._rtProjectiles) {
+            this._renderProjectile(projectile, arena);
+        }
+    },
 
-            ent.dom.style.top = 'auto';
-            
-            ent.dom.setAttribute('data-state', ent.state);
-            ent.dom.setAttribute('data-facing', ent.facing);
-        });
-
-        this._rtProjectiles.forEach(proj => {
-            if (!proj.dom) {
-                // Build a rich multi-layer fireball element
-                proj.dom = document.createElement('div');
-                proj.dom.className = proj.type === 'fire' ? 'rt-proj rt-proj-fire' : 'rt-proj rt-proj-magic';
-
-                // Core glow ball
-                const core = document.createElement('div');
-                core.className = 'proj-core';
-                proj.dom.appendChild(core);
-
-                // Rotating flame ring
-                const ring = document.createElement('div');
-                ring.className = 'proj-ring';
-                proj.dom.appendChild(ring);
-
-                // Mirror if going left
-                if (proj.dir === -1) proj.dom.style.transform = 'scaleX(-1)';
-
-                arena.appendChild(proj.dom);
-            }
-
-            // Move: use proj.x as CENTER of the element (24px half-width)
-            proj.dom.style.left = (proj.x - 24) + 'px';
-            proj.dom.style.top  = (proj.y - 24) + 'px';
-
-            // Emit trail particles every ~3 frames
-            proj._trailTimer = (proj._trailTimer || 0) + 1;
-            if (proj._trailTimer % 3 === 0) {
-                const spark = document.createElement('div');
-                spark.className = proj.type === 'fire' ? 'proj-trail-fire' : 'proj-trail-magic';
-                spark.style.left = (proj.x - 6 + (Math.random() * 8 - 4)) + 'px';
-                spark.style.top  = (proj.y - 6 + (Math.random() * 8 - 4)) + 'px';
-                arena.appendChild(spark);
-                setTimeout(() => spark.remove(), 350);
-            }
-        });
+    _renderProjectile(projectile, arena) {
+        if (!projectile.dom || projectile.dom.parentNode !== arena) {
+            if (projectile.dom) projectile.dom.remove();
+            projectile.dom = document.createElement('div');
+            projectile.dom.className = `combat-projectile combat-projectile-${projectile.type}`;
+            projectile.dom.setAttribute('aria-hidden', 'true');
+            projectile.dom.innerHTML = '<span class="combat-orb"><i class="orb-aura"></i><i class="orb-tail orb-tail-outer"></i><i class="orb-tail orb-tail-inner"></i><i class="orb-ring"></i><i class="orb-core"></i><i class="orb-spark"></i></span>';
+            arena.appendChild(projectile.dom);
+        }
+        // Only this outer element positions the shot. Child transforms animate its art.
+        projectile.dom.style.transform = `translate3d(${projectile.x - 15}px, ${projectile.y - 15}px, 0)`;
+        projectile.dom.style.setProperty('--projectile-direction', Math.sign(projectile.vx));
+        projectile.dom.dataset.charging = projectile.warmup > 0 ? 'true' : 'false';
     },
 
 
-    async _endBattle(playerWon, fled = false) {
-        if (!GameState.currentBattle || GameState.currentBattle.isFinished) return null;
+    async _endBattle(playerWon, fled = false, expectedBattle = GameState.currentBattle) {
+        if (!expectedBattle || GameState.currentBattle !== expectedBattle || expectedBattle.isFinished) return null;
         const b = GameState.currentBattle;
         b.isFinished = true;
         
         // Stop the real-time loop
-        this._gameLoopRunning = false;
+        this.stopGameLoop();
         
         let result;
         if (fled) {
@@ -998,20 +952,21 @@ const Engine = {
         GameState.battleLog.unshift({ ...logEntry, date: new Date().toLocaleDateString() });
         await addBattleLogToDB(logEntry);
         await saveAvatarToDB();
+        // A completed save must never clear or navigate away from a newer match.
+        if (GameState.currentBattle !== b) return result;
         
         GameState._lastBattleResult = result;
         GameState._currentOpponent = null;
         GameState.currentBattle = null;
         
-        if (typeof App !== 'undefined' && App.navigate) {
+        if (GameState.currentView === 'arena' && typeof App !== 'undefined' && App.navigate) {
             App.navigate('arena');
         }
         return result;
     },
 
     fleeBattle() {
-        if (!GameState.currentBattle || GameState.currentBattle.isFinished) return;
-        this._gameLoopRunning = false;
+        if (!GameState.currentBattle || GameState.currentBattle.isFinished || GameState.currentBattle.knockout) return;
         this._endBattle(false, true);
     },
 
