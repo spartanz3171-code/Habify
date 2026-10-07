@@ -11,10 +11,16 @@ const deferred = () => {
     return { promise, resolve };
 };
 
-function harness({ migration = true, inventory = [], storageBlocked = false } = {}) {
+function harness({ migration = true, inventory = [], storageBlocked = false, catalog = [
+    { id: 'acc_scarf', cost: 35, enabled: true },
+    { id: 'outfit_ranger', cost: 80, enabled: true },
+    { id: 'headwear_guardian', cost: 110, enabled: true },
+    { id: 'headwear_winged', cost: 150, enabled: true },
+    { id: 'headwear_arcane', cost: 130, enabled: true }
+] } = {}) {
     const storage = new Map();
     const calls = [];
-    const state = { migration, inventory, rpc: null, update: null };
+    const state = { migration, inventory, catalog, rpc: null, update: null };
     const client = {
         from(table) {
             const query = {
@@ -30,7 +36,7 @@ function harness({ migration = true, inventory = [], storageBlocked = false } = 
                     } else if (!state.migration) {
                         answer = { error: { code: '42P01' } };
                     } else if (table === 'avatar_cosmetic_catalog') {
-                        answer = { data: [{ id: 'acc_scarf', cost: 35, enabled: true }, { id: 'outfit_ranger', cost: 80, enabled: true }] };
+                        answer = { data: state.catalog };
                     } else {
                         answer = { data: state.inventory.map(item_id => ({ item_id })) };
                     }
@@ -69,11 +75,12 @@ test('free edits fall back locally before migration, preserve class, and reload 
     const h = harness({ migration: false });
     h.game.avatar.avatarClass = 'mage';
     await h.wardrobe.hydrate({});
-    const saved = await h.wardrobe.saveAppearance({ body: 'female', hairStyle: 'braids' });
+    const saved = await h.wardrobe.saveAppearance({ body: 'female', hairStyle: 'braids', headwear: 'none' });
     assert.equal(saved.status, 'local');
     assert.equal(saved.ok, true);
     assert.equal(h.game.avatar.avatarClass, 'mage');
     assert.equal(h.game.avatar.appearance.body, 'female');
+    assert.equal(h.game.avatar.appearance.headwear, 'none');
     assert.equal(h.game.cosmeticsReady, false);
     const beforeGold = h.game.avatar.gold;
     assert.equal((await h.wardrobe.purchase('acc_scarf')).code, 'unavailable');
@@ -84,19 +91,154 @@ test('free edits fall back locally before migration, preserve class, and reload 
     h.game.avatarId = 'avatar-b';
     await h.wardrobe.hydrate({});
     assert.equal(h.game.avatar.appearance.body, 'male');
+    assert.equal(h.game.avatar.appearance.headwear, 'default');
     h.game.user = { id: 'user-a' };
     h.game.avatarId = 'avatar-a';
     await h.wardrobe.hydrate({});
     assert.equal(h.game.avatar.appearance.body, 'female');
+    assert.equal(h.game.avatar.appearance.headwear, 'none');
     assert.equal(h.game.appearanceSaveStatus, 'local');
 });
 
 test('signup appearance works after email confirmation without granting metadata cosmetics', async () => {
     const h = harness();
-    h.game.user.user_metadata = { appearance: { body: 'female', hairStyle: 'long', outfit: 'outfit_ranger' } };
+    h.game.user.user_metadata = { appearance: { body: 'female', hairStyle: 'long', outfit: 'outfit_ranger', headwear: 'headwear_winged' } };
     await h.wardrobe.hydrate({ appearance: {} });
     assert.equal(h.game.avatar.appearance.body, 'female');
     assert.equal(h.game.avatar.appearance.outfit, 'default');
+    assert.equal(h.game.avatar.appearance.headwear, 'default');
+    assert.equal(h.wardrobe.owns('headwear_winged'), false);
+    h.game.user.user_metadata.appearance.headwear = 'none';
+    await h.wardrobe.hydrate({ appearance: {} });
+    assert.equal(h.game.avatar.appearance.headwear, 'none');
+    assert.equal(h.game.avatar.appearance.body, 'female');
+});
+
+test('class headwear can be removed, saved to the account, reloaded and restored without changing class', async () => {
+    const h = harness();
+    h.game.avatar.avatarClass = 'mage';
+    await h.wardrobe.hydrate({ appearance: { body: 'female', hairStyle: 'ponytail' } });
+    assert.equal(h.game.avatar.appearance.headwear, 'default');
+    assert.equal((await h.wardrobe.unequip('headwear')).status, 'cloud');
+    const cloud = JSON.parse(JSON.stringify(h.calls.at(-1).args.p_appearance));
+    assert.equal(cloud.headwear, 'none');
+    assert.equal(JSON.parse(h.storage.get('habify_appearance_v1_user-a')).pending, false);
+    h.wardrobe.reset();
+    await h.wardrobe.hydrate({ appearance: cloud });
+    assert.equal(h.game.avatar.appearance.headwear, 'none');
+    assert.equal(h.game.avatar.appearance.hairStyle, 'ponytail');
+    assert.equal((await h.wardrobe.saveAppearance({ ...h.game.avatar.appearance, headwear: 'default' })).status, 'cloud');
+    assert.equal(h.game.avatar.appearance.headwear, 'default');
+    assert.equal(h.game.avatar.avatarClass, 'mage');
+});
+
+test('each paid headwear item requires ownership, buys once and equips independently of accessories', async () => {
+    for (const [id, cost] of [['headwear_guardian', 110], ['headwear_winged', 150], ['headwear_arcane', 130]]) {
+        const h = harness({ inventory: ['acc_scarf'] });
+        h.game.avatar.gold = 500;
+        await h.wardrobe.hydrate({ appearance: { headwear: 'none', accessory: 'acc_scarf', body: 'female' } });
+        assert.equal((await h.wardrobe.equip(id)).code, 'not_owned');
+        assert.equal((await h.wardrobe.saveAppearance({ headwear: id })).code, 'not_owned');
+        assert.equal(h.calls.length, 0);
+        let cloud;
+        h.state.rpc = (name, args) => {
+            if (name === 'purchase_avatar_cosmetic') {
+                h.state.inventory.push(id);
+                return Promise.resolve({ data: { status: 'purchased', item_id: args.p_item_id, gold: 500 - cost } });
+            }
+            cloud = JSON.parse(JSON.stringify(args.p_appearance));
+            return Promise.resolve({ data: { status: 'saved', appearance: cloud } });
+        };
+        assert.equal((await h.wardrobe.purchase(id)).ok, true);
+        assert.equal(h.game.avatar.gold, 500 - cost);
+        assert.equal(h.game.avatar.appearance.headwear, 'none');
+        assert.equal((await h.wardrobe.purchase(id)).code, 'already_owned');
+        assert.equal(h.calls.filter(call => call.name === 'purchase_avatar_cosmetic').length, 1);
+        assert.equal((await h.wardrobe.equip(id)).status, 'cloud');
+        assert.equal(h.game.avatar.appearance.headwear, id);
+        assert.equal(h.game.avatar.appearance.accessory, 'acc_scarf');
+        assert.equal(h.game.avatar.appearance.body, 'female');
+        h.wardrobe.reset();
+        await h.wardrobe.hydrate({ appearance: cloud });
+        assert.equal(h.wardrobe.owns(id), true);
+        assert.equal(h.game.avatar.appearance.headwear, id);
+    }
+});
+
+test('a legacy validator keeps free headwear pending locally with cloud-validated fields until syncing succeeds', async () => {
+    for (const headwear of ['default', 'none']) {
+        const h = harness({ catalog: [{ id: 'acc_scarf', cost: 35, enabled: true }] });
+        await h.wardrobe.hydrate({ appearance: { body: 'male' } });
+        let cloud;
+        h.state.rpc = (_name, args) => {
+            const { headwear: omitted, ...validated } = args.p_appearance;
+            cloud = { ...validated, skin: '#abcdef', hairStyle: 'short' };
+            return Promise.resolve({ data: { status: 'saved', appearance: cloud } });
+        };
+        const saved = await h.wardrobe.saveAppearance({ body: 'female', hairStyle: 'braids', skin: '#f3c6a0', headwear });
+        assert.equal(saved.ok, true);
+        assert.equal(saved.status, 'local');
+        assert.equal(h.game.appearanceSaveStatus, 'local');
+        assert.equal(h.game.avatar.appearance.headwear, headwear);
+        assert.equal(h.game.avatar.appearance.skin, '#abcdef');
+        assert.equal(h.game.avatar.appearance.hairStyle, 'short');
+        assert.equal(JSON.parse(h.storage.get('habify_appearance_v1_user-a')).pending, true);
+        assert.equal((await h.wardrobe.purchase('headwear_guardian')).code, 'unavailable');
+        h.wardrobe.reset();
+        await h.wardrobe.hydrate({ appearance: cloud });
+        assert.equal(h.game.avatar.appearance.headwear, headwear);
+        assert.equal(h.game.avatar.appearance.skin, '#abcdef');
+        assert.equal(h.game.appearanceSaveStatus, 'local');
+        h.state.rpc = null;
+        assert.equal((await h.wardrobe.saveAppearance(h.game.avatar.appearance)).status, 'cloud');
+        assert.equal(JSON.parse(h.storage.get('habify_appearance_v1_user-a')).pending, false);
+    }
+});
+
+test('missing or different headwear confirmation cannot report a successful paid equip', async () => {
+    for (const returnedHeadwear of [undefined, 'default']) {
+        const h = harness({ inventory: ['headwear_guardian'] });
+        await h.wardrobe.hydrate({ appearance: { headwear: 'none', body: 'female' } });
+        h.state.rpc = (_name, args) => {
+            const { headwear: omitted, ...appearance } = args.p_appearance;
+            if (returnedHeadwear !== undefined) appearance.headwear = returnedHeadwear;
+            return Promise.resolve({ data: { status: 'saved', appearance } });
+        };
+        const saved = await h.wardrobe.equip('headwear_guardian');
+        assert.equal(saved.ok, false);
+        assert.equal(saved.code, 'headwear_not_saved');
+        assert.equal(h.game.avatar.appearance.headwear, 'none');
+        assert.equal(h.wardrobe.owns('headwear_guardian'), true);
+        assert.equal(h.game.avatar.gold, 100);
+        assert.equal(h.storage.size, 0);
+    }
+});
+
+test('legacy headwear fallback fails honestly when browser storage is blocked', async () => {
+    const h = harness({ storageBlocked: true });
+    await h.wardrobe.hydrate({ appearance: { headwear: 'default' } });
+    h.state.rpc = (_name, args) => {
+        const { headwear: omitted, ...appearance } = args.p_appearance;
+        return Promise.resolve({ data: { status: 'saved', appearance } });
+    };
+    const saved = await h.wardrobe.unequip('headwear');
+    assert.equal(saved.ok, false);
+    assert.equal(saved.code, 'storage_unavailable');
+    assert.equal(h.game.avatar.appearance.headwear, 'default');
+    assert.equal(h.storage.size, 0);
+});
+
+test('a saved response without a valid appearance object cannot claim cloud or local success', async () => {
+    for (const appearance of [undefined, null, 'none', []]) {
+        const h = harness();
+        await h.wardrobe.hydrate({ appearance: { headwear: 'default' } });
+        h.state.rpc = () => Promise.resolve({ data: { status: 'saved', appearance } });
+        const saved = await h.wardrobe.unequip('headwear');
+        assert.equal(saved.ok, false);
+        assert.equal(saved.code, 'invalid_response');
+        assert.equal(h.game.avatar.appearance.headwear, 'default');
+        assert.equal(h.storage.size, 0);
+    }
 });
 
 test('cloud saves clear pending local edits; ordinary avatar saves never write appearance', async () => {

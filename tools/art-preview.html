@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Habify · Personajes y compañeros</title>
-    <link rel="stylesheet" href="../css/characters.css?v=3.3.0">
-    <link rel="stylesheet" href="../css/pets.css?v=3.3.0">
+    <link rel="stylesheet" href="../css/characters.css?v=3.4.0">
+    <link rel="stylesheet" href="../css/pets.css?v=3.4.0">
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 32px; background: #101123; color: #f1eadb; font-family: system-ui, sans-serif; }
@@ -68,6 +68,7 @@
     </div>
     <div class="filters">
         <label>Detalle<select id="detail"><option value="full">Cuerpo entero</option><option value="faces">Rostros de cerca</option></select></label>
+        <label>Casco<select id="headwear"><option value="default">De clase</option><option value="none">Sin casco</option><option value="headwear_guardian">Casco de guardián</option><option value="headwear_winged">Yelmo alado</option><option value="headwear_arcane">Capucha arcana</option></select></label>
         <label>Clase<select id="role"><option value="all">Todas las clases</option><option value="hero">Aventureros</option><option value="mage">Magos</option><option value="knight">Caballeros</option><option value="elf">Elfos</option></select></label>
         <label>Tono de piel<select id="skin"><option value="">Variados</option><option value="#f4d7bd">Claro</option><option value="#efbd91">Dorado</option><option value="#d99566">Cálido</option><option value="#ab704f">Bronce</option><option value="#754d3b">Moreno</option><option value="#51392f">Oscuro</option></select></label>
         <label>Cabello<select id="hair"><option value="">Variados</option><option value="#44302e">Castaño</option><option value="#201f30">Negro</option><option value="#c88545">Cobrizo</option><option value="#ead29a">Dorado</option><option value="#8d465f">Ciruela</option><option value="#c6c4d9">Plata</option></select></label>
@@ -77,8 +78,8 @@
     <section id="pets" class="grid pets" aria-label="Mascotas"></section>
     <footer>Vista de arte local · Los rostros se muestran quietos para comparar sus rasgos. La vista de cuerpo entero respeta la preferencia de movimiento reducido del dispositivo.</footer>
 </main>
-<script src="../js/characters.js?v=3.3.0"></script>
-<script src="../js/pets.js?v=3.3.0"></script>
+<script src="../js/characters.js?v=3.4.0"></script>
+<script src="../js/pets.js?v=3.4.0"></script>
 <script>
     const roles = [
         ['hero', 'Aventureros', 'Aventurera', 'Aventurero', '#ba526c'],
@@ -93,6 +94,7 @@
         const selectedRole = document.getElementById('role').value;
         const skin = document.getElementById('skin').value;
         const hairColor = document.getElementById('hair').value;
+        const headwear = document.getElementById('headwear').value;
         document.body.dataset.detail = detail;
         document.getElementById('characters').innerHTML = roles.filter(([role]) => selectedRole === 'all' || role === selectedRole).map(([role, title, female, male, color]) => {
             const cards = ['female', 'male'].flatMap(body => hairstyles.map(([hairStyle, label], i) => {
@@ -101,7 +103,7 @@
                     equippedWeapon: role === 'mage' ? 'staff' : role === 'elf' ? 'bow' : 'sword',
                     equippedShield: role === 'knight' ? 'shield' : null,
                     appearance: {
-                        body, hairStyle, outfitColor: color,
+                        body, hairStyle, headwear, outfitColor: color,
                         skin: skin || ['#efbd91', '#ab704f', '#754d3b', '#d99566'][i],
                         hairColor: hairColor || ['#44302e', '#c6c4d9', '#201f30', '#ead29a'][i]
                     }

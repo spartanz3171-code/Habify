@@ -48,6 +48,7 @@ const Atelier = {
                     <fieldset><legend>${t('Tono de piel', 'Skin tone')}</legend><div class="swatch-row">${swatches('skin', [['#f3c6a0', t('Claro', 'Fair')], ['#dca078', t('Cálido', 'Warm')], ['#b87854', t('Bronce', 'Bronze')], ['#8c543b', t('Moreno', 'Brown')], ['#59382e', t('Oscuro', 'Deep')]])}</div></fieldset>
                     <fieldset><legend>${t('Peinado', 'Hairstyle')}</legend><div class="choice-row">${option('hairStyle', 'short', t('Corto', 'Short'))}${option('hairStyle', 'long', t('Largo', 'Long'))}${option('hairStyle', 'ponytail', t('Coleta', 'Ponytail'))}${option('hairStyle', 'braids', t('Trenzas', 'Braids'))}</div></fieldset>
                     <fieldset><legend>${t('Color de cabello', 'Hair color')}</legend><div class="swatch-row">${swatches('hairColor', [['#332c42', t('Negro', 'Black')], ['#684333', t('Castaño', 'Brown')], ['#c99044', t('Dorado', 'Golden')], ['#b84c41', t('Cobrizo', 'Copper')], ['#ded6e4', t('Plata', 'Silver')], ['#8251b5', t('Violeta', 'Violet')]])}</div></fieldset>
+                    <fieldset><legend>${t('Casco', 'Headwear')}</legend><div class="choice-row">${option('headwear', 'default', t('De clase', 'Class default'))}${option('headwear', 'none', t('Sin casco', 'No headwear'))}</div></fieldset>
                     <fieldset><legend>${t('Color de atuendo', 'Outfit color')}</legend><div class="swatch-row">${swatches('outfitColor', [['#29adff', t('Azul', 'Blue')], ['#a855f7', t('Violeta', 'Violet')], ['#00a878', t('Verde', 'Green')], ['#d84969', t('Carmesí', 'Crimson')], ['#d99a36', t('Ámbar', 'Amber')], ['#8996b0', t('Acero', 'Steel')]])}</div></fieldset>
                     <div class="atelier-save-row"><button id="save-appearance" class="btn btn-primary" onclick="Atelier.save()" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('GUARDAR APARIENCIA', 'SAVE APPEARANCE')}</button><button class="btn btn-secondary" onclick="Atelier.resetDraft()" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('DESHACER', 'RESET')}</button></div>
                     <p id="appearance-status" class="save-status" role="status" aria-live="polite">${this.escape(this.savedMessage)}</p>
@@ -58,7 +59,7 @@ const Atelier = {
     renderWardrobe() {
         const t = this.text.bind(this);
         const items = Wardrobe.listCosmetics();
-        return `<section class="wardrobe-section"><div class="page-heading compact"><div><span class="eyebrow">${t('VISTE TU PROGRESO', 'WEAR YOUR PROGRESS')}</span><h2>${t('Guardarropa', 'Wardrobe')}</h2><p>${t('Gana oro con tus hábitos y desbloquea nuevos atuendos.', 'Earn gold with your habits and unlock new outfits.')}</p></div><span class="wallet">${GameState.avatar.gold} <small>G</small></span></div>
+        return `<section class="wardrobe-section"><div class="page-heading compact"><div><span class="eyebrow">${t('VISTE TU PROGRESO', 'WEAR YOUR PROGRESS')}</span><h2>${t('Guardarropa', 'Wardrobe')}</h2><p>${t('Gana oro con tus hábitos y desbloquea atuendos, cascos y accesorios.', 'Earn gold with your habits and unlock outfits, headwear and accessories.')}</p></div><span class="wallet">${GameState.avatar.gold} <small>G</small></span></div>
             <div class="wardrobe-tools"><button class="choice-chip" onclick="Atelier.unequip('outfit')" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('Atuendo de clase', 'Class outfit')}</button><button class="choice-chip" onclick="Atelier.unequip('accessory')" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('Sin accesorio', 'No accessory')}</button></div>
             ${this.renderCosmeticCards(items)}</section>`;
     },
@@ -73,10 +74,12 @@ const Atelier = {
                 const equipped = Wardrobe.isEquipped(item.id);
                 const available = GameState.cosmeticsReady && item.available;
                 const name = I18N.t(`cosmetic.${item.id}`) === `cosmetic.${item.id}` ? item.name : I18N.t(`cosmetic.${item.id}`);
+                const kind = item.slot === 'headwear' ? t('CASCO', 'HEADWEAR') : item.slot === 'outfit' ? t('ATUENDO', 'OUTFIT') : t('ACCESORIO', 'ACCESSORY');
+                const description = item.slot === 'headwear' ? item.description : item.slot === 'outfit' ? t('Compatible con todas las clases', 'Fits every class') : t('Un detalle para hacerte único', 'A detail to make you unique');
                 const canAfford = GameState.avatar.gold >= item.cost;
                 const buttonText = owned ? (equipped ? t('EQUIPADO', 'EQUIPPED') : t('EQUIPAR', 'EQUIP')) : (!available ? t('PRONTO', 'SOON') : canAfford ? t('COMPRAR', 'BUY') : t('FALTA ORO', 'NEED GOLD'));
-                return `<article class="cosmetic-card ${equipped ? 'equipped' : ''}" data-cosmetic-id="${item.id}"><div class="cosmetic-art">${CharacterArt.render({ ...GameState.avatar, appearance })}<span class="cosmetic-kind">${item.slot === 'outfit' ? t('ATUENDO', 'OUTFIT') : t('ACCESORIO', 'ACCESSORY')}</span></div>
-                    <div class="cosmetic-info"><h3>${this.escape(name)}</h3><p>${item.slot === 'outfit' ? t('Compatible con todas las clases', 'Fits every class') : t('Un detalle para hacerte único', 'A detail to make you unique')}</p><div class="cosmetic-price">${owned ? (equipped ? t('EQUIPADO', 'EQUIPPED') : t('EN TU COLECCIÓN', 'IN YOUR COLLECTION')) : `${item.cost} G`}</div>
+                return `<article class="cosmetic-card ${equipped ? 'equipped' : ''}" data-cosmetic-id="${item.id}"><div class="cosmetic-art">${CharacterArt.render({ ...GameState.avatar, appearance })}<span class="cosmetic-kind">${kind}</span></div>
+                    <div class="cosmetic-info"><h3>${this.escape(name)}</h3><p>${this.escape(description)}</p><div class="cosmetic-price">${owned ? (equipped ? t('EQUIPADO', 'EQUIPPED') : t('EN TU COLECCIÓN', 'IN YOUR COLLECTION')) : `${item.cost} G`}</div>
                     <div class="cosmetic-buttons"><button class="btn btn-secondary" onclick="Atelier.tryOn('${item.id}')">${t('PROBAR', 'TRY ON')}</button><button class="btn ${owned ? 'btn-primary' : 'btn-gold'}" onclick="Atelier.${owned ? 'equip' : 'buy'}('${item.id}')" ${this.busy || App.shopBusy || equipped || (!owned && (!available || !canAfford)) ? 'disabled' : ''}>${buttonText}</button></div></div></article>`;
             }).join('')}</div>`;
     },
@@ -87,7 +90,8 @@ const Atelier = {
         App.updateHeader();
     },
     choose(field, value) {
-        if (this.busy || !['body', 'skin', 'hairStyle', 'hairColor', 'outfitColor'].includes(field)) return;
+        if (this.busy || !['body', 'skin', 'hairStyle', 'hairColor', 'outfitColor', 'headwear'].includes(field)) return;
+        if (field === 'headwear' && !['default', 'none'].includes(value)) return;
         this.draft = CharacterArt.normalizeAppearance({ ...this.draft, [field]: value });
         this.savedMessage = this.text('Cambios sin guardar', 'Unsaved changes');
         const focused = document.activeElement?.getAttribute('onclick');
@@ -145,6 +149,7 @@ const Atelier = {
             if (result.ok && this.draft) {
                 this.draft.outfit = GameState.avatar.appearance.outfit;
                 this.draft.accessory = GameState.avatar.appearance.accessory;
+                this.draft.headwear = GameState.avatar.appearance.headwear;
             }
             this.savedMessage = result.message;
             App.showToast(result.message, result.ok ? 'success' : 'error');

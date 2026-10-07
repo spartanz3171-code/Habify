@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+﻿const { test, expect } = require('@playwright/test');
 
 // The full UI runs with a test account and in-memory backend. Never writes to Supabase.
 async function boot(page, migrated = false) {
@@ -77,6 +77,59 @@ test('unlocked cosmetics buy once, equip visibly, and save to account', async ({
     await expect(page.locator('#appearance-status')).toContainText('guardada en tu cuenta');
     await page.locator('.nav-item[data-view="arena"]').click();
     await expect(page.locator('.arena-fighter.player .character-art')).toBeVisible();
+});
+
+test('headwear can be hidden, saved locally, reloaded and restored in the editor', async ({ page }) => {
+    await boot(page);
+    await page.locator('.nav-item[data-view="character"]').click();
+    await expect(page.locator('#character-preview .char-headwear')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Sin casco', exact: true }).click();
+    await expect(page.locator('#character-preview .char-headwear')).toHaveCount(0);
+    expect(await page.evaluate(() => GameState.avatar.appearance.headwear)).toBe('default');
+    await page.getByRole('button', { name: 'GUARDAR APARIENCIA', exact: true }).click();
+    await expect(page.locator('#appearance-status')).toContainText('Guardado en este dispositivo');
+    // boot navigates to a fresh document with the same account and browser storage.
+    await boot(page);
+    await page.locator('.nav-item[data-view="character"]').click();
+    await expect(page.getByRole('button', { name: 'Sin casco', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#character-preview .char-headwear')).toHaveCount(0);
+    expect(await page.evaluate(() => GameState.avatar.avatarClass)).toBe('knight');
+    await page.getByRole('button', { name: 'De clase', exact: true }).click();
+    await expect(page.locator('#character-preview .char-headwear')).toHaveCount(1);
+    await page.getByRole('button', { name: 'GUARDAR APARIENCIA', exact: true }).click();
+    await expect(page.locator('#appearance-status')).toContainText('Guardado en este dispositivo');
+    expect(await page.evaluate(() => GameState.avatar.appearance.headwear)).toBe('default');
+});
+
+test('headwear shop offers three styles and preview, purchase and equip have distinct effects', async ({ page }) => {
+    await boot(page, true);
+    await page.locator('.nav-item[data-view="store"]').click();
+    await page.getByRole('button', { name: 'CASCOS', exact: true }).click();
+    await expect(page.locator('.cosmetic-card')).toHaveCount(3);
+    await expect(page.locator('.store-card')).toHaveCount(0);
+    for (const name of ['Casco de guardián', 'Yelmo alado', 'Capucha arcana']) {
+        await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    }
+    const card = page.locator('[data-cosmetic-id="headwear_guardian"]');
+    await card.getByRole('button', { name: 'PROBAR', exact: true }).click();
+    await expect(page.locator('.fitting-modal .char-headwear')).toHaveAttribute('data-headwear', 'headwear_guardian');
+    expect(await page.evaluate(() => GameState.avatar.appearance.headwear)).toBe('default');
+    expect(await page.evaluate(() => GameState.avatar.gold)).toBe(500);
+    await page.getByRole('button', { name: 'VOLVER', exact: true }).click();
+    await card.getByRole('button', { name: 'COMPRAR', exact: true }).click();
+    await expect(card.getByRole('button', { name: 'EQUIPAR', exact: true })).toBeEnabled();
+    expect(await page.evaluate(() => GameState.avatar.gold)).toBe(390);
+    expect(await page.evaluate(() => GameState.avatar.appearance.headwear)).toBe('default');
+    await page.evaluate(() => Atelier.buy('headwear_guardian'));
+    expect(await page.evaluate(() => GameState.avatar.gold)).toBe(390);
+    await card.getByRole('button', { name: 'EQUIPAR', exact: true }).click();
+    await expect(card.getByRole('button', { name: 'EQUIPADO', exact: true })).toBeDisabled();
+    await page.locator('.nav-item[data-view="character"]').click();
+    await expect(page.locator('#character-preview .char-headwear')).toHaveAttribute('data-headwear', 'headwear_guardian');
+    expect(await page.evaluate(() => Atelier.draft.headwear)).toBe('headwear_guardian');
+    await page.locator('.nav-item[data-view="arena"]').click();
+    await expect(page.locator('.arena-fighter.player .char-headwear')).toHaveAttribute('data-headwear', 'headwear_guardian');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('battle moves, jumps, attacks and releases controls after navigation', async ({ page }, testInfo) => {

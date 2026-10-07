@@ -25,7 +25,7 @@ Las cuentas nuevas deben abrir el enlace enviado por Supabase antes de entrar. L
 - Las vistas de inicio, creación de cuenta y arena usan los mismos personajes articulados. Las armas y escudos equipados se ven en el personaje.
 - Los personajes recuperan detalles de los diseños originales: casco abierto del aventurero, capucha bordada del mago, armadura del caballero y equipo del elfo, con sombras y volumen.
 - Los rostros tienen contornos suaves, mirada centrada, cuello integrado en la ropa y rasgos propios para mujer y hombre. Cada peinado tiene su nacimiento y volumen: corto de lado, largo con mechones, coleta y dos trenzas. Los cascos y capuchas dejan visible el rostro y parte del cabello; la coleta del mago sale por debajo de la capucha.
-- **Tienda** y **Guardarropa** incluyen tres atuendos y tres accesorios; se pueden probar, comprar y equipar desde ambas secciones. Las prendas son cosméticas.
+- **Tienda** y **Guardarropa** incluyen tres atuendos, tres cascos y tres accesorios; se pueden probar, comprar y equipar desde ambas secciones. En **Personaje → Casco** puedes recuperar el casco de tu clase o elegir **Sin casco** gratis. Las prendas son cosméticas.
 - El T-Rex, dragón, gato mago y fénix tienen arte articulado propio. La mascota equipada acompaña al personaje en el inicio y el editor.
 - El editor permite probar reposo, carrera, golpe, salto, magia y defensa, y mirar hacia ambos lados. La mascota sigue la acción y la orientación; estos controles no alteran la apariencia guardada ni gastan recursos.
 - Los personajes parpadean y mueven cabello y accesorios. Las mascotas tienen pasos, aleteos y gestos propios; el sombrero del gato se mueve con su cabeza. Todas las animaciones respetan la preferencia de movimiento reducido del dispositivo.
@@ -38,6 +38,8 @@ Las cuentas nuevas deben abrir el enlace enviado por Supabase antes de entrar. L
 1. Abre el editor SQL de **tu proyecto Supabase**.
 2. Ejecuta el contenido completo de [`supabase_customization.sql`](supabase_customization.sql). Es una migración adicional sobre la base existente; puede ejecutarse nuevamente sin duplicar artículos.
 3. Recarga Habify e inicia sesión. Abre **Personaje**, guarda tu apariencia para sincronizar cualquier cambio local y comprueba que las prendas ya muestran **Comprar**.
+
+Si ya instalaste el guardarropa anteriormente, ejecuta [`supabase_headwear.sql`](supabase_headwear.sql) para añadir los cascos. Los detalles están en la [guía de cascos](docs/helmet-customization.md).
 
 La migración agrega `avatars.appearance`, un catálogo, un inventario de cosméticos y funciones de compra/guardado. La compra comprueba la cuenta, el precio y el saldo en el servidor; cobra y entrega la prenda en una sola transacción. Repetir una compra no vuelve a cobrar. Las reglas existentes para ganar oro y guardar hábitos siguen siendo las del proyecto.
 

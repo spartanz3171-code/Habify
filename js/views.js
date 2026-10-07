@@ -463,11 +463,12 @@ const Views = {
                 <div class="stat-value gold" style="font-size:14px;">${GameState.avatar.gold} G</div>
             </div>
 
-            <button class="wardrobe-banner" onclick="App.navigate('character')"><span class="wardrobe-banner-art">${CharacterArt.render({ ...GameState.avatar, appearance: { ...GameState.avatar.appearance, accessory: 'acc_cape' } })}</span><span><span class="eyebrow">${I18N.current === 'en' ? 'NEW · WARDROBE' : 'NUEVO · GUARDARROPA'}</span><strong>${I18N.current === 'en' ? 'Make your hero your own' : 'Tu personaje, a tu manera'}</strong><span>${I18N.current === 'en' ? 'Outfits, accessories and your own style' : 'Atuendos, accesorios y un estilo propio'}</span></span><span class="banner-arrow">↗</span></button>
+            <button class="wardrobe-banner" onclick="App.navigate('character')"><span class="wardrobe-banner-art">${CharacterArt.render({ ...GameState.avatar, appearance: { ...GameState.avatar.appearance, accessory: 'acc_cape' } })}</span><span><span class="eyebrow">${I18N.current === 'en' ? 'NEW · WARDROBE' : 'NUEVO · GUARDARROPA'}</span><strong>${I18N.current === 'en' ? 'Make your hero your own' : 'Tu personaje, a tu manera'}</strong><span>${I18N.current === 'en' ? 'Outfits, headwear and accessories' : 'Atuendos, cascos y accesorios'}</span></span><span class="banner-arrow">↗</span></button>
 
             <div class="store-filter-tabs">
                 <button class="store-filter-tab ${filter === 'all' ? 'active' : ''}" onclick="App.filterStore('all')" data-i18n="store.all">${I18N.t('store.all')}</button>
                 <button class="store-filter-tab ${filter === 'outfit' ? 'active' : ''}" onclick="App.filterStore('outfit')">${t('ATUENDOS', 'OUTFITS')}</button>
+                <button class="store-filter-tab ${filter === 'headwear' ? 'active' : ''}" onclick="App.filterStore('headwear')">${t('CASCOS', 'HEADWEAR')}</button>
                 <button class="store-filter-tab ${filter === 'accessory' ? 'active' : ''}" onclick="App.filterStore('accessory')">${t('ACCESORIOS', 'ACCESSORIES')}</button>
                 <button class="store-filter-tab ${filter === 'weapon' ? 'active' : ''}" onclick="App.filterStore('weapon')" data-i18n="store.weapons">${I18N.t('store.weapons')}</button>
                 <button class="store-filter-tab ${filter === 'spell' ? 'active' : ''}" onclick="App.filterStore('spell')" data-i18n="store.spells">${I18N.t('store.spells')}</button>
@@ -477,9 +478,10 @@ const Views = {
 
         `;
 
-        if (['all', 'outfit', 'accessory'].includes(filter)) {
+        if (['all', 'outfit', 'accessory', 'headwear'].includes(filter)) {
             const cosmetics = Wardrobe.listCosmetics().filter(item => filter === 'all' || item.slot === filter);
-            html += `<section class="store-wardrobe"><div class="section-header"><h3 class="section-title">${filter === 'accessory' ? t('ACCESORIOS', 'ACCESSORIES') : t('ATUENDOS Y ACCESORIOS', 'OUTFITS & ACCESSORIES')}</h3><span class="collection-label">${t('PARA TODAS LAS CLASES', 'FOR EVERY CLASS')}</span></div>${Atelier.renderCosmeticCards(cosmetics)}</section>`;
+            const title = filter === 'headwear' ? t('CASCOS', 'HEADWEAR') : filter === 'accessory' ? t('ACCESORIOS', 'ACCESSORIES') : filter === 'outfit' ? t('ATUENDOS', 'OUTFITS') : t('ATUENDOS, CASCOS Y ACCESORIOS', 'OUTFITS, HEADWEAR & ACCESSORIES');
+            html += `<section class="store-wardrobe"><div class="section-header"><h3 class="section-title">${title}</h3><span class="collection-label">${t('PARA TODAS LAS CLASES', 'FOR EVERY CLASS')}</span></div>${Atelier.renderCosmeticCards(cosmetics)}</section>`;
         }
 
         const filtered = filter === 'all'

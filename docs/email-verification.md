@@ -9,11 +9,13 @@ Al entrar, la app consulta `auth.getUser()` y exige `email_confirmed_at`. Los da
 Estos ajustes se guardan en Supabase, no en GitHub ni en las variables de Vercel:
 
 1. En **Authentication → Sign In / Providers → Email**, activa **Confirm email**. Esto establece `mailer_autoconfirm = false`.
-2. En [URL Configuration del proyecto](https://supabase.com/dashboard/project/uinzcfqqfuilshihxbjh/auth/url-configuration), usa `https://habify-ten.vercel.app/` como **Site URL** y añádela a **Redirect URLs**. Para desarrollo añade `http://127.0.0.1:4173/` y `http://localhost:4173/`. Conserva los demás destinos válidos que ya use tu aplicación.
+2. En [URL Configuration del proyecto](https://supabase.com/dashboard/project/uinzcfqqfuilshihxbjh/auth/url-configuration), reemplaza **Site URL** por `https://habify-ten.vercel.app/` y guarda. En **Redirect URLs → Add URL**, añade esa misma dirección. Conserva los demás destinos válidos que ya use tu aplicación. Habify también solicita regresar a la web publicada cuando el registro se inicia desde localhost, para poder abrir el correo en otro dispositivo.
 3. Configura **Authentication → Email → SMTP Settings** con tu proveedor de correo y un remitente autorizado. El servicio SMTP predeterminado de Supabase sólo envía a direcciones del equipo del proyecto, con un límite reducido; para alumnos y profesores con otros correos hace falta SMTP propio. Introduce las credenciales directamente en Supabase; no las guardes en JavaScript ni en Git.
 4. En **Email Templates → Confirm signup**, puedes usar [la plantilla incluida](../supabase/templates/confirm-signup.html). Asunto sugerido: `Confirma tu correo en Habify`. Conserva `{{ .ConfirmationURL }}`: es el enlace firmado y temporal que realiza la verificación.
 
 Activar la confirmación no cambia retroactivamente las cuentas que Supabase ya había confirmado automáticamente. Para la demostración usa un correo nuevo al que tengas acceso. No se han eliminado cuentas antiguas.
+
+Después de cambiar las URLs, abre la web publicada y pide **Reenviar verificación**. Usa el correo nuevo: un enlace enviado antes del cambio puede contener el destino anterior. Si ya confirmaste la cuenta al abrir un enlace que terminó en localhost, vuelve a la web publicada e inicia sesión con tu correo y contraseña.
 
 ## Comprobar antes de la demostración
 

@@ -6,6 +6,9 @@ const Wardrobe = (() => {
         { id: 'outfit_ranger', slot: 'outfit', type: 'outfit', cost: 80, icon: '🏹', name: 'Traje de exploración', nameEn: 'Ranger outfit', description: 'Cuero, hombreras y botas para nuevas aventuras.', descriptionEn: 'Leather, shoulder guards and boots for new adventures.' },
         { id: 'outfit_knight', slot: 'outfit', type: 'outfit', cost: 140, icon: '🛡️', name: 'Armadura de guardián', nameEn: 'Guardian armor', description: 'Placas metálicas con detalles de tu color favorito.', descriptionEn: 'Metal plates with accents in your favorite color.' },
         { id: 'outfit_arcane', slot: 'outfit', type: 'outfit', cost: 160, icon: '🔮', name: 'Vestimenta arcana', nameEn: 'Arcane robes', description: 'Una túnica con bordados y detalles mágicos.', descriptionEn: 'Robes with embroidery and magical details.' },
+        { id: 'headwear_guardian', slot: 'headwear', type: 'headwear', cost: 110, icon: '🪖', name: 'Casco de guardián', nameEn: 'Guardian helmet', description: 'Acero firme para acompañarte en cada aventura.', descriptionEn: 'Sturdy steel for every adventure.' },
+        { id: 'headwear_winged', slot: 'headwear', type: 'headwear', cost: 150, icon: '🪽', name: 'Yelmo alado', nameEn: 'Winged helm', description: 'Un yelmo con alas y detalles dorados.', descriptionEn: 'A winged helm with golden accents.' },
+        { id: 'headwear_arcane', slot: 'headwear', type: 'headwear', cost: 130, icon: '🔮', name: 'Capucha arcana', nameEn: 'Arcane hood', description: 'Una capucha de tela con un toque de magia.', descriptionEn: 'A cloth hood with a touch of magic.' },
         { id: 'acc_scarf', slot: 'accessory', type: 'accessory', cost: 35, icon: '🧣', name: 'Pañuelo aventurero', nameEn: 'Adventurer scarf', description: 'Un toque de color para acompañar tus movimientos.', descriptionEn: 'A splash of color to follow every move.' },
         { id: 'acc_circlet', slot: 'accessory', type: 'accessory', cost: 65, icon: '👑', name: 'Diadema estelar', nameEn: 'Star circlet', description: 'Metal dorado y una gema luminosa.', descriptionEn: 'Golden metal and a glowing gem.' },
         { id: 'acc_cape', slot: 'accessory', type: 'accessory', cost: 90, icon: '🦸', name: 'Capa del viajero', nameEn: 'Traveler cape', description: 'Una capa que sigue tus pasos y saltos.', descriptionEn: 'A cape that follows your steps and jumps.' }
@@ -89,6 +92,7 @@ const Wardrobe = (() => {
         const registered = normalize(GameState.user.user_metadata?.appearance);
         registered.outfit = 'default';
         registered.accessory = 'none';
+        if (!['default', 'none'].includes(registered.headwear)) registered.headwear = 'default';
         const useLocal = local && (local.pending || !cloud);
         GameState.avatar.appearance = normalize(useLocal ? local.appearance : cloud || registered);
         GameState.appearanceSaveStatus = useLocal ? 'local' : cloud ? 'cloud' : null;
@@ -112,7 +116,7 @@ const Wardrobe = (() => {
     async function persistAppearance(draft, ctx) {
         if (!current(ctx) || !ctx.avatarId) return sessionError();
         const appearance = normalize(draft);
-        for (const slot of ['outfit', 'accessory']) {
+        for (const slot of ['outfit', 'accessory', 'headwear']) {
             const itemId = appearance[slot];
             if (itemId !== 'default' && itemId !== 'none' && !owns(itemId)) {
                 return result(false, 'error', say('Primero desbloquea esa prenda en el guardarropa.', 'Unlock that item in the wardrobe first.'), 'not_owned');
@@ -127,7 +131,29 @@ const Wardrobe = (() => {
         }
         if (!current(ctx)) return sessionError();
         if (!response.error && response.data?.status === 'saved') {
-            GameState.avatar.appearance = normalize(response.data.appearance || appearance);
+            const cloudAppearance = response.data.appearance;
+            if (!cloudAppearance || typeof cloudAppearance !== 'object' || Array.isArray(cloudAppearance)) {
+                return result(false, 'error', say('Tu cuenta no confirmó la apariencia. Vuelve a intentarlo.', 'Your account did not confirm the appearance. Please try again.'), 'invalid_response');
+            }
+            const savedAppearance = normalize(cloudAppearance);
+            const hasHeadwear = Object.prototype.hasOwnProperty.call(cloudAppearance, 'headwear');
+            if (!hasHeadwear || cloudAppearance.headwear !== appearance.headwear) {
+                // Older validators discard unknown fields. Keep a free helmet
+                // choice pending locally, while retaining all cloud-validated fields.
+                if (!hasHeadwear && ['default', 'none'].includes(appearance.headwear)) {
+                    const pendingAppearance = { ...savedAppearance, headwear: appearance.headwear };
+                    if (!writeLocal(ctx.userId, pendingAppearance, true)) {
+                        return result(false, 'error', say('No se pudo conservar el casco. Revisa el almacenamiento del navegador.', 'Could not keep your headwear choice. Check your browser storage.'), 'storage_unavailable');
+                    }
+                    GameState.avatar.appearance = pendingAppearance;
+                    GameState.appearanceSaveStatus = 'local';
+                    return result(true, 'local', say('Apariencia guardada. El casco se conserva en este dispositivo; su sincronización con tu cuenta está pendiente.', 'Appearance saved. Your headwear choice is kept on this device; account syncing is pending.'), 'headwear_sync_pending');
+                }
+                // A paid helmet needs explicit confirmation; never turn a
+                // different or missing server value into a successful equip.
+                return result(false, 'error', say('Tu cuenta no confirmó el casco. No se equipó; vuelve a intentarlo más tarde.', 'Your account did not confirm the headwear. It was not equipped; try again later.'), 'headwear_not_saved');
+            }
+            GameState.avatar.appearance = savedAppearance;
             GameState.appearanceSaveStatus = 'cloud';
             writeLocal(ctx.userId, GameState.avatar.appearance, false);
             return result(true, 'cloud', say('Apariencia guardada en tu cuenta.', 'Appearance saved to your account.'));
@@ -204,7 +230,7 @@ const Wardrobe = (() => {
     }
 
     function unequip(slot) {
-        if (!['outfit', 'accessory'].includes(slot)) return Promise.resolve(result(false, 'error', say('Prenda desconocida.', 'Unknown item.'), 'invalid_slot'));
+        if (!['outfit', 'accessory', 'headwear'].includes(slot)) return Promise.resolve(result(false, 'error', say('Prenda desconocida.', 'Unknown item.'), 'invalid_slot'));
         return saveAppearance({ ...normalize(GameState.avatar.appearance), [slot]: slot === 'outfit' ? 'default' : 'none' });
     }
 

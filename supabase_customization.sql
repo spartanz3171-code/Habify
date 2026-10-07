@@ -14,11 +14,18 @@ ALTER TABLE public.avatars
 
 CREATE TABLE IF NOT EXISTS public.avatar_cosmetic_catalog (
     id text PRIMARY KEY,
-    slot text NOT NULL CHECK (slot IN ('outfit', 'accessory')),
+    slot text NOT NULL CHECK (slot IN ('outfit', 'accessory', 'headwear')),
     name text NOT NULL,
     cost integer NOT NULL CHECK (cost >= 0),
     enabled boolean NOT NULL DEFAULT true
 );
+
+-- CREATE TABLE IF NOT EXISTS does not update constraints on an older install.
+ALTER TABLE public.avatar_cosmetic_catalog
+    DROP CONSTRAINT IF EXISTS avatar_cosmetic_catalog_slot_check;
+ALTER TABLE public.avatar_cosmetic_catalog
+    ADD CONSTRAINT avatar_cosmetic_catalog_slot_check
+    CHECK (slot IN ('outfit', 'accessory', 'headwear'));
 
 CREATE TABLE IF NOT EXISTS public.avatar_cosmetics (
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -33,7 +40,10 @@ INSERT INTO public.avatar_cosmetic_catalog (id, slot, name, cost) VALUES
     ('outfit_arcane', 'outfit', 'Vestimenta arcana', 160),
     ('acc_scarf', 'accessory', 'Pañuelo aventurero', 35),
     ('acc_circlet', 'accessory', 'Diadema estelar', 65),
-    ('acc_cape', 'accessory', 'Capa del viajero', 90)
+    ('acc_cape', 'accessory', 'Capa del viajero', 90),
+    ('headwear_guardian', 'headwear', 'Casco de guardián', 110),
+    ('headwear_winged', 'headwear', 'Yelmo alado', 150),
+    ('headwear_arcane', 'headwear', 'Capucha arcana', 130)
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE public.avatar_cosmetic_catalog ENABLE ROW LEVEL SECURITY;
@@ -109,9 +119,16 @@ DECLARE
     v_value jsonb := coalesce(NEW.appearance, '{}'::jsonb);
     v_outfit text;
     v_accessory text;
+    v_headwear text;
 BEGIN
     IF jsonb_typeof(v_value) <> 'object' THEN
         RAISE EXCEPTION 'Appearance must be an object' USING ERRCODE = '22023';
+    END IF;
+    -- Older clients do not know this field. Their saves must not remove an
+    -- equipped helmet or undo the player's explicit choice to wear none.
+    IF TG_OP = 'UPDATE' AND NOT (v_value ? 'headwear')
+       AND OLD.appearance ? 'headwear' THEN
+        v_value := v_value || jsonb_build_object('headwear', OLD.appearance->'headwear');
     END IF;
     -- Keep the empty initial value so first-login preferences from signup
     -- metadata can be restored by the client, including confirmation by email.
@@ -121,14 +138,18 @@ BEGIN
     END IF;
     v_outfit := coalesce(v_value->>'outfit', 'default');
     v_accessory := coalesce(v_value->>'accessory', 'none');
+    v_headwear := coalesce(v_value->>'headwear', 'default');
     IF v_outfit NOT IN ('default', 'outfit_ranger', 'outfit_knight', 'outfit_arcane')
-       OR v_accessory NOT IN ('none', 'acc_scarf', 'acc_circlet', 'acc_cape') THEN
+       OR v_accessory NOT IN ('none', 'acc_scarf', 'acc_circlet', 'acc_cape')
+       OR v_headwear NOT IN ('default', 'none', 'headwear_guardian', 'headwear_winged', 'headwear_arcane') THEN
         RAISE EXCEPTION 'Invalid cosmetic item' USING ERRCODE = '22023';
     END IF;
     IF (v_outfit <> 'default' AND NOT EXISTS (
             SELECT 1 FROM public.avatar_cosmetics WHERE user_id = NEW.user_id AND item_id = v_outfit))
        OR (v_accessory <> 'none' AND NOT EXISTS (
-            SELECT 1 FROM public.avatar_cosmetics WHERE user_id = NEW.user_id AND item_id = v_accessory)) THEN
+            SELECT 1 FROM public.avatar_cosmetics WHERE user_id = NEW.user_id AND item_id = v_accessory))
+       OR (v_headwear NOT IN ('default', 'none') AND NOT EXISTS (
+            SELECT 1 FROM public.avatar_cosmetics WHERE user_id = NEW.user_id AND item_id = v_headwear)) THEN
         RAISE EXCEPTION 'Cosmetic item is not owned' USING ERRCODE = '42501';
     END IF;
 
@@ -141,7 +162,8 @@ BEGIN
         'hairColor', CASE WHEN v_value->>'hairColor' ~ '^#[0-9a-fA-F]{6}$' THEN lower(v_value->>'hairColor') ELSE '#44302e' END,
         'outfitColor', CASE WHEN v_value->>'outfitColor' ~ '^#[0-9a-fA-F]{6}$' THEN lower(v_value->>'outfitColor') ELSE '#8256c6' END,
         'outfit', v_outfit,
-        'accessory', v_accessory
+        'accessory', v_accessory,
+        'headwear', v_headwear
     );
     RETURN NEW;
 END;

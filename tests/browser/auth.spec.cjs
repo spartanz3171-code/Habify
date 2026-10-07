@@ -97,7 +97,7 @@ test('registration sends confirmation and keeps the chosen character without aut
     expect(signup.args).toMatchObject({
         email: 'student@example.edu',
         options: {
-            emailRedirectTo: new URL('/', page.url()).href,
+            emailRedirectTo: 'https://habify-ten.vercel.app/',
             data: { avatar_name: 'Aria', avatar_class: 'knight', appearance: { body: 'female', hairStyle: 'ponytail' }, habify_profile_pending: true }
         }
     });
@@ -155,7 +155,7 @@ test('unconfirmed login offers resend and blocks duplicate sends during the cool
     expect(calls).toHaveLength(1);
     expect(calls[0].args).toEqual({
         type: 'signup', email: 'student@example.edu',
-        options: { emailRedirectTo: new URL('/', page.url()).href }
+        options: { emailRedirectTo: 'https://habify-ten.vercel.app/' }
     });
     expect(await page.evaluate(() => authCalls.some(call => call.method === 'loadUserData'))).toBe(false);
 });
@@ -282,4 +282,31 @@ test('changing language preserves the verification screen and the pending email'
     await expect(page.locator('#bottom-nav')).toBeHidden();
     expect(await page.evaluate(() => GameState.currentView)).toBe('auth');
     expect(await page.evaluate(() => authCalls.some(call => call.method === 'loadUserData'))).toBe(false);
+});
+
+test('confirmation destinations work across devices and preserve hosted subdirectories without callback tokens', async ({ page }) => {
+    await bootAuth(page);
+    const destinations = await page.evaluate(() => {
+        // Evaluate the production method with a scoped Location stand-in;
+        // no navigation, email, or request is sent to these example origins.
+        const redirectFrom = new Function('location', `return ({${App.confirmationRedirect.toString()}}).confirmationRedirect();`);
+        return [
+            'http://localhost:4173/?code=test-code',
+            'http://127.0.0.1:4173/tools/index.html#access_token=test-token',
+            'http://[::1]:4173/',
+            'file:///C:/Habify/index.html',
+            'https://habify-ten.vercel.app/?code=test-code#access_token=test-token',
+            'https://school.example/habify/index.html?code=test-code#access_token=test-token',
+            'https://school.example/habify/?code=test-code'
+        ].map(href => redirectFrom({ href }));
+    });
+    expect(destinations).toEqual([
+        'https://habify-ten.vercel.app/',
+        'https://habify-ten.vercel.app/',
+        'https://habify-ten.vercel.app/',
+        'https://habify-ten.vercel.app/',
+        'https://habify-ten.vercel.app/',
+        'https://school.example/habify/',
+        'https://school.example/habify/'
+    ]);
 });

@@ -204,8 +204,14 @@ const App = {
     authText(es, en) { return I18N.current === 'en' ? en : es; },
 
     confirmationRedirect() {
-        // Works at the Vercel root and under a subdirectory. No token or query is forwarded.
-        return new URL('./', location.href).href;
+        // A confirmation opened on another device cannot reach this computer's local server.
+        const current = new URL(location.href);
+        if (!['http:', 'https:'].includes(current.protocol) ||
+            ['localhost', '127.0.0.1', '[::1]'].includes(current.hostname)) {
+            return 'https://habify-ten.vercel.app/';
+        }
+        // Preserve hosted subdirectories without forwarding a token or query.
+        return new URL('./', current).href;
     },
 
     async requireEmailConfirmation() {

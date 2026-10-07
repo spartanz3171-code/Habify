@@ -15,7 +15,7 @@
     });
     const DEFAULT_APPEARANCE = Object.freeze({
         body: 'male', skin: '#efbd91', hairStyle: 'short', hairColor: '#44302e',
-        outfitColor: '#8256c6', outfit: 'default', accessory: 'none'
+        outfitColor: '#8256c6', outfit: 'default', accessory: 'none', headwear: 'default'
     });
 
     function normalizeAppearance(value) {
@@ -27,7 +27,8 @@
             hairStyle: pick('hairStyle', ['short', 'long', 'ponytail', 'braids']),
             hairColor: color('hairColor'), outfitColor: color('outfitColor'),
             outfit: pick('outfit', ['default', 'outfit_ranger', 'outfit_knight', 'outfit_arcane']),
-            accessory: pick('accessory', ['none', 'acc_scarf', 'acc_circlet', 'acc_cape'])
+            accessory: pick('accessory', ['none', 'acc_scarf', 'acc_circlet', 'acc_cape']),
+            headwear: pick('headwear', ['default', 'none', 'headwear_guardian', 'headwear_winged', 'headwear_arcane'])
         };
     }
 
@@ -239,7 +240,7 @@
         if (a.hairStyle === 'short') return '';
         if (a.hairStyle === 'ponytail') {
             // A hooded character ties the ponytail at the nape, beneath the hood.
-            if (role === 'mage') return hairLayer('char-hair-tail char-hair-tail-low',
+            if ((a.headwear === 'default' && role === 'mage') || a.headwear === 'headwear_arcane') return hairLayer('char-hair-tail char-hair-tail-low',
                 path('M38 34Q28 32 28 42Q30 53 25 59Q34 58 35 51Q33 42 39 39Z', c.hairDark) +
                 path('M36 36Q29 37 30 44Q32 52 28 57Q33 54 32 48Q31 40 37 38Z', c.hair) +
                 path('M34 38Q30 40 32 47Q33 52 30 55', 'none', `stroke="${c.hairLight}" stroke-width="1.2" stroke-linecap="round"`));
@@ -395,9 +396,8 @@
         return `<g class="char-face char-face-${a.body}" shape-rendering="geometricPrecision">${art}</g>`;
     }
 
-    function head(c, role, a) {
-        const feminine = a.body === 'female';
-        let content = face(c, role, a) + crownHair(c, a);
+    function classHeadwear(c, role) {
+        let content = '';
         if (role === 'mage') {
             // A deep hood, open around the face so skin and hairstyle remain visible.
             content += poly('29,39 31,26 36,15 46,4 53,3 61,11 68,24 71,40 65,47 59,46 57,43 63,39 65,31 63,22 59,17 53,14 46,15 40,21 37,30 38,37 43,43 40,47 33,44', INK) +
@@ -408,22 +408,17 @@
                 poly('36,28 39,21 46,14 51,13 46,15 40,22 37,29', LIGHT) +
                 poly('47,9 50,7 52,7 49,10 48,13 46,14', GOLD) +
                 rect(34, 34, 1, 3, c.clothLight) + rect(66, 34, 1, 2, c.goldDark);
-            if (!feminine) content += hairLayer('char-beard',
-                path('M43.5 33Q45.5 36 49 38Q53 40 56 38.5Q59 37 61 34.5Q60.4 40 57 43L54 45.5L52 44.5L50 45Q45 41 44 36Z', c.hairDark) +
-                path('M46 37Q49 40 53 40Q57 40.5 59 37.5Q58 41.5 54 44L51.5 43.4L48 40.5Z', c.hair) +
-                path('M51.5 34.9Q53.1 34.2 54.3 34.7Q55.7 34.1 57.4 34.7L58 35.7L55.2 35.2L54.3 35.5L53.3 35.2L51 35.7Z', c.hair) +
-                path('M48 39Q49.5 41 51 41.9M52.5 40.8L53.3 43.4M55.4 41.1L56.5 40', 'none', `stroke="${c.hairLight}" stroke-width=".7" stroke-linecap="round"`));
         }
         if (role === 'hero') content += `<g class="char-headgear" transform="translate(0 -2)">${
             poly('35,23 36,16 41,10 55,9 62,13 65,21 61,24 58,20 44,21 41,25 40,32 36,31', INK) +
             poly('38,22 39,17 43,13 54,12 60,15 62,20 58,18 43,19 39,24 39,29 37,28', '#4e5b70') +
             poly('40,17 44,13 51,13 53,15 52,17 44,18', '#8f9cac') +
             poly('43,14 47,13 49,13 49,15 44,16', '#cdd7d9') +
-            rect(40, 20, 21, 2, '#b3a06f') + rect(44, 19, 10, 1, LIGHT) +
-            rect(45, 14, 2, 6, '#c3b288') + rect(54, 14, 2, 6, '#4a4e5c') +
-            poly('44,12 45,6 49,2 54,2 59,7 60,12 56,15 53,9 50,7 48,12', INK) +
-            poly('46,11 47,7 50,4 53,4 57,8 58,11 56,12 53,7 50,6 48,9 48,11', GOLD) +
-            rect(49, 5, 3, 1, LIGHT) + rect(49, 10, 5, 2, c.steelLight) + rect(37, 24, 2, 4, '#7e8998') +
+            poly('39,20 44,19 56,19 62,21 60,22 55,21 44,21 39,22', c.goldDark) +
+            poly('40,20 45,19 55,19 60,20 55,20 45,20 40,21', GOLD) +
+            poly('48,11 51,10 54,12 54,18 51,19 49,18', c.steelDark) +
+            poly('49,12 51,11 52,12 52,18 50,18', c.steelLight) +
+            rect(50, 12, 1, 5, c.steelHigh) + rect(37, 24, 2, 4, '#7e8998') +
             rect(41, 17, 3, 1, c.steelHigh) + rect(56, 17, 3, 1, c.steelDark) +
             rect(42, 21, 1, 2, c.goldDark) + rect(58, 21, 1, 2, c.goldDark)}</g>`;
         if (role === 'knight') content += `<g class="char-headgear" transform="translate(0 -2)">${
@@ -450,7 +445,55 @@
             poly('36,22 32,16 32,10 37,13 40,19 39,23', '#364d44') +
             poly('36,21 34,16 34,13 37,16 38,21', '#9bad76') +
             rect(35, 16, 1, 4, '#d0d39b');
-        if (a.accessory === 'acc_circlet') content +=
+        return content;
+    }
+
+    function purchasedHeadwear(c, style) {
+        // An open hood leaves the hairline and facial features uncovered.
+        if (style === 'headwear_arcane') return poly('31,39 32,25 38,14 49,4 55,7 63,16 68,29 68,40 62,46 59,42 63,37 63,26 58,19 52,15 44,18 39,26 38,37 42,43 37,46', INK) +
+            poly('34,37 35,25 40,16 49,7 54,10 61,18 65,29 65,39 62,42 64,35 62,25 58,18 52,13 44,16 38,25 36,36 39,42 37,42', '#514476') +
+            poly('36,29 39,20 45,13 49,9 48,14 42,20 39,29 38,36 36,38', '#83719e') +
+            poly('54,10 60,18 64,29 64,35 61,27 57,20 52,15', '#3a325a') +
+            path('M38 39L37 35L39 25L44 18L52 14L58 19L63 27L64 36L61 42', 'none', 'stroke="#c3a26b" stroke-width="1.2" stroke-linejoin="round"') +
+            poly('49,10 52,12 51,16 48,14', c.goldDark) +
+            poly('49,11 51,12 50,14 49,13', '#9ce1d9') + rect(49, 11, 1, 1, '#e5fff0');
+        const winged = style === 'headwear_winged';
+        const metal = winged ? '#b5ad94' : c.steel;
+        const light = winged ? '#f0e2b5' : c.steelLight;
+        const dark = winged ? '#726d62' : c.steelDark;
+        let art = poly('34,27 35,17 40,10 49,7 57,9 63,15 66,23 63,27 61,23 44,22 42,29 40,35 35,33', INK) +
+            poly('37,25 38,17 43,12 49,10 56,12 60,17 62,21 57,19 44,19 40,24 39,31 37,31', dark) +
+            poly('40,17 44,12 49,10 52,12 50,18 43,19 39,22', metal) +
+            poly('42,16 45,12 48,11 47,16 42,18', light) +
+            poly('53,12 57,13 60,18 57,17 53,18', metal) +
+            poly('49,10 51,9 54,12 53,19 51,21 49,19', dark) +
+            poly('50,11 51,10 52,12 51,19 50,18', light) +
+            poly('39,21 44,19 56,19 63,22 62,24 56,21 45,21 40,23', winged ? GOLD : c.steelDeep) +
+            poly('40,21 45,20 55,20 60,22 55,21 45,21 40,22', winged ? LIGHT : c.steelLight) +
+            poly('36,25 40,23 40,28 38,33 36,31', metal) + rect(37, 26, 1, 4, light) +
+            ellipse(39, 23, .7, .7, winged ? GOLD : c.steelHigh);
+        if (winged) art +=
+            poly('38,23 33,23 28,18 26,10 30,11 29,5 33,7 39,15 40,21', INK) +
+            poly('37,21 33,21 30,17 29,13 32,15 31,9 34,12 38,17', light) +
+            poly('33,20 31,17 33,18 35,18 33,13 37,18 38,21', '#b8a875') +
+            poly('60,17 63,10 68,6 68,12 71,10 70,18 66,22 63,22', INK) +
+            poly('63,17 65,12 66,10 66,16 68,14 68,18 65,20 63,20', light) +
+            poly('50,17 53,20 51,24 48,21', c.goldDark) +
+            poly('50,18 52,20 51,22 49,21', '#6baaaa') + rect(50, 19, 1, 1, '#d7ffeb');
+        return art;
+    }
+
+    function head(c, role, a) {
+        let content = face(c, role, a) + crownHair(c, a);
+        if (a.headwear !== 'none') content += `<g class="char-headwear" data-headwear="${a.headwear}">${
+            a.headwear === 'default' ? classHeadwear(c, role) : purchasedHeadwear(c, a.headwear)}</g>`;
+        if (role === 'mage' && a.body === 'male') content += hairLayer('char-beard',
+            path('M43.5 33Q45.5 36 49 38Q53 40 56 38.5Q59 37 61 34.5Q60.4 40 57 43L54 45.5L52 44.5L50 45Q45 41 44 36Z', c.hairDark) +
+            path('M46 37Q49 40 53 40Q57 40.5 59 37.5Q58 41.5 54 44L51.5 43.4L48 40.5Z', c.hair) +
+            path('M51.5 34.9Q53.1 34.2 54.3 34.7Q55.7 34.1 57.4 34.7L58 35.7L55.2 35.2L54.3 35.5L53.3 35.2L51 35.7Z', c.hair) +
+            path('M48 39Q49.5 41 51 41.9M52.5 40.8L53.3 43.4M55.4 41.1L56.5 40', 'none', `stroke="${c.hairLight}" stroke-width=".7" stroke-linecap="round"`));
+        // Circlets stay in inventory while a helmet covers them; no doubled brow bands.
+        if (a.accessory === 'acc_circlet' && a.headwear === 'none') content +=
             poly('41,22 48,22 53,23 58,21 62,21 62,23 58,23 53,25 48,24 41,24', c.goldDark) +
             poly('41,22 48,22 53,23 58,21 62,21 62,22 58,22 53,24 48,23 41,23', GOLD) +
             poly('53,21 55,23 53,26 51,23', GOLD) + rect(52.5, 22, 1, 2, '#abf4db');
