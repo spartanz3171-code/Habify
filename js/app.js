@@ -5,10 +5,17 @@
 
 const App = {
     shopBusy: false,
+    authBusy: false,
+    pendingVerificationEmail: '',
+    verificationResendAt: 0,
+    authSessionVersion: 0,
 
     async init() {
         I18N.updateStaticUI();
         document.getElementById('lang-switch').value = I18N.current;
+        const callback = new URLSearchParams(location.hash.slice(1));
+        const query = new URLSearchParams(location.search);
+        const callbackError = callback.get('error_code') || query.get('error_code') || callback.get('error') || query.get('error');
         try {
             await initSupabase();
         } catch (e) {
@@ -17,31 +24,39 @@ const App = {
             return;
         }
 
-        // Check existing session
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session) {
-            GameState.user = session.user;
-            await this.loadUserData();
-        } else {
-            this.showAuth('login');
-        }
-
-        // Listen for auth changes
-        supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session) {
-                // Prevent redundant DB reloading when switching tabs/refreshing tokens
-                if (!GameState.user || GameState.user.id !== session.user.id) {
-                    this.clearAccountView();
-                    GameState.user = session.user;
-                    await this.loadUserData();
-                }
-            } else if (event === 'SIGNED_OUT') {
+        this._authSubscription?.unsubscribe();
+        // SDK callbacks run under an auth lock. Schedule network work after they return.
+        const subscription = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                this.authSessionVersion++;
                 this.clearAccountView();
                 GameState.user = null;
-                this.showAuth('login');
+                if (!this.authBusy) this.showAuth('login');
+            } else if (event === 'SIGNED_IN' && session && !this.authBusy) {
+                const version = this.authSessionVersion;
+                setTimeout(() => { if (version === this.authSessionVersion) this.acceptAuthSession(session); }, 0);
             }
         });
+        this._authSubscription = subscription?.data?.subscription;
+
+        if (callbackError) {
+            // Never keep callback tokens/errors in links, screenshots or browser history.
+            history.replaceState(null, '', location.pathname);
+            this.showAuth('login');
+            this.showAuthError({ code: callbackError === 'otp_expired' ? 'otp_expired' : 'invalid_confirmation' });
+        } else {
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                if (data?.session) await this.acceptAuthSession(data.session);
+                else {
+                    let pending = '';
+                    try { pending = sessionStorage.getItem('habify_pending_verification') || ''; } catch (_) { /* Storage can be unavailable. */ }
+                    if (pending) this.showEmailVerification(pending);
+                    else this.showAuth('login');
+                }
+            } catch (error) { this.showAuth('login'); this.showAuthError(error); }
+        }
 
         this.initInput();
     },
@@ -186,7 +201,99 @@ const App = {
 
     // --- Auth ---
 
+    authText(es, en) { return I18N.current === 'en' ? en : es; },
+
+    confirmationRedirect() {
+        // Works at the Vercel root and under a subdirectory. No token or query is forwarded.
+        return new URL('./', location.href).href;
+    },
+
+    async requireEmailConfirmation() {
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY }, cache: 'no-store' });
+        if (!response.ok) throw new Error('Could not check authentication settings');
+        const settings = await response.json();
+        if (settings.mailer_autoconfirm !== false) throw { code: 'confirmation_not_enabled' };
+    },
+
+    authErrorMessage(error) {
+        const code = error?.code || '';
+        const message = error?.message || '';
+        if (code === 'otp_expired' || code === 'invalid_confirmation') return this.authText('El enlace de verificación venció o ya fue utilizado. Solicita uno nuevo con tu correo.', 'The verification link expired or was already used. Request a new one with your email.');
+        if (code === 'email_not_confirmed' || /email not confirmed/i.test(message)) return this.authText('Confirma tu correo antes de iniciar sesión.', 'Confirm your email before signing in.');
+        if (code === 'invalid_credentials' || /Invalid login credentials/i.test(message)) return this.authText('Correo o contraseña incorrectos.', 'Incorrect email or password.');
+        if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || /rate limit|too many|security purposes/i.test(message)) return this.authText('Se alcanzó el límite de envíos. Espera unos minutos antes de volver a intentarlo.', 'The sending limit was reached. Wait a few minutes before trying again.');
+        if (code === 'email_address_not_authorized' || /error sending|smtp|not authorized/i.test(message)) return this.authText('No pudimos enviar la verificación. El administrador debe revisar el servicio de correo.', 'We could not send the verification. The administrator needs to check the email service.');
+        if (code === 'confirmation_not_enabled') return this.authText('El registro está temporalmente cerrado mientras se activa la verificación por correo. Inténtalo más tarde.', 'Registration is temporarily closed while email verification is being enabled. Please try again later.');
+        if (code === 'user_already_exists' || /already registered/i.test(message)) return this.authText('Este correo ya está registrado. Inicia sesión.', 'This email is already registered. Sign in.');
+        if (code === 'weak_password') return this.authText('Elige una contraseña más segura de al menos 6 caracteres.', 'Choose a stronger password with at least 6 characters.');
+        if (code === 'email_address_invalid' || code === 'validation_failed') return this.authText('Escribe una dirección de correo válida.', 'Enter a valid email address.');
+        return this.authText('No se pudo completar la solicitud. Revisa tu conexión y vuelve a intentarlo.', 'The request could not be completed. Check your connection and try again.');
+    },
+
+    showAuthError(error) {
+        const root = document.getElementById('auth-error');
+        if (root) { root.textContent = this.authErrorMessage(error); root.classList.add('show'); }
+    },
+
+    async acceptAuthSession(session) {
+        if (!session?.user?.id || this.authBusy && this._registering) return false;
+        if (this._acceptingUser === session.user.id) return this._acceptingPromise;
+        const version = this.authSessionVersion;
+        this._acceptingUser = session.user.id;
+        this._acceptingPromise = (async () => {
+            // Confirmation comes from Supabase, never from editable metadata or local storage.
+            const { data, error } = await supabase.auth.getUser();
+            if (version !== this.authSessionVersion) return false;
+            if (error) throw error;
+            const user = data?.user;
+            if (!user || user.id !== session.user.id) throw new Error('Session changed');
+            if (!user.email || !user.email_confirmed_at) {
+                await supabase.auth.signOut({ scope: 'local' });
+                this.clearAccountView();
+                GameState.user = null;
+                this.showEmailVerification(user.email || '', { error: this.authErrorMessage({ code: 'email_not_confirmed' }) });
+                return false;
+            }
+            if (GameState.user?.id === user.id) return true;
+            await this.finishRegistration(user);
+            if (version !== this.authSessionVersion) return false;
+            this.clearAccountView();
+            GameState.user = user;
+            this.pendingVerificationEmail = '';
+            try { sessionStorage.removeItem('habify_pending_verification'); } catch (_) { /* Optional storage. */ }
+            await this.loadUserData();
+            return true;
+        })();
+        try { return await this._acceptingPromise; }
+        catch (error) {
+            if (version === this.authSessionVersion) {
+                this.clearAccountView();
+                GameState.user = null;
+                this.showAuth('login');
+                this.showAuthError(error);
+            }
+            return false;
+        }
+        finally { this._acceptingUser = null; this._acceptingPromise = null; }
+    },
+
+    async finishRegistration(user) {
+        // Confirmation may happen on another device. Preserve the choices in server metadata.
+        const initial = user.user_metadata;
+        if (initial?.habify_profile_pending !== true) return;
+        const avatarClass = ['hero', 'mage', 'knight', 'elf'].includes(initial.avatar_class) ? initial.avatar_class : 'hero';
+        const name = String(initial.avatar_name || 'Héroe').trim().slice(0, 16);
+        const { data, error } = await supabase.from('avatars').update({ name, avatar_class: avatarClass }).eq('user_id', user.id).select('id');
+        if (error || !data?.length) throw error || new Error('Avatar not ready');
+        const result = await supabase.auth.updateUser({ data: { habify_profile_pending: false } });
+        if (result.error) throw result.error;
+        user.user_metadata = { ...initial, habify_profile_pending: false };
+    },
+
     showAuth(mode) {
+        clearInterval(this._verificationTimer);
+        this.authMode = mode;
+        GameState.currentView = 'auth';
         Engine.stopGameLoop();
         document.body.dataset.view = 'auth';
         // Hide header and nav
@@ -197,21 +304,71 @@ const App = {
 
         const content = document.getElementById('app-content');
         content.innerHTML = Views.renderAuth(mode);
+        if (this.pendingVerificationEmail) document.getElementById('auth-email').value = this.pendingVerificationEmail;
+    },
+
+    showEmailVerification(email, options = {}) {
+        this.pendingVerificationEmail = String(email || '').trim();
+        try { sessionStorage.setItem('habify_pending_verification', this.pendingVerificationEmail); } catch (_) { /* Optional storage. */ }
+        this.showAuth('login');
+        document.getElementById('app-content').innerHTML = Views.renderEmailVerification(this.pendingVerificationEmail, options);
+        this.updateVerificationCooldown();
+        this._verificationTimer = setInterval(() => this.updateVerificationCooldown(), 1000);
+    },
+
+    updateVerificationCooldown() {
+        const button = document.getElementById('verification-resend');
+        if (!button) { clearInterval(this._verificationTimer); return; }
+        const seconds = Math.max(0, Math.ceil((this.verificationResendAt - Date.now()) / 1000));
+        button.disabled = this._resending || seconds > 0;
+        button.textContent = this._resending ? this.authText('ENVIANDO…', 'SENDING…') : seconds > 0
+            ? this.authText(`REENVIAR EN ${seconds} s`, `RESEND IN ${seconds} s`)
+            : this.authText('REENVIAR VERIFICACIÓN', 'RESEND VERIFICATION');
+    },
+
+    requestVerificationFromLogin() {
+        const input = document.getElementById('auth-email');
+        if (!input.reportValidity()) return;
+        this.showEmailVerification(input.value);
+    },
+
+    async resendVerification() {
+        if (this._resending || Date.now() < this.verificationResendAt || !this.pendingVerificationEmail) return;
+        this._resending = true;
+        this.updateVerificationCooldown();
+        const email = this.pendingVerificationEmail;
+        const status = document.getElementById('verification-status');
+        const errorRoot = document.getElementById('auth-error');
+        errorRoot?.classList.remove('show');
+        try {
+            const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: this.confirmationRedirect() } });
+            if (error) throw error;
+            this.verificationResendAt = Date.now() + 60000;
+            if (status?.isConnected && email === this.pendingVerificationEmail) status.textContent = this.authText('Si tu cuenta está pendiente de confirmar, recibirás un nuevo enlace. Revisa también spam.', 'If your account is awaiting confirmation, you will receive a new link. Check spam too.');
+        } catch (error) {
+            if (/rate_limit/.test(error.code || '')) this.verificationResendAt = Date.now() + 60000;
+            if (errorRoot?.isConnected) this.showAuthError(error);
+        } finally { this._resending = false; this.updateVerificationCooldown(); }
     },
 
     async handleAuth(event, mode) {
         event.preventDefault();
+        if (this.authBusy || !document.getElementById('auth-form').reportValidity()) return;
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
         const errorEl = document.getElementById('auth-error');
         const submitBtn = document.getElementById('auth-submit');
 
-        submitBtn.textContent = 'CARGANDO...';
+        this.authBusy = true;
+        this._registering = mode === 'register';
+        submitBtn.textContent = this.authText('CARGANDO…', 'LOADING…');
         submitBtn.disabled = true;
         errorEl.classList.remove('show');
 
         try {
             if (mode === 'register') {
+                // Do not create an automatically confirmed account while the server is misconfigured.
+                await this.requireEmailConfirmation();
                 const avatarName = document.getElementById('auth-avatar-name').value.trim() || 'Héroe';
                 const avatarClass = document.getElementById('auth-avatar-class').value || 'hero';
                 const body = document.getElementById('auth-avatar-body').value;
@@ -221,58 +378,38 @@ const App = {
                     email,
                     password,
                     options: {
-                        data: { avatar_name: avatarName, avatar_class: avatarClass, appearance: initialAppearance }
+                        emailRedirectTo: this.confirmationRedirect(),
+                        data: { avatar_name: avatarName, avatar_class: avatarClass, appearance: initialAppearance, habify_profile_pending: true }
                     }
                 });
 
                 if (error) throw error;
 
-                // If no session returned (email confirmation required), auto-login
-                if (data.user && !data.session) {
-                    const { data: loginData, error: loginErr } = await supabase.auth.signInWithPassword({
-                        email,
-                        password
-                    });
-                    if (loginErr) throw loginErr;
+                if (data?.session) {
+                    // A server with automatic confirmation enabled cannot promise mailbox verification.
+                    await supabase.auth.signOut({ scope: 'local' });
+                    throw { code: 'confirmation_not_enabled' };
                 }
-
-                // Wait for trigger to create avatar, then update name and class
-                if (data.user || (data.session && data.session.user)) {
-                    const userId = data.user ? data.user.id : data.session.user.id;
-                    await new Promise(r => setTimeout(r, 1500));
-                    await supabase.from('avatars')
-                        .update({ name: avatarName, avatar_class: avatarClass })
-                        .eq('user_id', userId);
-
-                    // Update GameState immediately to reflect user's choice
-                    if (GameState.avatar) {
-                        GameState.avatar.name = avatarName;
-                        GameState.avatar.avatarClass = avatarClass;
-                        if (GameState.user?.id === userId && GameState.avatarId) await Wardrobe.saveAppearance(initialAppearance);
-                        if (GameState.currentView === 'dashboard') {
-                            this.navigate('dashboard');
-                        }
-                    }
-                }
+                this.verificationResendAt = Date.now() + 60000;
+                this.showEmailVerification(email, { sent: true });
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password
                 });
                 if (error) throw error;
+                if (data?.session) await this.acceptAuthSession(data.session);
             }
         } catch (err) {
-            let errorMsg = err.message || 'Error de autenticacion';
-            // Translate common Supabase errors
-            if (errorMsg.includes('Invalid login credentials')) {
-                errorMsg = 'Email o clave incorrecta';
-            } else if (errorMsg.includes('already registered')) {
-                errorMsg = 'Este email ya esta registrado. Inicia sesion.';
+            if (err.code === 'email_not_confirmed' || /email not confirmed/i.test(err.message || '')) this.showEmailVerification(email, { error: this.authErrorMessage(err) });
+            else this.showAuthError(err);
+        } finally {
+            this.authBusy = false;
+            this._registering = false;
+            if (submitBtn.isConnected) {
+                submitBtn.textContent = `>> ${I18N.t(mode === 'login' ? 'auth.login' : 'auth.register')} <<`;
+                submitBtn.disabled = false;
             }
-            errorEl.textContent = errorMsg;
-            errorEl.classList.add('show');
-            submitBtn.textContent = mode === 'login' ? '>> ENTRAR <<' : '>> CREAR CUENTA <<';
-            submitBtn.disabled = false;
         }
     },
 

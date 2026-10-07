@@ -13,13 +13,24 @@ npm run dev
 
 Abre http://127.0.0.1:4173. La app usa el proyecto Supabase configurado en `js/data.js`; iniciar sesión requiere conexión. No hay paso de compilación.
 
+## Verificación por correo
+
+Las cuentas nuevas deben abrir el enlace enviado por Supabase antes de entrar. La pantalla permite reenviar la verificación y explica los enlaces vencidos. El nombre, la clase y la apariencia elegidos se conservan aunque se confirme desde otro dispositivo.
+
+**Configuración necesaria en Supabase:** activar **Confirm email**, configurar la URL pública de retorno y un servicio SMTP para enviar a correos externos al equipo. Subir el código a GitHub no modifica estos ajustes. Consulta [la guía de correo y la prueba de entrega real](docs/email-verification.md). `node tools/check-auth.cjs` comprueba la confirmación obligatoria y la URL de retorno sin crear cuentas ni enviar mensajes.
+
 ## Personajes y guardarropa
 
 - **Personaje** permite elegir mujer u hombre para cualquiera de las cuatro clases, tono de piel, peinado, cabello y color del atuendo. Cambiar la apariencia conserva la clase y las habilidades.
 - Las vistas de inicio, creación de cuenta y arena usan los mismos personajes articulados. Las armas y escudos equipados se ven en el personaje.
 - Los personajes recuperan detalles de los diseños originales: casco abierto del aventurero, capucha bordada del mago, armadura del caballero y equipo del elfo, con sombras y volumen.
+- Los rostros tienen contornos suaves, mirada centrada, cuello integrado en la ropa y rasgos propios para mujer y hombre. Cada peinado tiene su nacimiento y volumen: corto de lado, largo con mechones, coleta y dos trenzas. Los cascos y capuchas dejan visible el rostro y parte del cabello; la coleta del mago sale por debajo de la capucha.
 - **Tienda** y **Guardarropa** incluyen tres atuendos y tres accesorios; se pueden probar, comprar y equipar desde ambas secciones. Las prendas son cosméticas.
 - El T-Rex, dragón, gato mago y fénix tienen arte articulado propio. La mascota equipada acompaña al personaje en el inicio y el editor.
+- El editor permite probar reposo, carrera, golpe, salto, magia y defensa, y mirar hacia ambos lados. La mascota sigue la acción y la orientación; estos controles no alteran la apariencia guardada ni gastan recursos.
+- Los personajes parpadean y mueven cabello y accesorios. Las mascotas tienen pasos, aleteos y gestos propios; el sombrero del gato se mueve con su cabeza. Todas las animaciones respetan la preferencia de movimiento reducido del dispositivo.
+- El arte tiene capas propias por clase, armaduras facetadas, bordados, hebillas, armas detalladas y rostros con iris y luz. Las cuatro mascotas comparten una dirección de luz y tienen anatomía y materiales propios.
+- Para revisar los diseños sin iniciar sesión, abre `http://127.0.0.1:4173/tools/art-preview.html` con el servidor local encendido. La galería compara las 32 combinaciones de clase, cuerpo y peinado, con acercamiento al rostro, filtros de piel y cabello, y controles de animación.
 - Si la migración todavía no está instalada, la apariencia gratuita se guarda en el navegador por cuenta. La pantalla indica que el guardado es local; las compras muestran «Pronto».
 
 ### Activar guardado en la cuenta y compras
@@ -63,7 +74,7 @@ Las pruebas de navegador usan Google Chrome instalado y arrancan el servidor loc
 
 ## Archivos principales
 
-- `js/characters.js` / `css/characters.css`: pixel art modular y animaciones.
+- `js/characters.js` / `css/characters.css`: arte RPG modular y animaciones.
 - `js/pets.js` / `css/pets.css`: mascotas y animaciones.
 - `js/engine.js` / `css/combat.css`: física, ataques y efectos de combate.
 - `js/wardrobe.js`: persistencia y compras de cosméticos.

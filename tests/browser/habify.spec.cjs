@@ -1,4 +1,4 @@
-﻿const { test, expect } = require('@playwright/test');
+const { test, expect } = require('@playwright/test');
 
 // The full UI runs with a test account and in-memory backend. Never writes to Supabase.
 async function boot(page, migrated = false) {
@@ -249,6 +249,58 @@ test('each pet has its own art and the equipped companion follows the hero', asy
     await page.emulateMedia({ reducedMotion: 'reduce' });
     expect(await page.locator('.preview-companion .pet-body').evaluate(el => getComputedStyle(el).animationName)).toBe('none');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('preview actions and direction keep each companion in sync without changing the saved hero', async ({ page }, testInfo) => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await boot(page, true);
+    if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 320, height: 740 });
+    const saved = await page.evaluate(() => JSON.stringify(GameState.avatar));
+    await page.locator('.nav-item[data-view="character"]').click();
+    for (const id of ['pet_trex', 'pet_dragon', 'pet_cat', 'pet_phoenix']) {
+        await page.evaluate(id => {
+            GameState.avatar.equippedPet = id;
+            Atelier.begin();
+            Atelier.refresh();
+        }, id);
+        const hero = page.locator('#character-preview .character-art');
+        const pet = page.locator('#character-preview .pet-art');
+        await page.getByRole('button', { name: 'Correr', exact: true }).click();
+        await expect(hero).toHaveAttribute('data-state', 'RUNNING');
+        await expect(pet).toHaveAttribute('data-state', 'RUNNING');
+        expect(await pet.locator('.pet-body').evaluate(el => getComputedStyle(el).animationName)).toBe(id === 'pet_phoenix' ? 'pet-hover' : 'pet-trot');
+        await page.getByRole('button', { name: 'Mirar a la izquierda', exact: true }).click();
+        await expect(hero).toHaveAttribute('data-facing', 'left');
+        await expect(pet).toHaveAttribute('data-facing', 'left');
+        expect(await pet.locator('.pet-facing').evaluate(el => getComputedStyle(el).transform)).toBe('matrix(-1, 0, 0, 1, 0, 0)');
+        await page.getByRole('button', { name: 'Trenzas', exact: true }).click();
+        await expect(hero).toHaveAttribute('data-facing', 'left');
+        await expect(pet).toHaveAttribute('data-state', 'RUNNING');
+        for (const [label, state] of [['Salto', 'JUMPING'], ['Golpe', 'ATTACKING'], ['Magia', 'CASTING'], ['Defensa', 'GUARDING']]) {
+            await page.getByRole('button', { name: label, exact: true }).click();
+            await expect(hero).toHaveAttribute('data-state', state);
+            await expect(pet).toHaveAttribute('data-state', state);
+            await expect(page.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true');
+        }
+        if (id === 'pet_cat') await expect(pet.locator('.pet-head .pet-hat')).toHaveCount(1);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.getByRole('button', { name: 'Salto', exact: true }).click();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await page.locator('#character-preview').evaluate(el => el.getAnimations({ subtree: true }).length)).toBe(0);
+    await page.locator('#lang-switch').selectOption('en');
+    await expect(page.getByRole('button', { name: 'Face left', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Face right', exact: true }).click();
+    await page.getByRole('button', { name: 'Idle', exact: true }).click();
+    await expect(page.locator('#character-preview .pet-art')).toHaveAttribute('data-facing', 'right');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath('companion-preview.png'), fullPage: true });
+    expect(await page.evaluate(saved => {
+        const original = JSON.parse(saved);
+        return JSON.stringify({ ...GameState.avatar, equippedPet: original.equippedPet }) === saved;
+    }, saved)).toBe(true);
+    expect(errors).toEqual([]);
 });
 
 test('spell art follows direction, survives pause and expires after impact', async ({ page }, testInfo) => {

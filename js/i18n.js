@@ -256,7 +256,10 @@ const I18N = {
             try { localStorage.setItem('habify_language', lang); } catch { /* Private browsing may disable storage. */ }
             this.updateStaticUI();
             if (typeof App !== 'undefined' && typeof GameState !== 'undefined' && GameState.currentView) {
-                App.navigate(GameState.currentView);
+                if (document.body.dataset.view === 'auth') {
+                    if (document.getElementById('email-verification')) App.showEmailVerification(App.pendingVerificationEmail);
+                    else App.showAuth(App.authMode || 'login');
+                } else App.navigate(GameState.currentView);
             }
         }
     },

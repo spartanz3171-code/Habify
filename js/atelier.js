@@ -3,6 +3,7 @@ const Atelier = {
     draft: null,
     busy: false,
     previewState: 'IDLE',
+    previewFacing: 'right',
     previewItem: null,
     savedMessage: '',
     returnFocus: null,
@@ -13,6 +14,12 @@ const Atelier = {
         this.previewItem = null;
         this.savedMessage = '';
         this.previewState = 'IDLE';
+        this.previewFacing = 'right';
+    },
+    renderPreview() {
+        const a = { ...GameState.avatar, appearance: this.draft };
+        const options = { state: this.previewState, facing: this.previewFacing };
+        return `<span class="preview-hero" data-state="${this.previewState}">${CharacterArt.render(a, options)}</span>${Views.renderCompanion(a.equippedPet, 'preview-companion', options)}`;
     },
     render() {
         if (!this.draft) this.begin();
@@ -28,11 +35,12 @@ const Atelier = {
             <div class="atelier-layout">
                 <section class="atelier-preview card">
                     <div class="preview-caption"><span class="live-dot"></span>${t('VISTA PREVIA', 'PREVIEW')}</div>
-                    <div class="character-pedestal" id="character-preview">${CharacterArt.render(a, { state: this.previewState })}${Views.renderCompanion(a.equippedPet, 'preview-companion')}</div>
+                    <div class="character-pedestal" id="character-preview">${this.renderPreview()}</div>
                     <h2 class="character-name">${this.escape(a.name)}</h2><p id="character-role" class="role-label">${role}</p>
                     <div class="preview-actions" aria-label="${t('Probar animación', 'Try animation')}">
-                        ${[['IDLE', t('Reposo', 'Idle')], ['RUNNING', t('Caminar', 'Walk')], ['ATTACKING', t('Golpe', 'Attack')], ['JUMPING', t('Salto', 'Jump')]].map(([s, l]) => `<button class="preview-action ${this.previewState === s ? 'selected' : ''}" aria-pressed="${this.previewState === s}" onclick="Atelier.animate('${s}')">${l}</button>`).join('')}
+                        ${[['IDLE', t('Reposo', 'Idle')], ['RUNNING', t('Correr', 'Run')], ['ATTACKING', t('Golpe', 'Attack')], ['JUMPING', t('Salto', 'Jump')], ['CASTING', t('Magia', 'Magic')], ['GUARDING', t('Defensa', 'Guard')]].map(([s, l]) => `<button type="button" class="preview-action ${this.previewState === s ? 'selected' : ''}" data-preview-state="${s}" aria-pressed="${this.previewState === s}" onclick="Atelier.animate('${s}')">${l}</button>`).join('')}
                     </div>
+                    <div class="preview-directions" role="group" aria-label="${t('Orientación del personaje', 'Character direction')}">${[['left', '←', t('Mirar a la izquierda', 'Face left')], ['right', '→', t('Mirar a la derecha', 'Face right')]].map(([direction, arrow, label]) => `<button type="button" class="preview-direction" data-preview-facing="${direction}" aria-label="${label}" aria-pressed="${this.previewFacing === direction}" onclick="Atelier.face('${direction}')">${arrow}</button>`).join('')}</div>
                     <p class="character-note">${t('Misma clase y habilidades. Un estilo que es tuyo.', 'Same class and abilities. A style of your own.')}</p>
                 </section>
                 <section class="atelier-options card"><div class="panel-title"><span>01</span><h2>${t('Apariencia', 'Appearance')}</h2><span class="free-label">${t('GRATIS', 'FREE')}</span></div>
@@ -87,10 +95,17 @@ const Atelier = {
         [...document.querySelectorAll('.atelier-options button')].find(b => b.getAttribute('onclick') === focused)?.focus({ preventScroll: true });
     },
     animate(state) {
+        if (!['IDLE', 'RUNNING', 'ATTACKING', 'JUMPING', 'CASTING', 'GUARDING'].includes(state)) return;
         this.previewState = state;
-        const art = document.querySelector('#character-preview .character-art');
-        if (art) { art.dataset.state = 'IDLE'; requestAnimationFrame(() => { art.dataset.state = state; }); }
-        document.querySelectorAll('.preview-action').forEach(b => { const selected = b.getAttribute('onclick') === `Atelier.animate('${state}')`; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', selected); });
+        const preview = document.getElementById('character-preview');
+        if (preview) preview.innerHTML = this.renderPreview();
+        document.querySelectorAll('[data-preview-state]').forEach(b => { const selected = b.dataset.previewState === state; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', selected); });
+    },
+    face(direction) {
+        if (!['left', 'right'].includes(direction)) return;
+        this.previewFacing = direction;
+        document.querySelectorAll('#character-preview .character-art, #character-preview .pet-art').forEach(art => { art.dataset.facing = direction; });
+        document.querySelectorAll('[data-preview-facing]').forEach(b => b.setAttribute('aria-pressed', b.dataset.previewFacing === direction));
     },
     resetDraft() { if (this.busy) return; this.begin(); this.refresh('save-appearance'); },
     async save() {

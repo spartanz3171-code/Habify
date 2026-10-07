@@ -4,11 +4,16 @@
 .pet-art[data-facing='left'] .pet-facing { transform: scaleX(-1); }
 .pet-body { transform-origin: 40px 83px; animation: pet-breathe 2.8s steps(4) infinite; }
 .pet-head { transform-origin: 40px 44px; animation: pet-look 6s steps(4) infinite; }
+.pet-trex .pet-head { transform-origin: 42px 45px; animation-duration: 7s; }
+.pet-dragon .pet-head { transform-origin: 39px 42px; animation-delay: -2s; }
+.pet-cat .pet-head { transform-origin: 40px 49px; animation-duration: 7.5s; }
+.pet-phoenix .pet-head { transform-origin: 39px 34px; }
 .pet-tail { transform-origin: 30px 64px; animation: pet-wag 2.1s steps(5) infinite; }
 .pet-dragon .pet-tail { transform-origin: 52px 69px; }
 .pet-cat .pet-tail { transform-origin: 23px 69px; animation-duration: 3s; }
 .pet-eye { transform-box: fill-box; transform-origin: center; animation: pet-blink 6.7s steps(1) infinite; }
 .pet-wing { transform-origin: 50px 46px; animation: pet-wing 3s steps(5) infinite; }
+.pet-dragon .pet-wing-back { transform-origin: 28px 44px; animation-direction: reverse; }
 .pet-arm { transform-origin: 49px 53px; animation: pet-paw 4s steps(4) infinite; }
 .pet-cat .pet-arm { transform-origin: 61px 65px; animation-duration: 5s; }
 .pet-phoenix .pet-body { animation: pet-hover 2.8s ease-in-out infinite; }
@@ -18,6 +23,40 @@
 .pet-shadow { opacity: .25; }
 .pet-dragon .pet-body { animation-delay: -.6s; }
 .pet-cat .pet-body { animation-delay: -.9s; }
+.pet-foot-back { transform-origin: 32px 73px; }
+.pet-foot-front { transform-origin: 48px 73px; }
+.pet-cat .pet-foot-back { transform-origin: 31px 80px; }
+.pet-cat .pet-foot-front { transform-origin: 49px 80px; }
+.pet-aura, .pet-dust { opacity: 0; }
+.pet-art:is(.pet-cat, .pet-phoenix)[data-state="IDLE"] .pet-aura { opacity: .65; }
+.pet-spark { transform-box: fill-box; transform-origin: center; animation: pet-sparkle 2.6s steps(4) infinite; }
+.pet-spark:nth-child(2) { animation-delay: -.9s; }
+.pet-spark:nth-child(3) { animation-delay: -1.8s; }
+
+/* The companion shares the editor's action, with movement suited to its anatomy. */
+.pet-art[data-state="RUNNING"] .pet-body { animation: pet-trot .4s steps(4) infinite; }
+.pet-art[data-state="RUNNING"] .pet-head { animation: none; transform: rotate(3deg); }
+.pet-art[data-state="RUNNING"] .pet-foot-front { animation: pet-stride .4s linear infinite; }
+.pet-art[data-state="RUNNING"] .pet-foot-back { animation: pet-stride .4s linear -.2s infinite; }
+.pet-art[data-state="RUNNING"] .pet-tail { animation-duration: .65s; }
+.pet-art[data-state="RUNNING"] .pet-arm { animation-duration: .8s; }
+.pet-art[data-state="RUNNING"] .pet-dust { animation: pet-dust .6s steps(4) infinite; }
+.pet-art[data-state="JUMPING"] .pet-body { animation: pet-hop 1.2s ease-in-out infinite; }
+.pet-art[data-state="JUMPING"] .pet-shadow { animation: pet-jump-shadow 1.2s ease-in-out infinite; }
+.pet-art[data-state="JUMPING"] .pet-foot-front { transform: rotate(-18deg); }
+.pet-art[data-state="JUMPING"] .pet-foot-back { transform: rotate(16deg); }
+.pet-dragon:is([data-state="RUNNING"], [data-state="JUMPING"]) .pet-wing { animation-duration: .4s; }
+.pet-phoenix[data-state="RUNNING"] .pet-body { animation: pet-hover .65s ease-in-out infinite; }
+.pet-phoenix:is([data-state="RUNNING"], [data-state="JUMPING"]) .pet-wing { animation-duration: .35s; }
+.pet-phoenix[data-state="RUNNING"] .pet-dust { display: none; }
+.pet-art[data-state="ATTACKING"] .pet-body { animation: pet-cheer .45s ease-out both; }
+.pet-art[data-state="ATTACKING"] .pet-arm { animation: pet-cheer-paw .45s ease-out both; }
+.pet-art[data-state="CASTING"] .pet-aura { opacity: 1; }
+.pet-art[data-state="CASTING"] .pet-body { animation: pet-hover 1.6s ease-in-out infinite; }
+.pet-art[data-state="CASTING"] .pet-arm { animation: none; transform: rotate(-12deg); }
+.pet-art[data-state="GUARDING"] .pet-body { animation: none; transform: translateY(4px) scaleY(.94); }
+.pet-art[data-state="GUARDING"] .pet-head { animation: none; transform: rotate(6deg); }
+.pet-art[data-state="GUARDING"] .pet-wing { animation: none; transform: rotate(16deg) scaleX(.9); }
 @keyframes pet-breathe { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1px) scaleY(1.015); } }
 @keyframes pet-look { 0%,60%,100% { transform: rotate(0); } 70%,85% { transform: rotate(-3deg); } }
 @keyframes pet-wag { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(6deg); } }
@@ -26,4 +65,15 @@
 @keyframes pet-paw { 0%,65%,100% { transform: rotate(0); } 75%,85% { transform: rotate(-7deg); } }
 @keyframes pet-hover { 0%,100% { transform: translateY(-2px); } 50% { transform: translateY(-5px); } }
 @keyframes pet-feather { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(7deg); } }
-@media (prefers-reduced-motion: reduce) { .pet-art * { animation: none !important; } }
+@keyframes pet-sparkle { 0%,100% { transform: scale(.6); opacity: .2; } 50% { transform: translateY(-2px) scale(1); opacity: .9; } }
+@keyframes pet-trot { 0%,50%,100% { transform: translateY(0); } 25%,75% { transform: translateY(-2px); } }
+@keyframes pet-stride { 0%,100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
+@keyframes pet-hop { 0%,15%,90%,100% { transform: translateY(0); } 48%,56% { transform: translateY(-18px); } }
+@keyframes pet-jump-shadow { 0%,15%,90%,100% { opacity: .25; } 48%,56% { opacity: .1; } }
+@keyframes pet-cheer { 0%,100% { transform: none; } 30% { transform: translateY(2px) scaleY(.94); } 60% { transform: translate(3px,-4px) rotate(4deg); } }
+@keyframes pet-cheer-paw { 0%,100% { transform: none; } 50% { transform: rotate(-20deg); } }
+@keyframes pet-dust { 0%,100% { opacity: 0; transform: translateX(2px); } 30% { opacity: .45; } 90% { opacity: 0; transform: translateX(-6px); } }
+@media (prefers-reduced-motion: reduce) {
+    .pet-art * { animation: none !important; }
+    .pet-art[data-state="RUNNING"] .pet-dust { opacity: 0; }
+}

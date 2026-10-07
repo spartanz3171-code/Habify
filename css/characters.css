@@ -1,4 +1,4 @@
-/* All artwork is drawn in integer pixels; joints animate in the shared SVG space. */
+/* Layered RPG artwork; joints animate in the shared 96 × 108 SVG space. */
 .character-art {
     --character-size: 160px;
     display: inline-block;
@@ -19,6 +19,7 @@
 .character-art .char-body { transform-origin: 48px 108px; }
 .character-art .char-upper-body { transform-origin: 48px 73px; }
 .character-art .char-head { transform-origin: 50px 42px; }
+.character-art .char-plume { transform-origin: 50px 12px; }
 .character-art .char-arm-front { transform-origin: 65px 48px; }
 .character-art .char-arm-back { transform-origin: 34px 48px; }
 .character-art .char-leg-front { transform-origin: 57px 74px; }
@@ -27,11 +28,23 @@
 .character-art .char-leg-back .char-shin { transform-origin: 42px 91px; }
 .character-art .char-cape { transform-origin: 45px 45px; }
 .character-art .char-hair-tail { transform-origin: 37px 25px; }
+.character-art .char-hair-tail-low { transform-origin: 37px 36px; }
+.character-art .char-hair-lock-near { transform-origin: 40px 34px; }
+.character-art .char-hair-lock-far { transform-origin: 62px 34px; }
 .character-art .char-scarf { transform-origin: 47px 44px; }
+.character-art .char-eye { transform-box: fill-box; transform-origin: center; }
 .character-art .char-attack-fx, .character-art .char-cast-fx { opacity: 0; }
 .character-art[data-state="IDLE"] .char-upper-body { animation: character-breathe 2.4s steps(4, end) infinite; }
 .character-art[data-state="IDLE"] .char-cape { animation: character-cape 3s steps(4, end) infinite; }
 .character-art[data-state="IDLE"] .char-arm-front { animation: character-ready 2.4s steps(4, end) infinite; }
+.character-art[data-state="IDLE"] .char-eye { animation: character-blink 6.4s steps(1, end) infinite; }
+.character-art[data-role="mage"] .char-eye { animation-delay: -1.4s; }
+.character-art[data-role="elf"] .char-eye { animation-delay: -3.1s; }
+.character-art[data-role="knight"] .char-eye { animation-delay: -.7s; }
+.character-art[data-state="IDLE"] .char-hair-tail { animation: character-hair 3.2s steps(5, end) infinite; }
+.character-art[data-state="IDLE"] .char-hair-lock { animation: character-hair 3.2s steps(5, end) -.4s infinite; }
+.character-art[data-state="IDLE"] .char-scarf { animation: character-cape 2.8s steps(4, end) infinite; }
+.character-art[data-state="IDLE"] .char-plume { animation: character-plume 3.4s steps(5, end) infinite; }
 .character-art .char-magic-glint { animation: character-glimmer 1.8s steps(3, end) infinite; }
 
 /* The feet and hands move independently. Engine position provides world movement. */
@@ -44,7 +57,10 @@
 .character-art[data-state="RUNNING"] .char-arm-front { animation: character-arm-swing .34s linear -.17s infinite; }
 .character-art[data-state="RUNNING"] .char-arm-back { animation: character-arm-swing .34s linear infinite; }
 .character-art[data-state="RUNNING"] .char-cape { transform: rotate(17deg); animation: character-run-cape .34s steps(3, end) infinite; }
-.character-art[data-state="RUNNING"] .char-hair-tail { transform: rotate(16deg); }
+.character-art[data-state="RUNNING"] .char-hair-tail { animation: character-run-hair .34s steps(4, end) infinite; }
+.character-art[data-state="RUNNING"] .char-hair-lock { animation: character-hair .34s steps(4, end) infinite; }
+.character-art[data-state="RUNNING"] .char-scarf { transform: rotate(12deg); }
+.character-art[data-state="RUNNING"] .char-plume { animation: character-run-plume .34s steps(4, end) infinite; }
 
 .character-art[data-state="JUMPING"] .char-upper-body { transform: rotate(-7deg) translateY(-2px); }
 .character-art[data-state="JUMPING"] .char-leg-front { transform: rotate(-39deg); }
@@ -107,6 +123,7 @@
 .character-art[data-state="HIT_STUN"] .char-arm-front { transform: rotate(23deg); }
 .character-art[data-state="DEAD"] .char-body { transform: translate(-12px, -4px) rotate(-77deg); opacity: .55; transition: transform .4s ease-out, opacity .4s; }
 .character-art[data-state="DEAD"] .char-magic-glint { display: none; }
+.character-art:is([data-state="HIT_STUN"], [data-state="DEAD"]) .char-eye { transform: scaleY(.18); }
 .character-art:is([data-state="JUMPING"], [data-state="FALLING"]) .char-ground-shadow { opacity: 0; }
 
 .character-art .char-slime { transform-origin: 48px 108px; }
@@ -121,6 +138,11 @@
 
 @keyframes character-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.5px); } }
 @keyframes character-ready { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-3deg); } }
+@keyframes character-blink { 0%, 43%, 47%, 100% { transform: scaleY(1); } 44%, 46% { transform: scaleY(.12); } }
+@keyframes character-hair { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(2deg); } }
+@keyframes character-plume { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(3deg); } }
+@keyframes character-run-plume { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(17deg); } }
+@keyframes character-run-hair { 0%, 100% { transform: rotate(12deg); } 50% { transform: rotate(21deg); } }
 @keyframes character-cape { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(3deg); } }
 @keyframes character-glimmer { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 @keyframes character-run-bob { 0%, 50%, 100% { transform: translateY(-2px); } 25%, 75% { transform: translateY(1px); } }

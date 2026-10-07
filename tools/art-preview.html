@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Habify · Personajes y compañeros</title>
+    <link rel="stylesheet" href="../css/characters.css?v=3.3.0">
+    <link rel="stylesheet" href="../css/pets.css?v=3.3.0">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 32px; background: #101123; color: #f1eadb; font-family: system-ui, sans-serif; }
+        main { max-width: 1160px; margin: auto; }
+        .eyebrow { font: 11px monospace; letter-spacing: 2px; color: #a7d4bb; }
+        h1 { font-size: clamp(25px, 4vw, 36px); margin: 12px 0; letter-spacing: -.8px; }
+        .intro { color: #aaa8bf; font-size: 14px; line-height: 1.7; max-width: 720px; margin: 0; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+        button, select { padding: 10px 12px; background: #1c1d35; color: #bcb9d0; border: 1px solid #383b54; border-radius: 5px; font-family: inherit; font-size: 12px; cursor: pointer; }
+        button[aria-pressed="true"] { border-color: #b9a274; color: #ffe3a6; background: #312d35; }
+        button:focus-visible, select:focus-visible { outline: 2px solid #a5dccc; outline-offset: 3px; }
+        .filters { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 26px; }
+        .filters label { display: grid; gap: 7px; font-size: 11px; color: #aaa8bf; }
+        .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+        .card { min-width: 0; padding: 12px 10px 16px; text-align: center; border: 1px solid #35364e; border-radius: 8px; background: radial-gradient(ellipse at 50% 70%, #2c2c46, #191a30 72%); }
+        .art { height: 188px; display: flex; justify-content: center; align-items: center; }
+        .character-art { --character-size: 158px; }
+        .label { font-size: 13px; font-weight: 600; margin-top: 12px; }
+        .meta { font-size: 10px; color: #9391a8; margin-top: 6px; }
+        h2 { font-size: 20px; margin: 30px 0 16px; }
+        .pet-art { --pet-size: 142px; }
+        .pets .art { height: 170px; }
+        body[data-detail="faces"] #characters .character-art { width: 168px; height: 160px; aspect-ratio: 50 / 48; }
+        body[data-detail="faces"] #characters .character-svg { overflow: hidden; }
+        body[data-detail="faces"] #characters .character-art * { animation: none !important; }
+        body[data-detail="faces"] #characters .char-upper-body, body[data-detail="faces"] #characters .char-head { transform: none !important; }
+        footer { font-size: 12px; color: #9391a8; margin: 24px 0 0; line-height: 1.6; }
+        @media (max-width: 720px) {
+            body { padding: 24px 16px; }
+            .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .art { height: 172px; }
+            .character-art { --character-size: 138px; }
+            .pet-art { --pet-size: 120px; }
+            .pets .art { height: 150px; }
+            body[data-detail="faces"] #characters .character-art { width: 130px; height: 125px; }
+        }
+        @media (max-width: 360px) {
+            .character-art { --character-size: 112px; }
+            .art { height: 142px; }
+            .pet-art { --pet-size: 100px; }
+            body[data-detail="faces"] #characters .character-art { width: 112px; height: 108px; }
+        }
+    </style>
+</head>
+<body data-detail="full">
+<main>
+    <header>
+        <span class="eyebrow">HABIFY · GALERÍA DE ARTE</span>
+        <h1>Personajes, rostros y peinados</h1>
+        <p class="intro">Los cuatro peinados en mujer y hombre, para cada clase. Compara los rostros de cerca o revisa el personaje completo en movimiento.</p>
+    </header>
+    <div class="toolbar" role="group" aria-label="Animaciones">
+        <button type="button" data-state="IDLE" aria-pressed="true">Reposo</button>
+        <button type="button" data-state="RUNNING" aria-pressed="false">Correr</button>
+        <button type="button" data-state="ATTACKING" aria-pressed="false">Golpe</button>
+        <button type="button" data-state="JUMPING" aria-pressed="false">Salto</button>
+        <button type="button" data-state="CASTING" aria-pressed="false">Magia</button>
+        <button type="button" data-state="GUARDING" aria-pressed="false">Defensa</button>
+        <button type="button" id="direction" aria-pressed="false">← Girar</button>
+    </div>
+    <div class="filters">
+        <label>Detalle<select id="detail"><option value="full">Cuerpo entero</option><option value="faces">Rostros de cerca</option></select></label>
+        <label>Clase<select id="role"><option value="all">Todas las clases</option><option value="hero">Aventureros</option><option value="mage">Magos</option><option value="knight">Caballeros</option><option value="elf">Elfos</option></select></label>
+        <label>Tono de piel<select id="skin"><option value="">Variados</option><option value="#f4d7bd">Claro</option><option value="#efbd91">Dorado</option><option value="#d99566">Cálido</option><option value="#ab704f">Bronce</option><option value="#754d3b">Moreno</option><option value="#51392f">Oscuro</option></select></label>
+        <label>Cabello<select id="hair"><option value="">Variados</option><option value="#44302e">Castaño</option><option value="#201f30">Negro</option><option value="#c88545">Cobrizo</option><option value="#ead29a">Dorado</option><option value="#8d465f">Ciruela</option><option value="#c6c4d9">Plata</option></select></label>
+    </div>
+    <div id="characters" aria-label="Personajes"></div>
+    <h2>Compañeros de viaje</h2>
+    <section id="pets" class="grid pets" aria-label="Mascotas"></section>
+    <footer>Vista de arte local · Los rostros se muestran quietos para comparar sus rasgos. La vista de cuerpo entero respeta la preferencia de movimiento reducido del dispositivo.</footer>
+</main>
+<script src="../js/characters.js?v=3.3.0"></script>
+<script src="../js/pets.js?v=3.3.0"></script>
+<script>
+    const roles = [
+        ['hero', 'Aventureros', 'Aventurera', 'Aventurero', '#ba526c'],
+        ['mage', 'Magos arcanos', 'Maga arcana', 'Mago arcano', '#8256c6'],
+        ['knight', 'Caballeros reales', 'Caballera real', 'Caballero real', '#406fbd'],
+        ['elf', 'Elfos del bosque', 'Elfa del bosque', 'Elfo del bosque', '#3b947d']
+    ];
+    const hairstyles = [['short', 'Corto'], ['long', 'Largo'], ['ponytail', 'Coleta'], ['braids', 'Trenzas']];
+    let state = 'IDLE', facing = 'right';
+    function renderGallery() {
+        const detail = document.getElementById('detail').value;
+        const selectedRole = document.getElementById('role').value;
+        const skin = document.getElementById('skin').value;
+        const hairColor = document.getElementById('hair').value;
+        document.body.dataset.detail = detail;
+        document.getElementById('characters').innerHTML = roles.filter(([role]) => selectedRole === 'all' || role === selectedRole).map(([role, title, female, male, color]) => {
+            const cards = ['female', 'male'].flatMap(body => hairstyles.map(([hairStyle, label], i) => {
+                const avatar = {
+                    avatarClass: role,
+                    equippedWeapon: role === 'mage' ? 'staff' : role === 'elf' ? 'bow' : 'sword',
+                    equippedShield: role === 'knight' ? 'shield' : null,
+                    appearance: {
+                        body, hairStyle, outfitColor: color,
+                        skin: skin || ['#efbd91', '#ab704f', '#754d3b', '#d99566'][i],
+                        hairColor: hairColor || ['#44302e', '#c6c4d9', '#201f30', '#ead29a'][i]
+                    }
+                };
+                return `<article class="card" data-body="${body}" data-hairstyle="${hairStyle}"><div class="art">${CharacterArt.render(avatar, { state: detail === 'faces' ? 'IDLE' : state, facing })}</div><div class="label">${body === 'female' ? female : male} · ${label}</div><div class="meta">${body === 'female' ? 'MUJER' : 'HOMBRE'}</div></article>`;
+            })).join('');
+            return `<section class="role-group" aria-labelledby="title-${role}"><h2 id="title-${role}">${title}</h2><div class="grid">${cards}</div></section>`;
+        }).join('');
+        if (detail === 'faces') document.querySelectorAll('#characters .character-svg').forEach(svg => svg.setAttribute('viewBox', '24 0 50 48'));
+        document.getElementById('pets').innerHTML = PetArt.ids.map((id, i) => `<article class="card"><div class="art">${PetArt.render(id, { state, facing })}</div><div class="label">${['Mini T-Rex', 'Dragón', 'Gato mago', 'Fénix'][i]}</div></article>`).join('');
+    }
+    document.querySelectorAll('button[data-state]').forEach(button => button.addEventListener('click', () => {
+        state = button.dataset.state;
+        document.querySelectorAll('button[data-state]').forEach(choice => choice.setAttribute('aria-pressed', choice === button));
+        renderGallery();
+    }));
+    document.getElementById('direction').addEventListener('click', event => {
+        facing = facing === 'right' ? 'left' : 'right';
+        event.currentTarget.setAttribute('aria-pressed', facing === 'left');
+        renderGallery();
+    });
+    document.querySelectorAll('select').forEach(select => select.addEventListener('change', renderGallery));
+    renderGallery();
+</script>
+</body>
+</html>

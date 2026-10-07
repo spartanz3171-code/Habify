@@ -3,10 +3,10 @@
 // ==========================================
 
 const Views = {
-    renderCompanion(id, className = 'companion-sprite') {
+    renderCompanion(id, className = 'companion-sprite', options = {}) {
         if (!PetArt.supports(id)) return '';
         const name = I18N.t(`item.${id}.name`);
-        return `<span class="${className}" role="img" aria-label="${this.escape(name)}">${PetArt.render(id)}</span>`;
+        return `<span class="${className}" role="img" aria-label="${this.escape(name)}">${PetArt.render(id, options)}</span>`;
     },
     escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
     classLabel(avatar) {
@@ -22,22 +22,23 @@ const Views = {
     // ========================================
     renderAuth(mode = 'login') {
         const isLogin = mode === 'login';
+        const t = (es, en) => I18N.current === 'en' ? en : es;
         return `
             <div class="auth-container">
                 <div class="auth-party" aria-hidden="true">${CharacterArt.render({ avatarClass: 'elf', appearance: { body: 'female', hairStyle: 'ponytail', outfitColor: '#00a878' } })}${CharacterArt.render({ avatarClass: 'knight', appearance: { body: 'male', outfitColor: '#29adff' } })}${CharacterArt.render({ avatarClass: 'mage', appearance: { body: 'female', hairStyle: 'long', outfitColor: '#a855f7' } })}</div>
                 <div class="auth-title">HABIFY</div>
-                <div class="auth-subtitle">${isLogin ? 'Inicia sesion, aventurero' : 'Crea tu cuenta'}</div>
+                <div class="auth-subtitle">${isLogin ? t('Inicia sesión, aventurero', 'Sign in, adventurer') : t('Crea tu cuenta', 'Create your account')}</div>
 
-                <div class="auth-error" id="auth-error"></div>
+                <div class="auth-error" id="auth-error" role="alert"></div>
 
                 <form id="auth-form" onsubmit="App.handleAuth(event, '${mode}')">
                     <div class="form-group">
-                        <label class="form-label" data-i18n="auth.email">${I18N.t('auth.email')}</label>
-                        <input type="email" class="form-input" id="auth-email" placeholder="hero@habify.com" required>
+                        <label class="form-label" for="auth-email" data-i18n="auth.email">${I18N.t('auth.email')}</label>
+                        <input type="email" class="form-input" id="auth-email" placeholder="tu@correo.com" autocomplete="email" maxlength="254" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label" data-i18n="auth.password">${I18N.t('auth.password')}</label>
-                        <input type="password" class="form-input" id="auth-password" placeholder="Min 6 caracteres" minlength="6" required>
+                        <label class="form-label" for="auth-password" data-i18n="auth.password">${I18N.t('auth.password')}</label>
+                        <input type="password" class="form-input" id="auth-password" placeholder="${t('Mín. 6 caracteres', 'Min. 6 characters')}" autocomplete="${isLogin ? 'current-password' : 'new-password'}" minlength="6" required>
                     </div>
                     ${!isLogin ? `
                     <div class="form-group">
@@ -59,16 +60,18 @@ const Views = {
                     </div>
                     <div id="registration-preview" class="registration-preview">${CharacterArt.render({ avatarClass: 'hero', appearance: { body: 'female', hairStyle: 'ponytail' } })}</div>
                     <p class="form-help">${I18N.current === 'en' ? 'Customize your look anytime from Character.' : 'Podrás personalizar tu apariencia desde Personaje.'}</p>
+                    <p class="form-help auth-verification-help">${t('Usa un correo al que tengas acceso. Te enviaremos un enlace para verificarlo antes de entrar.', 'Use an email you can access. We will send a verification link before you can sign in.')}</p>
                     ` : ''}
                     <button type="submit" class="btn btn-primary btn-block" id="auth-submit">
                         ${isLogin ? '>> ' + I18N.t('auth.login') + ' <<' : '>> ' + I18N.t('auth.register') + ' <<'}
                     </button>
                 </form>
+                ${isLogin ? `<button type="button" class="auth-text-button" id="auth-request-verification" onclick="App.requestVerificationFromLogin()">${t('¿Necesitas otro enlace de verificación?', 'Need another verification link?')}</button>` : ''}
 
                 <div class="auth-switch">
                     ${isLogin
-                ? '¿No tienes cuenta? <a onclick="App.showAuth(\'register\')">Registrate</a>'
-                : '¿Ya tienes cuenta? <a onclick="App.showAuth(\'login\')">Inicia sesion</a>'}
+                ? `${t('¿No tienes cuenta?', 'No account yet?')} <button type="button" class="auth-text-button" onclick="App.showAuth('register')">${t('Regístrate', 'Register')}</button>`
+                : `${t('¿Ya tienes cuenta?', 'Already have an account?')} <button type="button" class="auth-text-button" onclick="App.showAuth('login')">${t('Inicia sesión', 'Sign in')}</button>`}
                 </div>
 
                 <div style="margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--pixel-dark-gray); text-align: center;">
@@ -78,6 +81,27 @@ const Views = {
                 </div>
             </div>
         `;
+    },
+
+    renderEmailVerification(email, options = {}) {
+        const t = (es, en) => I18N.current === 'en' ? en : es;
+        return `<section class="auth-container auth-verification" id="email-verification" aria-labelledby="verification-title">
+            <div class="auth-title">HABIFY</div>
+            <div class="verification-emblem" aria-hidden="true">✉</div>
+            <h1 id="verification-title">${t('Verifica tu correo', 'Verify your email')}</h1>
+            <p class="verification-intro">${t('Tu aventura empieza con un correo confirmado.', 'Your adventure starts with a verified email.')}</p>
+            <p class="verification-address" id="verification-email">${this.escape(email)}</p>
+            <p class="verification-status" id="verification-status" role="status" aria-live="polite">${options.sent
+                ? t('Si el correo puede registrarse, recibirás un enlace de verificación. Ábrelo para confirmar tu cuenta.', 'If the email can be registered, you will receive a verification link. Open it to confirm your account.')
+                : t('Abre el enlace que recibiste para confirmar tu cuenta. Puedes solicitar uno nuevo aquí.', 'Open the link you received to confirm your account. You can request a new one here.')}</p>
+            <p class="form-help">${t('Revisa también la carpeta de spam. Después de confirmar, podrás iniciar sesión con tu correo y contraseña.', 'Check your spam folder too. After confirming, sign in with your email and password.')}</p>
+            <div class="auth-error ${options.error ? 'show' : ''}" id="auth-error" role="alert">${this.escape(options.error || '')}</div>
+            <div class="verification-actions">
+                <button type="button" class="btn btn-primary btn-block" id="verification-resend" onclick="App.resendVerification()">${t('REENVIAR VERIFICACIÓN', 'RESEND VERIFICATION')}</button>
+                <button type="button" class="btn btn-secondary btn-block" id="verification-login" onclick="App.showAuth('login')">${t('IR A INICIAR SESIÓN', 'GO TO SIGN IN')}</button>
+            </div>
+            <button type="button" class="auth-text-button" onclick="App.showAuth('register')">${t('¿Escribiste mal el correo? Corregirlo', 'Wrong email? Correct it')}</button>
+        </section>`;
     },
 
     // ========================================
