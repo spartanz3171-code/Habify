@@ -1,5 +1,16 @@
 # Hábitos, progresión y recuperación de contraseña
 
+## Ajustes 3.5.1: completar con un botón
+
+Si ya ejecutaste la migración 3.5.0, ejecuta sólo [`supabase_habit_checklist.sql`](../supabase_habit_checklist.sql) completo en SQL Editor y recarga Habify. Para una instalación nueva, la migración principal actualizada ya incluye esta corrección.
+
+- Cada hábito muestra su meta mínima. Pulsar **Marcar completado** confirma que se alcanzó o superó; no pide escribir una cantidad. Internamente se envía la meta vigente, sin afirmar que sea una medición exacta.
+- El agua empieza con **2 litros**, sube a **3 litros después de siete cumplimientos programados consecutivos** y tiene 3 litros como máximo predeterminado. La corrección convierte únicamente la configuración genérica accidental de agua (5–20 unidades, incremento 5, siete cumplimientos). Conserva historial, rachas, niveles y recompensas. Las metas personalizadas diferentes no se reemplazan.
+- Las unidades corresponden al hábito: litros para agua, páginas para lectura, horas para sueño y minutos para actividades. Ya no se ofrece un selector que mezcle unidades. Los hábitos sin una progresión predefinida mantienen una meta fija.
+- La zona horaria sigue guardada para calcular las fechas, pero no aparece como `America/Mexico_City` en las tarjetas. Los bloqueos distinguen **Completado**, **Día de descanso** y una espera pendiente con su fecha. El parche retira los intervalos móviles heredados; el registro único por día/semana sigue impidiendo premios repetidos.
+- Reenviar verificación aparece en la pantalla de registro pendiente de confirmar, no como opción general de inicio de sesión. Intentar entrar con una cuenta aún sin confirmar también permite resolver esa verificación.
+- El tutorial automático se reserva al primer acceso de una cuenta recién registrada. El estado se guarda en sus metadatos de Supabase; una cuenta existente no vuelve a verlo por tener cero hábitos o por cambiar de dispositivo. Si falla el guardado remoto, se conserva una marca local como respaldo.
+
 ## Análisis del comportamiento anterior
 
 Habify conserva su frontend de HTML/CSS/JavaScript, Supabase Auth y las tablas `avatars`, `habits`, tienda y guardarropa. El motor, los personajes y el combate se mantienen.
@@ -31,7 +42,7 @@ De los hábitos anteriores sólo puede recuperarse la última marca conocida. Se
 
 ## Progresión y calendario
 
-En el catálogo, la progresión por cantidades es opcional. Tiene objetivo inicial/máximo, incremento, unidad y cumplimientos necesarios (7 por defecto). Hay propuestas para sueño, lectura, cardio, meditación y programación/estudio. Los hábitos binarios siguen sin niveles. Un hábito binario ya existente puede usar **Añadir niveles**, sin reabrir períodos premiados.
+En el catálogo, la progresión de metas es opcional. Tiene objetivo inicial/máximo, incremento, una unidad propia del hábito y cumplimientos necesarios (7 por defecto). Hay propuestas para agua, sueño, lectura, cardio, meditación y programación/estudio. Los hábitos binarios siguen sin niveles. Un hábito binario ya existente con una progresión predefinida puede usar **Añadir niveles**, sin reabrir períodos premiados.
 
 Los parámetros quedan fijados al activar la progresión: no hay una edición posterior que permita bajar la meta a mitad de un período. Reiniciar vuelve a esos parámetros iniciales. Se permiten entre 2 y 90 cumplimientos por nivel y hasta 20 niveles.
 
@@ -43,9 +54,9 @@ Los parámetros quedan fijados al activar la progresión: no hay una edición po
 | Dos veces por semana | Martes y jueves |
 | Semanal | Una marca por semana, de lunes a domingo |
 
-Cada hábito guarda una zona horaria IANA al activarse. Viajar o cambiar el reloj del celular no cambia su calendario; la fecha que decide el pago proviene del servidor. Los hábitos anteriores adoptan `America/Mexico_City` y conservan su último intervalo pendiente para evitar un pago adicional durante la transición. No se aplican penalizaciones retroactivas a períodos anteriores a la migración.
+Cada hábito guarda una zona horaria IANA al activarse. Viajar o cambiar el reloj del celular no cambia su calendario; la fecha que decide el pago proviene del servidor. Los hábitos anteriores adoptan `America/Mexico_City`. Desde 3.5.1 se usa el día de calendario, sin esperar 24 horas exactas desde el cumplimiento anterior. El historial conserva el bloqueo del día ya premiado. No se aplican penalizaciones retroactivas a períodos anteriores a la migración.
 
-Completar los períodos programados consecutivos aumenta el contador de ascenso. Los descansos no lo interrumpen. Registrar una cantidad insuficiente o dejar pasar un período lo reinicia, sin bajar la dificultad ni la mejor racha. Una cantidad insuficiente puede corregirse dentro del mismo período; el primer cumplimiento válido cierra sus recompensas. En el nivel máximo siguen los pagos normales. Se conservan las penalizaciones de hábitos positivos omitidos, ahora una vez por período vencido, y la recuperación del personaje al completar un hábito.
+Completar los períodos programados consecutivos aumenta el contador de ascenso. Los descansos no lo interrumpen. Si no se alcanzó la meta, se deja sin marcar; al vencer ese período se reinicia el contador, sin bajar la dificultad ni la mejor racha. El primer cumplimiento válido cierra sus recompensas. En el nivel máximo siguen los pagos normales. Se conservan las penalizaciones de hábitos positivos omitidos, ahora una vez por período vencido, y la recuperación del personaje al completar un hábito.
 
 ## Economía y sincronización
 
@@ -79,11 +90,11 @@ Referencias: [recuperación oficial](https://supabase.com/docs/reference/javascr
 ## Archivos y pruebas
 
 - `js/habits.js`: interfaz, cantidades, configuración, historial y llamadas al servidor.
-- `supabase_habit_progression.sql`: migración, calendario, transacciones y permisos.
+- `supabase_habit_progression.sql`: migración, calendario, transacciones y permisos. `supabase_habit_checklist.sql`: corrección para bases que ya instalaron 3.5.0.
 - `js/recovery.js`: solicitud, autorización y actualización de contraseña.
 - `js/app.js`, `js/data.js`, `js/engine.js`, `js/views.js`, `js/i18n.js`: integración con la arquitectura existente.
 - `js/wardrobe.js`, `js/atelier.js`: coordinación con las escrituras del avatar.
-- `css/polish.css`, `index.html`, `sw.js`: interfaz adaptable y recursos de la versión 3.5.0.
+- `css/polish.css`, `index.html`, `sw.js`: interfaz adaptable y recursos de la versión 3.5.1.
 - `tests/habit-progression.test.cjs`, `tests/avatar-sync.test.cjs`, `tests/combat.test.cjs`, `tests/helpers/habit-db.cjs`, `tests/browser/habits-progress.spec.cjs`, `tests/browser/auth.spec.cjs`: pruebas de persistencia, autorización, concurrencia, calendarios y flujos de interfaz.
 - `package.json` y `package-lock.json`: PGlite sólo como dependencia de desarrollo para comprobar SQL real localmente.
 

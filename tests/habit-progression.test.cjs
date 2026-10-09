@@ -109,6 +109,23 @@ test('habit transactions preserve history, schedule, ownership and reward eligib
   assert.deepEqual((await db.query("SELECT gold,current_xp FROM public.avatars WHERE id='a'")).rows[0],before);
   await db.exec('DROP TRIGGER reject_activity ON public.habit_activity');
  });
+ await t.test('checklist migration repairs water and rolling waits without reopening completed days or losing rewards',async()=>{
+  await call('complete',second,{},null,'2026-10-22');
+  await db.query("UPDATE public.habits SET progression=$1::jsonb,available_after='2026-10-23T18:00:00Z' WHERE id=$2",[JSON.stringify({initial:5,max:20,step:5,required:7,unit:'units'}),second]);
+  const before=(await db.query("SELECT gold,current_xp FROM public.avatars WHERE id='a'")).rows[0];
+  const count=(await db.query('SELECT count(*)::int n FROM public.habit_activity WHERE habit_id=$1',[second])).rows[0].n;
+  const patch=fs.readFileSync(path.join(__dirname,'../supabase_habit_checklist.sql'),'utf8');
+  await db.exec(patch);await db.exec(patch);
+  assert.deepEqual((await db.query("SELECT gold,current_xp FROM public.avatars WHERE id='a'")).rows[0],before);
+  assert.equal((await db.query('SELECT count(*)::int n FROM public.habit_activity WHERE habit_id=$1',[second])).rows[0].n,count);
+  assert.equal((await call('complete',second,{},2,'2026-10-22')).status,'already_recorded');
+  const early=(await db.query("SELECT public.habit_action_at('complete',$1,'{}',2,'2026-10-23','2026-10-23T08:00:00Z') r",[second])).rows[0].r;
+  assert.equal(early.status,'completed');
+  let r;for(let d=24;d<=29;d++)r=await call('complete',second,{},2,`2026-10-${d}`);
+  const h=r.habits.find(x=>x.id===second);assert.equal(h.progression.unit,'liters');assert.equal(h.current_target,3);assert.equal(h.difficulty_level,2);
+  assert.equal(r.advanced,true);assert.equal(r.bonus_xp,25);
+  assert.equal((await call('complete',second,{},3,'2026-10-29')).status,'already_recorded');
+ });
  await t.test('server enforces ownership and denies direct edits, fake clocks and reward insertion',async()=>{
   await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[other]);
   await assert.rejects(call('reset',id),e=>e.code==='42501');

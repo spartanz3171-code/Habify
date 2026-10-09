@@ -1,5 +1,43 @@
 const { test, expect } = require('@playwright/test');
 
+test('verification resend is absent from ordinary login and appears after registration', async ({page}) => {
+    await bootAuth(page);
+    await expect(page.locator('#auth-request-verification')).toHaveCount(0);
+    await expect(page.locator('#verification-resend')).toHaveCount(0);
+    await submitRegistration(page);
+    await expect(page.locator('#verification-resend')).toBeVisible();
+    await page.evaluate(()=>App.showAuth('login'));
+    await expect(page.locator('#verification-resend')).toHaveCount(0);
+    await expect(page.locator('#auth-request-verification')).toHaveCount(0);
+});
+
+for (const fresh of [false,true]) test(`welcome tutorial ${fresh ? 'appears once for a new account and stays dismissed on another device' : 'does not appear for a returning account with no habits or local storage'}`,async({page})=>{
+    await bootAuth(page);
+    await page.clock.install();
+    await page.evaluate(async fresh=>{
+        localStorage.clear();
+        GameState.user=authMock.user;
+        GameState.user.user_metadata=fresh ? {habify_tutorial_pending:true} : {};
+        loadGameFromDB=async()=>{GameState.habits=[];return true;};
+        Engine.checkDailyPenalties=async()=>[];
+        App.showMainApp=()=>{document.body.dataset.view='dashboard';};
+        App.startCooldownTimer=()=>{};
+        await actualLoadUserData.call(App);
+    },fresh);
+    await page.clock.runFor(800);
+    if(fresh) {
+        await expect(page.locator('#tutorial-modal')).toBeVisible();
+        expect(await page.evaluate(()=>authMock.user.user_metadata.habify_tutorial_seen)).toBe(true);
+        await page.evaluate(async()=>{
+            App.closeTutorial();localStorage.clear();
+            GameState.user=JSON.parse(JSON.stringify(authMock.user));
+            await actualLoadUserData.call(App);
+        });
+        await page.clock.runFor(800);
+    }
+    await expect(page.locator('#tutorial-modal')).toHaveCount(0);
+});
+
 test('password recovery requests are generic, use the public return URL and throttle repeated sends', async ({page}) => {
     await bootAuth(page);
     await page.evaluate(() => {
@@ -79,6 +117,7 @@ async function bootAuth(page) {
     await expect(page.locator('#auth-form')).toBeVisible();
     await page.evaluate(() => {
         window.authCalls = [];
+        window.actualLoadUserData = App.loadUserData;
         window.authMock = {
             user: { id: 'auth-test-user', email: 'student@example.edu', email_confirmed_at: null, user_metadata: {} },
             session: null,
@@ -333,7 +372,7 @@ test('first confirmed login on another device restores character metadata once',
     ]);
     expect(calls.find(call => call.method === 'avatarFilter')).toMatchObject({ column: 'user_id', value: 'auth-test-user' });
     expect(calls.filter(call => call.method === 'updateUser')).toEqual([
-        { method: 'updateUser', args: { data: { habify_profile_pending: false } } }
+        { method: 'updateUser', args: { data: { habify_profile_pending: false, habify_tutorial_pending: true } } }
     ]);
     expect(calls.findIndex(call => call.method === 'getUser')).toBeLessThan(calls.findIndex(call => call.method === 'updateAvatar'));
     expect(calls.findIndex(call => call.method === 'updateAvatar')).toBeLessThan(calls.findIndex(call => call.method === 'loadUserData'));

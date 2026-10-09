@@ -67,7 +67,6 @@ const Views = {
                     </button>
                 </form>
                 ${isLogin ? `<button type="button" class="auth-text-button" id="forgot-password" onclick="PasswordRecovery.requestView()">${t('¿Olvidaste tu contraseña?', 'Forgot your password?')}</button>` : ''}
-                ${isLogin ? `<button type="button" class="auth-text-button" id="auth-request-verification" onclick="App.requestVerificationFromLogin()">${t('¿Necesitas otro enlace de verificación?', 'Need another verification link?')}</button>` : ''}
 
                 <div class="auth-switch">
                     ${isLogin

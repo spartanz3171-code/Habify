@@ -72,6 +72,7 @@ const App = {
     },
 
     clearAccountView() {
+        clearTimeout(this._tutorialTimer);
         HabitProgress.ready = false;
         HabitProgress.installed = false;
         GameState._avatarBalance = null;
@@ -190,14 +191,27 @@ const App = {
         // Start cooldown timer
         this.startCooldownTimer();
 
-        // Auto-show tutorial if first time or 0 habits
-        const seenTutorial = localStorage.getItem('habify_tutorial_seen_' + GameState.user.id);
-        if (!seenTutorial || GameState.habits.length === 0) {
-            setTimeout(() => {
-                if (!isCurrentUser()) return;
-                this.openTutorial();
-            }, 600);
-        }
+        await this.maybeShowWelcomeTutorial();
+    },
+
+    async maybeShowWelcomeTutorial() {
+        const user = GameState.user;
+        const metadata = user?.user_metadata;
+        if (!user || metadata?.habify_tutorial_pending !== true || metadata.habify_tutorial_seen === true) return;
+        const key = 'habify_tutorial_seen_' + user.id;
+        let seenLocally = false;
+        try { seenLocally = localStorage.getItem(key) === 'true'; } catch (_) { /* Optional fallback. */ }
+        const marker = { habify_tutorial_pending: false, habify_tutorial_seen: true };
+        // Store the once-only marker in the account, so other devices don't repeat onboarding.
+        try { await supabase.auth.updateUser({ data: marker }); } catch (_) { /* Local fallback when offline. */ }
+        if (GameState.user?.id !== user.id) return;
+        user.user_metadata = { ...metadata, ...marker };
+        try { localStorage.setItem(key, 'true'); } catch (_) { /* The account marker still applies. */ }
+        if (seenLocally) return;
+        clearTimeout(this._tutorialTimer);
+        this._tutorialTimer = setTimeout(() => {
+            if (GameState.user?.id === user.id && document.body.dataset.view !== 'auth') this.openTutorial();
+        }, 600);
     },
 
     showMainApp() {
@@ -306,9 +320,10 @@ const App = {
         const name = String(initial.avatar_name || 'Héroe').trim().slice(0, 16);
         const { data, error } = await supabase.from('avatars').update({ name, avatar_class: avatarClass }).eq('user_id', user.id).select('id');
         if (error || !data?.length) throw error || new Error('Avatar not ready');
-        const result = await supabase.auth.updateUser({ data: { habify_profile_pending: false } });
+        const markers = { habify_profile_pending: false, habify_tutorial_pending: initial.habify_tutorial_seen !== true };
+        const result = await supabase.auth.updateUser({ data: markers });
         if (result.error) throw result.error;
-        user.user_metadata = { ...initial, habify_profile_pending: false };
+        user.user_metadata = { ...initial, ...markers };
     },
 
     showAuth(mode) {
@@ -345,12 +360,6 @@ const App = {
         button.textContent = this._resending ? this.authText('ENVIANDO…', 'SENDING…') : seconds > 0
             ? this.authText(`REENVIAR EN ${seconds} s`, `RESEND IN ${seconds} s`)
             : this.authText('REENVIAR VERIFICACIÓN', 'RESEND VERIFICATION');
-    },
-
-    requestVerificationFromLogin() {
-        const input = document.getElementById('auth-email');
-        if (!input.reportValidity()) return;
-        this.showEmailVerification(input.value);
     },
 
     async resendVerification() {
@@ -589,7 +598,7 @@ const App = {
 
     closeTutorial() {
         if (GameState.user) {
-            localStorage.setItem('habify_tutorial_seen_' + GameState.user.id, 'true');
+            try { localStorage.setItem('habify_tutorial_seen_' + GameState.user.id, 'true'); } catch (_) { /* Optional storage. */ }
         }
         const root = document.getElementById('modal-root');
         if (root) root.innerHTML = '';

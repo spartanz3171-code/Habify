@@ -5,6 +5,7 @@ const HabitProgress = {
     busy: false,
     text(es, en) { return I18N.current === 'en' ? en : es; },
     presets: {
+        hab_water: { initial: 2, max: 3, step: 1, required: 7, unit: 'liters' },
         hab_sleep: { initial: 5, max: 8, step: 1, required: 7, unit: 'hours' },
         hab_read: { initial: 5, max: 30, step: 5, required: 7, unit: 'pages' },
         hab_cardio: { initial: 10, max: 40, step: 10, required: 7, unit: 'minutes' },
@@ -59,7 +60,21 @@ const HabitProgress = {
             return null;
         } finally { this.busy = false; }
     },
-    unit(unit) { return ({ hours: this.text('horas', 'hours'), minutes: this.text('minutos', 'minutes'), pages: this.text('páginas', 'pages'), units: this.text('unidades', 'units') })[unit] || ''; },
+    unit(unit) { return ({ liters: this.text('litros', 'liters'), hours: this.text('horas', 'hours'), minutes: this.text('minutos', 'minutes'), pages: this.text('páginas', 'pages'), units: this.text('veces', 'times') })[unit] || ''; },
+    preset(item) {
+        const key = item.catalog_id || item.id;
+        return this.presets[key] || this.presets[GameState.presetCatalog.find(p => p.title === item.title)?.id];
+    },
+    availabilityText(h) {
+        if (h.recorded && h.type === 'negative') return this.text('Este incumplimiento ya quedó registrado.', 'This setback has already been recorded.');
+        if (h.recorded) return this.text(h.frequency === 'weekly' ? 'Ya completaste este hábito esta semana.' : 'Ya completaste este hábito hoy.', h.frequency === 'weekly' ? 'You completed this habit this week.' : 'You completed this habit today.');
+        if (!h.period) return this.text('Hoy es día de descanso para este hábito. Disponible: ', 'Today is a rest day for this habit. Scheduled: ') + this.frequency(h.frequency) + '.';
+        if (h.available_after && Date.now() < Date.parse(h.available_after)) {
+            const date = new Intl.DateTimeFormat(I18N.current === 'en' ? 'en-US' : 'es-MX', {dateStyle:'short',timeStyle:'short'}).format(new Date(h.available_after));
+            return this.text('Ya lo completaste recientemente. Podrás volver a marcarlo el ', 'You completed it recently. Available again on ') + date + '.';
+        }
+        return '';
+    },
     stamp() { return GameState.habits.map(h => new Intl.DateTimeFormat('en-CA', {timeZone:h.habit_timezone || 'UTC'}).format(new Date()) + ':' + (!h.available_after || Date.now() >= Date.parse(h.available_after))).join('|'); },
     async refreshDay() {
         if(!this.ready || this.busy || GameState.currentBattle || !GameState.user || document.hidden || this.stamp()===this.dayStamp) return;
@@ -71,35 +86,38 @@ const HabitProgress = {
     card(h, management = false) {
         const t = this.text.bind(this), esc = Views.escape;
         const p = h.progression, done = h.recorded, available = this.available(h);
+        const title = p?.unit === 'liters' && this.preset(h) === this.presets.hab_water ? t('Beber agua', 'Drink water') : h.title;
         const max = p && Number(h.current_target) >= p.max;
         const next = p ? Math.min(p.max, Number(h.current_target) + p.step) : null;
         const bonusPaid = p && h.difficulty_level + 1 <= h.rewarded_level;
         return `<article class="card habit-progress-card ${done ? 'completed' : ''}" data-progress-habit="${esc(h.id)}">
-            <div class="habit-progress-heading"><h3>${esc(h.title)}</h3><span class="section-badge">${p ? `${t('NIVEL', 'LEVEL')} ${h.difficulty_level}` : t('SIN NIVELES', 'NO LEVELS')}</span></div>
+            <div class="habit-progress-heading"><h3>${esc(title)}</h3><span class="section-badge">${p ? `${t('NIVEL', 'LEVEL')} ${h.difficulty_level}` : t('META FIJA', 'FIXED GOAL')}</span></div>
             <p class="habit-description">${esc(h.description || '')}</p>
-            <p>${p ? `${t('Objetivo', 'Target')}: <strong>${h.current_target} ${this.unit(p.unit)}</strong>` : t('Registro de completado / no completado', 'Completed / not completed')}</p>
-            <p class="habit-schedule">${this.frequency(h.frequency)} · ${esc(h.habit_timezone)}</p>
+            <p>${p ? `${t('Meta mínima', 'Minimum goal')}: <strong>${h.current_target} ${this.unit(p.unit)}</strong>. ${t('Si la alcanzaste o superaste, marca Completado.', 'If you reached or exceeded it, mark Completed.')}` : h.type === 'negative' ? t('Registra el incumplimiento sólo si ocurrió.', 'Log the setback only if it happened.') : t('Marca Completado cuando hayas cumplido este hábito.', 'Mark Completed when you have fulfilled this habit.')}</p>
+            <p class="habit-schedule">${this.frequency(h.frequency)}</p>
             ${p ? `<div class="habit-progress-meter"><label>${max ? t('Nivel máximo alcanzado', 'Maximum level reached') : `${t('Próximo nivel', 'Next level')}: ${h.progress_count}/${p.required} ${t('cumplimientos programados consecutivos', 'consecutive scheduled completions')}`}</label><progress max="${p.required}" value="${max ? p.required : h.progress_count}" aria-label="${t('Progreso al siguiente nivel', 'Progress to next level')}"></progress></div>
                 ${!max ? `<p>${t('Siguiente objetivo', 'Next target')}: ${next} ${this.unit(p.unit)} · ${bonusPaid ? t('Bonificación ya obtenida', 'Bonus already earned') : `+${h.rewards.bonus_xp} XP / +${h.rewards.bonus_gold} G`}</p>` : ''}` : ''}
             <p>${t('Racha actual', 'Current streak')}: ${h.current_streak} · ${t('Mejor racha', 'Best streak')}: ${h.best_streak}</p>
             <p class="habit-reward">${h.type === 'positive' ? `+${h.xpReward} XP / +${h.goldReward} G` : `−${h.hpPenalty} HP`}</p>
-            <button class="btn btn-primary" ${!available || this.busy ? 'disabled' : ''} onclick="App.toggleHabit('${esc(h.id)}')">${done ? t('REGISTRADO', 'RECORDED') : !available ? t('FUERA DEL PERÍODO DISPONIBLE', 'NOT DUE') : p ? t('REGISTRAR CANTIDAD', 'LOG AMOUNT') : h.type === 'negative' ? t('REGISTRAR INCUMPLIMIENTO', 'LOG SETBACK') : t('COMPLETAR', 'COMPLETE')}</button>
-            ${management ? `<div class="habit-actions">${!p && h.type === 'positive' ? `<button class="btn btn-secondary" onclick="HabitProgress.configure('${esc(h.id)}')">${t('Añadir niveles', 'Add levels')}</button>` : ''}<button class="btn btn-secondary" onclick="HabitProgress.confirmReset('${esc(h.id)}')">${t('Reiniciar progreso', 'Reset progress')}</button><button class="btn btn-danger" onclick="HabitProgress.confirmDelete('${esc(h.id)}')">${t('Eliminar hábito', 'Delete habit')}</button><button class="btn btn-secondary" onclick="HabitProgress.history('${esc(h.id)}')">${t('Historial', 'History')}</button></div>` : ''}</article>`;
+            ${!available ? `<p class="habit-availability" role="status">${esc(this.availabilityText(h))}</p>` : ''}
+            <button class="btn btn-primary" ${!available || this.busy ? 'disabled' : ''} onclick="App.toggleHabit('${esc(h.id)}')">${done ? h.type === 'negative' ? t('REGISTRADO', 'RECORDED') : t('COMPLETADO', 'COMPLETED') : !h.period ? t('DÍA DE DESCANSO', 'REST DAY') : !available ? t('YA REGISTRADO', 'ALREADY RECORDED') : h.type === 'negative' ? t('REGISTRAR INCUMPLIMIENTO', 'LOG SETBACK') : t('MARCAR COMPLETADO', 'MARK COMPLETED')}</button>
+            ${management ? `<div class="habit-actions">${!p && h.type === 'positive' && this.preset(h) ? `<button class="btn btn-secondary" onclick="HabitProgress.configure('${esc(h.id)}')">${t('Añadir niveles', 'Add levels')}</button>` : ''}<button class="btn btn-secondary" onclick="HabitProgress.confirmReset('${esc(h.id)}')">${t('Reiniciar progreso', 'Reset progress')}</button><button class="btn btn-danger" onclick="HabitProgress.confirmDelete('${esc(h.id)}')">${t('Eliminar hábito', 'Delete habit')}</button><button class="btn btn-secondary" onclick="HabitProgress.history('${esc(h.id)}')">${t('Historial', 'History')}</button></div>` : ''}</article>`;
     },
     configForm(item) {
-        if (!this.ready || item.type !== 'positive') return '';
-        const t = this.text.bind(this), p = this.presets[item.id] || { initial: 5, max: 20, step: 5, required: 7, unit: 'units' };
+        const p = this.preset(item);
+        if (!this.ready || item.type !== 'positive' || !p) return '';
+        const t = this.text.bind(this);
         const field = (key, label, value, min, max) => `<label>${label}<input class="form-input" data-progress="${key}" type="number" step="${key === 'required' ? '1' : 'any'}" min="${min}" max="${max}" value="${value}" required></label>`;
         return `<details class="habit-config" id="config-${item.id}"><summary>${t('Configurar progresión opcional', 'Configure optional progression')}</summary>
-            <label><input data-progress="enabled" type="checkbox" ${this.presets[item.id] ? 'checked' : ''}> ${t('Medir cantidades y subir niveles', 'Measure amounts and gain levels')}</label>
+            <label><input data-progress="enabled" type="checkbox" checked> ${t('Aumentar la meta al cumplirla varios días', 'Increase the goal after consistent completions')}</label>
             <div class="habit-config-fields">${field('initial',t('Objetivo inicial','Initial target'),p.initial,0.1,100000)}${field('max',t('Objetivo máximo','Maximum target'),p.max,0.1,100000)}${field('step',t('Incremento','Increment'),p.step,0.1,100000)}${field('required',t('Cumplimientos para subir','Completions to advance'),p.required,2,90)}
-            <label>${t('Unidad','Unit')}<select class="form-input" data-progress="unit">${['hours','minutes','pages','units'].map(unit => `<option value="${unit}" ${p.unit === unit ? 'selected' : ''}>${this.unit(unit)}</option>`).join('')}</select></label></div>
-            <p>${t('Las recompensas se calculan por nivel. La frecuencia y los objetivos se fijan al activar el hábito.', 'Rewards are calculated by level. Schedule and targets are fixed when activating the habit.')}</p></details>`;
+            <input data-progress="unit" type="hidden" value="${p.unit}"></div>
+            <p>${t('Estas metas se expresan en', 'These goals use')} <strong>${this.unit(p.unit)}</strong>. ${t('Sólo tendrás que marcar Completado si alcanzaste la meta mínima, aunque hayas hecho más. No se te pedirá escribir cantidades.', 'Just mark Completed when you reach the minimum goal, even if you do more. No amount entry is needed.')}</p></details>`;
     },
     readConfig(id, frequency) {
         const root = document.getElementById(`config-${id}`);
         let progression = null;
-        if (root?.querySelector('[data-progress="enabled"]').checked) {
+        if (root?.querySelector('[data-progress="enabled"]')?.checked) {
             progression = {};
             for (const key of ['initial','max','step','required','unit']) {
                 const input = root.querySelector(`[data-progress="${key}"]`);
@@ -115,15 +133,13 @@ const HabitProgress = {
     async complete(id) {
         const h = GameState.habits.find(x => x.id === id);
         if (!h || !this.available(h) || this.busy) return;
-        if (!h.progression) return this.submit(id, null, h.period);
-        const t = this.text.bind(this);
-        document.getElementById('modal-root').innerHTML = `<div class="modal-overlay"><section class="card habit-measure" role="dialog" aria-modal="true" aria-labelledby="measurement-title"><h2 id="measurement-title">${Views.escape(h.title)}</h2><p>${t('Objetivo','Target')}: ${h.current_target} ${this.unit(h.progression.unit)}</p><form onsubmit="HabitProgress.submitMeasurement(event,'${h.id}','${h.period}')"><label for="habit-measured">${t('Cantidad real de este período','Actual amount this period')} (${this.unit(h.progression.unit)})</label><input class="form-input" type="number" id="habit-measured" min="0" max="100000" step="any" required><button class="btn btn-primary" type="submit">${t('GUARDAR REGISTRO','SAVE ENTRY')}</button><button class="btn btn-secondary" type="button" onclick="HabitProgress.closeModal()">${t('CANCELAR','CANCEL')}</button></form></section></div>`;
-        document.getElementById('habit-measured').focus();
+        // The click attests that the minimum was reached, not an exact measured amount.
+        return this.submit(id, h.progression ? Number(h.current_target) : null, h.period);
     },
     closeModal() { document.getElementById('modal-root').innerHTML = ''; },
     configure(id) {
-        const h=GameState.habits.find(x=>x.id===id);if(!h || h.progression || this.busy)return;
-        document.getElementById('modal-root').innerHTML=`<div class="modal-overlay"><section class="card habit-measure" role="dialog" aria-modal="true" aria-labelledby="configure-title"><h2 id="configure-title">${this.text('Añadir niveles','Add levels')}: ${Views.escape(h.title)}</h2>${this.configForm({id:h.id,type:h.type})}<p>${this.text('La frecuencia, el historial y las recompensas anteriores se conservan. Las cantidades quedarán fijadas para este hábito.','Schedule, history and prior rewards are retained. Targets will be fixed for this habit.')}</p><button class="btn btn-primary" onclick="HabitProgress.saveConfig('${h.id}')">${this.text('GUARDAR','SAVE')}</button><button class="btn btn-secondary" onclick="HabitProgress.closeModal()">${this.text('CANCELAR','CANCEL')}</button></section></div>`;
+        const h=GameState.habits.find(x=>x.id===id);if(!h || h.progression || !this.preset(h) || this.busy)return;
+        document.getElementById('modal-root').innerHTML=`<div class="modal-overlay"><section class="card habit-measure" role="dialog" aria-modal="true" aria-labelledby="configure-title"><h2 id="configure-title">${this.text('Añadir niveles','Add levels')}: ${Views.escape(h.title)}</h2>${this.configForm(h)}<p>${this.text('La frecuencia, el historial y las recompensas anteriores se conservan. Las cantidades quedarán fijadas para este hábito.','Schedule, history and prior rewards are retained. Targets will be fixed for this habit.')}</p><button class="btn btn-primary" onclick="HabitProgress.saveConfig('${h.id}')">${this.text('GUARDAR','SAVE')}</button><button class="btn btn-secondary" onclick="HabitProgress.closeModal()">${this.text('CANCELAR','CANCEL')}</button></section></div>`;
         const root=document.getElementById(`config-${id}`);root.open=true;root.querySelector('[data-progress="enabled"]').checked=true;
         const preset=this.presets[h.catalog_id];if(preset)for(const key of Object.keys(preset))root.querySelector(`[data-progress="${key}"]`).value=preset[key];
     },
@@ -131,13 +147,6 @@ const HabitProgress = {
         const h=GameState.habits.find(x=>x.id===id);if(!h)return;
         const cfg=this.readConfig(id,h.frequency);if(!cfg?.progression)return;
         if(await this.act('configure',id,cfg)){this.closeModal();App.navigate('habits');}
-    },
-    async submitMeasurement(event,id,period) {
-        event.preventDefault();
-        if (!event.target.reportValidity() || this.busy) return;
-        const value = Number(document.getElementById('habit-measured').value);
-        if (!Number.isFinite(value)) return;
-        await this.submit(id, value, period);
     },
     async submit(id,value,period) {
         const view = GameState.currentView;
