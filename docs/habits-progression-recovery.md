@@ -1,8 +1,20 @@
 # Hábitos, progresión y recuperación de contraseña
 
+## Actualización 3.5.2: recompensas, eliminaciones y siete cumplimientos
+
+Si ya instalaste 3.5.0 o 3.5.1, ejecuta completo [`supabase_habit_reward_guards.sql`](../supabase_habit_reward_guards.sql) en SQL Editor y recarga la aplicación. Incluye la corrección anterior del agua; no es necesario ejecutar los parches anteriores después. La migración principal actualizada incluye todo para instalaciones nuevas. No se aplicó SQL al proyecto alojado desde este entorno.
+
+- **Una eliminación cada 24 horas por cuenta**, comprobada con la hora del servidor. La interfaz muestra cuándo se permite la siguiente. El estado se guarda en una tabla privada; cambiar el reloj o el saldo local no lo reinicia.
+- **Cobro por cuenta y misión de catálogo**, además del historial por registro. Eliminar/reactivar no reabre el premio. Una fila duplicada con otro identificador comparte la elegibilidad y las bonificaciones ya ganadas. El bloqueo cubre el período pagado y su vencimiento, y las escrituras del saldo, historial y guardas son atómicas.
+- **Siete cumplimientos fijos:** se eliminó el selector y el servidor normaliza las solicitudes a siete. Las configuraciones anteriores pasan a siete sin bajar niveles ni retirar premios; si su contador superaba seis, queda en seis para avanzar al siguiente cumplimiento válido, sin repartir ascensos retroactivos.
+- **Títulos según la meta:** editar el objetivo inicial actualiza la vista del catálogo; las tarjetas y los nuevos registros de historial reflejan la meta correspondiente. Por ejemplo, leer diez páginas muestra «Leer 10 páginas de un libro» y al ascender puede mostrar quince. La identidad interna de la misión se conserva para impedir que cambiar el título reabra premios.
+- Mientras el servidor aún no tenga estas reglas, la interfaz actualizada deja las acciones de hábitos en mantenimiento y conserva los datos visibles. Ejecutar el SQL anterior habilita las acciones; no basta con subir JavaScript para instalar reglas de base de datos.
+
+La reproducción local confirmó que el mismo registro reactivado ya rechazaba el cobro repetido, pero dos registros antiguos del mismo catálogo podían cobrar por separado y no había intervalo entre eliminaciones. Las pruebas nuevas cubren ambos casos, el límite de 24 horas, el cambio de fecha, permisos, bonificaciones y migración repetida. No se eliminaron duplicados ni se descontaron monedas históricas.
+
 ## Ajustes 3.5.1: completar con un botón
 
-Si ya ejecutaste la migración 3.5.0, ejecuta sólo [`supabase_habit_checklist.sql`](../supabase_habit_checklist.sql) completo en SQL Editor y recarga Habify. Para una instalación nueva, la migración principal actualizada ya incluye esta corrección.
+Estos ajustes están incluidos en 3.5.2. El archivo `supabase_habit_checklist.sql` se conserva como referencia del parche anterior; para actualizar ahora usa las instrucciones de 3.5.2.
 
 - Cada hábito muestra su meta mínima. Pulsar **Marcar completado** confirma que se alcanzó o superó; no pide escribir una cantidad. Internamente se envía la meta vigente, sin afirmar que sea una medición exacta.
 - El agua empieza con **2 litros**, sube a **3 litros después de siete cumplimientos programados consecutivos** y tiene 3 litros como máximo predeterminado. La corrección convierte únicamente la configuración genérica accidental de agua (5–20 unidades, incremento 5, siete cumplimientos). Conserva historial, rachas, niveles y recompensas. Las metas personalizadas diferentes no se reemplazan.
@@ -35,16 +47,16 @@ No se ha ejecutado esta migración en el proyecto remoto desde el entorno de des
 ## Reiniciar, eliminar e historial
 
 - **Reiniciar progreso:** dificultad inicial, contador de ascenso y racha actual a cero; conserva configuración, historial, mejor racha, saldo y recompensas. La marca del período actual sigue cerrada si ya cobró. Las bonificaciones ya ganadas no vuelven a pagarse.
-- **Eliminar hábito:** retira únicamente ese hábito de la lista activa, conservando su archivo y actividades. No cambia otros hábitos. Al activarlo otra vez desde el catálogo se recupera la misma identidad, frecuencia, objetivos y dificultad; su racha actual vuelve a empezar. No se puede borrar y recrear para cobrar dos veces.
+- **Eliminar hábito:** permite una eliminación cada 24 horas por cuenta. Retira únicamente ese hábito de la lista activa, conservando su archivo y actividades. No cambia otros hábitos. Al activarlo otra vez desde el catálogo se recupera la misma identidad, frecuencia, objetivos y dificultad; su racha actual vuelve a empezar. No se puede borrar y recrear para cobrar dos veces.
 - **Historial:** muestra las últimas 50 actividades, con fecha, objetivo, cantidad y XP/oro obtenidos, incluidas las bonificaciones. La dificultad y cada componente de la recompensa también quedan guardados en la base. El historial general incluye hábitos eliminados.
 
 De los hábitos anteriores sólo puede recuperarse la última marca conocida. Se guarda como `legacy`, sin volver a sumar recompensas. No se inventan registros o mejores rachas anteriores que la aplicación nunca almacenó. Las recompensas ya acumuladas en el personaje se conservan.
 
 ## Progresión y calendario
 
-En el catálogo, la progresión de metas es opcional. Tiene objetivo inicial/máximo, incremento, una unidad propia del hábito y cumplimientos necesarios (7 por defecto). Hay propuestas para agua, sueño, lectura, cardio, meditación y programación/estudio. Los hábitos binarios siguen sin niveles. Un hábito binario ya existente con una progresión predefinida puede usar **Añadir niveles**, sin reabrir períodos premiados.
+En el catálogo, la progresión de metas es opcional. Tiene objetivo inicial/máximo, incremento, una unidad propia del hábito y siete cumplimientos necesarios, siempre. Hay propuestas para agua, sueño, lectura, cardio, meditación y programación/estudio. Los hábitos binarios siguen sin niveles. Un hábito binario ya existente con una progresión predefinida puede usar **Añadir niveles**, sin reabrir períodos premiados.
 
-Los parámetros quedan fijados al activar la progresión: no hay una edición posterior que permita bajar la meta a mitad de un período. Reiniciar vuelve a esos parámetros iniciales. Se permiten entre 2 y 90 cumplimientos por nivel y hasta 20 niveles.
+Los parámetros quedan fijados al activar la progresión: no hay una edición posterior que permita bajar la meta a mitad de un período. Reiniciar vuelve a esos parámetros iniciales. Se exigen siete cumplimientos por nivel y se permiten hasta 20 niveles.
 
 | Frecuencia | Períodos |
 | --- | --- |
@@ -90,12 +102,12 @@ Referencias: [recuperación oficial](https://supabase.com/docs/reference/javascr
 ## Archivos y pruebas
 
 - `js/habits.js`: interfaz, cantidades, configuración, historial y llamadas al servidor.
-- `supabase_habit_progression.sql`: migración, calendario, transacciones y permisos. `supabase_habit_checklist.sql`: corrección para bases que ya instalaron 3.5.0.
+- `supabase_habit_progression.sql`: migración, calendario, transacciones y permisos. `supabase_habit_reward_guards.sql`: actualización de bases 3.5.0/3.5.1 a 3.5.2. `supabase_habit_checklist.sql`: parche anterior, ya incluido.
 - `js/recovery.js`: solicitud, autorización y actualización de contraseña.
 - `js/app.js`, `js/data.js`, `js/engine.js`, `js/views.js`, `js/i18n.js`: integración con la arquitectura existente.
 - `js/wardrobe.js`, `js/atelier.js`: coordinación con las escrituras del avatar.
-- `css/polish.css`, `index.html`, `sw.js`: interfaz adaptable y recursos de la versión 3.5.1.
-- `tests/habit-progression.test.cjs`, `tests/avatar-sync.test.cjs`, `tests/combat.test.cjs`, `tests/helpers/habit-db.cjs`, `tests/browser/habits-progress.spec.cjs`, `tests/browser/auth.spec.cjs`: pruebas de persistencia, autorización, concurrencia, calendarios y flujos de interfaz.
+- `css/polish.css`, `index.html`, `sw.js`: interfaz adaptable y recursos de la versión 3.5.2.
+- `tests/habit-progression.test.cjs`, `tests/habit-reward-guards.test.cjs`, `tests/avatar-sync.test.cjs`, `tests/combat.test.cjs`, `tests/helpers/habit-db.cjs`, `tests/browser/habits-progress.spec.cjs`, `tests/browser/auth.spec.cjs`: pruebas de persistencia, autorización, concurrencia, calendarios y flujos de interfaz.
 - `package.json` y `package-lock.json`: PGlite sólo como dependencia de desarrollo para comprobar SQL real localmente.
 
 Ejecuta `npm test` y `npm run test:browser`. El proyecto sirve archivos estáticos y no tiene linter ni proceso de compilación configurados. Las pruebas de autenticación simulan Supabase y no envían correos. La entrega SMTP, la contraseña real y los enlaces usados/vencidos en el servicio alojado requieren la prueba manual anterior con un correo del propietario. La concurrencia local comprueba transacciones, unicidad y reintentos; no es una prueba de carga con varias conexiones de producción.

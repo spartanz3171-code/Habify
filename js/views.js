@@ -285,6 +285,7 @@ const Views = {
                 </div>
             </div>
             
+            ${HabitProgress.ready ? `<p class="card habit-management-notice" role="status">${this.escape(HabitProgress.managementNotice())}</p>` : ''}
             ${editCooldown ? `
             <div class="card" style="border-color: var(--pixel-red); margin-bottom: 12px; text-align: center;">
                 <div style="font-size: 9px; color: var(--pixel-red); margin-bottom: 4px;">🔒 ELIMINACIÓN BLOQUEADA</div>
@@ -387,7 +388,8 @@ const Views = {
             : catalog.filter(item => item.category === catalogFilter);
 
         filteredCatalog.forEach(item => {
-            const alreadyActive = GameState.habits.some(h => h.title === item.title);
+            const activeHabit = GameState.habits.find(h => h.catalog_id === item.id || h.title === item.title);
+            const alreadyActive = !!activeHabit;
             const isNegative = item.type === 'negative';
 
             html += `
@@ -395,7 +397,7 @@ const Views = {
                     <div>
                         <div class="catalog-card-header">
                             <span class="catalog-card-icon">${this.escape(item.icon)}</span>
-                            <span class="catalog-card-title">${this.escape(item.title)}</span>
+                            <span class="catalog-card-title">${this.escape(HabitProgress.ready ? activeHabit ? HabitProgress.title(activeHabit) : HabitProgress.catalogTitle(item) : item.title)}</span>
                         </div>
                         <div class="catalog-card-desc">${this.escape(item.description)}</div>
                         <div class="catalog-card-meta">

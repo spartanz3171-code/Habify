@@ -241,6 +241,7 @@ button:disabled { cursor: default; opacity: .45; }
 
 /* Scheduled missions use the existing RPG palette, with readable long-form detail. */
 .habit-progress-card { min-width: 0; padding: 18px; }
+.habit-management-notice { font: 14px/1.65 system-ui,sans-serif; padding: 14px; color: var(--text-secondary); }
 .habit-progress-card p, .habit-config, .habit-history p, .habit-measure p { font: 14px/1.65 system-ui, sans-serif; overflow-wrap: anywhere; margin: 8px 0; }
 .habit-progress-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .habit-progress-heading h3 { font-size: 12px; line-height: 1.8; margin: 0; overflow-wrap: anywhere; }

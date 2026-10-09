@@ -75,6 +75,8 @@ const App = {
         clearTimeout(this._tutorialTimer);
         HabitProgress.ready = false;
         HabitProgress.installed = false;
+        HabitProgress.rulesReady = false;
+        HabitProgress.deleteAvailableAt = null;
         GameState._avatarBalance = null;
         GameState.habits = [];
         Engine.stopGameLoop();

@@ -38,6 +38,19 @@ CREATE TABLE IF NOT EXISTS public.habit_events (
  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
  habit_id text NOT NULL, kind text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
+-- A paid mission keeps its identity even if an old duplicate has another row id.
+CREATE TABLE IF NOT EXISTS public.habit_reward_guard (
+ user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+ habit_key text NOT NULL, last_period date, next_reward_at timestamptz,
+ rewarded_level integer NOT NULL DEFAULT 1, PRIMARY KEY(user_id,habit_key)
+);
+CREATE TABLE IF NOT EXISTS public.habit_account_rules (
+ user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+ delete_available_at timestamptz NOT NULL
+);
+ALTER TABLE public.habit_reward_guard ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.habit_account_rules ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.habit_reward_guard,public.habit_account_rules FROM PUBLIC,anon,authenticated;
 ALTER TABLE public.habit_activity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.habit_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.habit_catalog ENABLE ROW LEVEL SECURITY;
@@ -56,6 +69,26 @@ DROP POLICY IF EXISTS habit_read_own_v2 ON public.habits;
 CREATE POLICY habit_read_own_v2 ON public.habits FOR SELECT TO authenticated
  USING(EXISTS(SELECT 1 FROM public.avatars a WHERE a.id=avatar_id AND a.user_id=auth.uid()));
 GRANT SELECT ON public.habits TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.habit_reward_key(p_catalog text,p_title text)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ SELECT coalesce('catalog:'||p_catalog,
+  (SELECT 'catalog:'||id FROM public.habit_catalog WHERE definition->>'title'=p_title ORDER BY id LIMIT 1),
+  'title:'||lower(trim(p_title)))
+$$;
+
+CREATE OR REPLACE FUNCTION public.habit_goal_title(p_catalog text,p_title text,p_target numeric,p_unit text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path='' AS $$
+ SELECT CASE WHEN p_target IS NULL THEN p_title ELSE CASE p_catalog
+  WHEN 'hab_water' THEN 'Beber '||p_target||' litros de agua'
+  WHEN 'hab_read' THEN 'Leer '||p_target||' páginas de un libro'
+  WHEN 'hab_sleep' THEN 'Dormir '||p_target||' horas'
+  WHEN 'hab_cardio' THEN 'Hacer '||p_target||' minutos de cardio'
+  WHEN 'hab_meditate' THEN 'Meditar '||p_target||' minutos'
+  WHEN 'hab_code' THEN 'Estudiar programación '||p_target||' minutos'
+  ELSE p_title END END
+$$;
+REVOKE ALL ON FUNCTION public.habit_reward_key(text,text),public.habit_goal_title(text,text,numeric,text) FROM PUBLIC,anon,authenticated;
 
 CREATE OR REPLACE FUNCTION public.habit_period(p_day date, p_frequency text)
 RETURNS date LANGUAGE sql IMMUTABLE SET search_path='' AS $$
@@ -135,7 +168,10 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
  SELECT coalesce(jsonb_agg(to_jsonb(h) || jsonb_build_object(
  'period',public.habit_period((p_now AT TIME ZONE h.habit_timezone)::date,h.frequency),
  'recorded',EXISTS(SELECT 1 FROM public.habit_activity x WHERE x.habit_id=h.id::text
-   AND x.period=public.habit_period((p_now AT TIME ZONE h.habit_timezone)::date,h.frequency) AND outcome IN ('completed','legacy')),
+   AND x.period=public.habit_period((p_now AT TIME ZONE h.habit_timezone)::date,h.frequency) AND outcome IN ('completed','legacy')) OR EXISTS(
+   SELECT 1 FROM public.habit_reward_guard g JOIN public.avatars a ON a.user_id=g.user_id
+   WHERE a.id=h.avatar_id AND g.habit_key=public.habit_reward_key(h.catalog_id,h.title)
+   AND (g.next_reward_at>p_now OR g.last_period>=public.habit_period((p_now AT TIME ZONE h.habit_timezone)::date,h.frequency))),
  'current_target',CASE WHEN progression IS NOT NULL THEN least((progression->>'max')::numeric,(progression->>'initial')::numeric+(difficulty_level-1)*(progression->>'step')::numeric) END,
  'rewards',CASE WHEN progression IS NOT NULL THEN public.habit_reward(difficulty_level) ELSE jsonb_build_object('xp',xp_reward,'gold',gold_reward) END
  ) ORDER BY h.created_at),'[]'::jsonb) FROM public.habits h WHERE h.avatar_id::text=p_avatar AND h.archived_at IS NULL
@@ -145,11 +181,12 @@ $$;
 CREATE OR REPLACE FUNCTION public.habit_validate_progression(cfg jsonb,p_type text) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
 BEGIN
   IF cfg IS NOT NULL THEN
+   IF jsonb_typeof(cfg)<>'object' THEN RAISE EXCEPTION 'Invalid progression' USING ERRCODE='22023'; END IF;
+   cfg:=jsonb_set(cfg,'{required}','7'::jsonb);
    IF p_type<>'positive' OR jsonb_typeof(cfg)<>'object' OR
     coalesce((cfg->>'initial')::numeric,0)<=0 OR coalesce((cfg->>'step')::numeric,0)<=0 OR
     coalesce((cfg->>'max')::numeric,0)<(cfg->>'initial')::numeric OR (cfg->>'max')::numeric>100000 OR
     ceil(((cfg->>'max')::numeric-(cfg->>'initial')::numeric)/(cfg->>'step')::numeric)>19 OR
-    coalesce((cfg->>'required')::integer,0) NOT BETWEEN 2 AND 90 OR
     coalesce(cfg->>'unit','') NOT IN ('liters','hours','minutes','pages','units') THEN RAISE EXCEPTION 'Invalid progression' USING ERRCODE='22023'; END IF;
   END IF;
 
@@ -159,14 +196,15 @@ END $$;
 CREATE OR REPLACE FUNCTION public.habit_action_at(p_action text,p_id text,p_config jsonb,p_value numeric,p_expected_period date,p_now timestamptz)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 #variable_conflict use_variable
-DECLARE a public.avatars%ROWTYPE; h public.habits%ROWTYPE; def jsonb; cfg jsonb;
+DECLARE a public.avatars%ROWTYPE; h public.habits%ROWTYPE; g public.habit_reward_guard%ROWTYPE; def jsonb; cfg jsonb;
  today date; period date; target numeric; top numeric; reward jsonb; xp integer:=0; gold integer:=0;
  bx integer:=0; bg integer:=0; avatar_bonus integer:=0; advanced boolean:=false; status text:='saved';
- item record; tz text; freq text; v_catalog text; existed boolean;
+ item record; tz text; freq text; v_catalog text; existed boolean; reward_key text; delete_after timestamptz;
 BEGIN
  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501'; END IF;
  SELECT * INTO a FROM public.avatars WHERE user_id=auth.uid() FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Avatar not found' USING ERRCODE='42501'; END IF;
+ SELECT delete_available_at INTO delete_after FROM public.habit_account_rules WHERE user_id=auth.uid();
  IF p_action='list' THEN
   FOR item IN SELECT id::text AS id FROM public.habits WHERE avatar_id=a.id AND archived_at IS NULL LOOP
    PERFORM public.habit_reconcile(item.id,p_now);
@@ -176,7 +214,7 @@ BEGIN
   SELECT definition INTO def FROM public.habit_catalog WHERE id=v_catalog;
   IF def IS NULL THEN RAISE EXCEPTION 'Unknown catalog item' USING ERRCODE='22023'; END IF;
   -- Reuse archived identity: deleting/recreating cannot reset reward eligibility.
-  SELECT * INTO h FROM public.habits WHERE avatar_id=a.id AND (catalog_id=v_catalog OR title=def->>'title') ORDER BY created_at LIMIT 1 FOR UPDATE;
+  SELECT * INTO h FROM public.habits WHERE avatar_id=a.id AND (catalog_id=v_catalog OR title=def->>'title') ORDER BY (archived_at IS NULL) DESC,created_at LIMIT 1 FOR UPDATE;
   existed:=FOUND;
   IF existed AND h.archived_at IS NULL THEN RAISE EXCEPTION 'Habit already active' USING ERRCODE='22023'; END IF;
   IF (SELECT count(*) FROM public.habits WHERE avatar_id=a.id AND archived_at IS NULL)>=20 THEN RAISE EXCEPTION 'Habit limit reached' USING ERRCODE='22023'; END IF;
@@ -189,7 +227,7 @@ BEGIN
   IF existed THEN
    status:='reactivated';
    -- A reactivation preserves schedule, difficulty and eligibility. Reconfiguration has its own action.
-   UPDATE public.habits SET archived_at=NULL,checked_through=(p_now AT TIME ZONE habit_timezone)::date-1,
+   UPDATE public.habits SET archived_at=NULL,catalog_id=v_catalog,checked_through=(p_now AT TIME ZONE habit_timezone)::date-1,
     progress_count=0,current_streak=0 WHERE id=h.id RETURNING * INTO h;
   ELSE
    h.id:=gen_random_uuid(); h.avatar_id:=a.id;
@@ -206,12 +244,20 @@ BEGIN
   SELECT * INTO a FROM public.avatars WHERE id=a.id;
   today:=(p_now AT TIME ZONE h.habit_timezone)::date;
   period:=public.habit_period(today,h.frequency);
+  reward_key:=public.habit_reward_key(h.catalog_id,h.title);
+  SELECT * INTO g FROM public.habit_reward_guard WHERE user_id=auth.uid() AND habit_key=reward_key;
   IF p_action='reset' THEN
    UPDATE public.habits SET difficulty_level=1,progress_count=0,current_streak=0 WHERE id=h.id;
    INSERT INTO public.habit_events(user_id,habit_id,kind) VALUES(auth.uid(),p_id,'reset');
   ELSIF p_action='archive' THEN
-   UPDATE public.habits SET archived_at=p_now WHERE id=h.id;
-   INSERT INTO public.habit_events(user_id,habit_id,kind) VALUES(auth.uid(),p_id,'archived');
+   IF delete_after>p_now THEN status:='delete_cooldown';
+   ELSE
+    UPDATE public.habits SET archived_at=p_now WHERE id=h.id;
+    delete_after:=p_now+interval '24 hours';
+    INSERT INTO public.habit_account_rules(user_id,delete_available_at) VALUES(auth.uid(),delete_after)
+     ON CONFLICT(user_id) DO UPDATE SET delete_available_at=excluded.delete_available_at;
+    INSERT INTO public.habit_events(user_id,habit_id,kind,created_at) VALUES(auth.uid(),p_id,'archived',p_now);
+   END IF;
   ELSIF p_action='configure' THEN
    IF h.progression IS NOT NULL THEN RAISE EXCEPTION 'Progression already configured' USING ERRCODE='22023'; END IF;
    cfg:=public.habit_validate_progression(nullif(p_config->'progression','null'::jsonb),h.type);
@@ -221,6 +267,7 @@ BEGIN
   ELSIF p_action='complete' THEN
    IF period IS NULL OR p_now<h.available_after THEN status:='not_due';
    ELSIF p_expected_period IS DISTINCT FROM period THEN status:='period_changed';
+   ELSIF g.next_reward_at>p_now OR g.last_period>=period THEN status:='already_recorded';
    ELSIF EXISTS(SELECT 1 FROM public.habit_activity x WHERE x.habit_id=p_id AND x.period=period AND x.outcome IN ('completed','legacy')) THEN status:='already_recorded';
    ELSE
     IF h.progression IS NOT NULL THEN
@@ -237,9 +284,10 @@ BEGIN
       reward:=CASE WHEN h.progression IS NULL THEN jsonb_build_object('xp',h.xp_reward,'gold',h.gold_reward) ELSE public.habit_reward(h.difficulty_level) END;
       xp:=(reward->>'xp')::integer; gold:=(reward->>'gold')::integer;
       h.current_streak:=h.current_streak+1; h.best_streak:=greatest(h.best_streak,h.current_streak);
+      h.rewarded_level:=greatest(h.rewarded_level,coalesce(g.rewarded_level,1));
       IF target<top THEN
        h.progress_count:=h.progress_count+1;
-       IF h.progress_count>=(h.progression->>'required')::integer THEN
+       IF h.progress_count>=7 THEN
         h.difficulty_level:=h.difficulty_level+1; h.progress_count:=0; advanced:=true;
         IF h.difficulty_level>h.rewarded_level THEN bx:=(reward->>'bonus_xp')::integer; bg:=(reward->>'bonus_gold')::integer; END IF;
         h.rewarded_level:=greatest(h.rewarded_level,h.difficulty_level);
@@ -258,9 +306,13 @@ BEGIN
      UPDATE public.habits SET completed_at=p_now,current_streak=h.current_streak,best_streak=h.best_streak,
       difficulty_level=h.difficulty_level,progress_count=h.progress_count,rewarded_level=h.rewarded_level WHERE id=h.id;
      UPDATE public.avatars SET current_xp=a.current_xp,gold=a.gold,hp=a.hp,is_dead=a.is_dead,level=a.level,xp_to_level=a.xp_to_level,updated_at=p_now WHERE id=a.id;
+     INSERT INTO public.habit_reward_guard(user_id,habit_key,last_period,next_reward_at,rewarded_level)
+      VALUES(auth.uid(),reward_key,period,((period+CASE WHEN h.frequency='weekly' THEN 7 ELSE 1 END)::timestamp AT TIME ZONE h.habit_timezone),h.rewarded_level)
+      ON CONFLICT(user_id,habit_key) DO UPDATE SET last_period=excluded.last_period,next_reward_at=excluded.next_reward_at,
+       rewarded_level=greatest(habit_reward_guard.rewarded_level,excluded.rewarded_level);
     END IF;
     INSERT INTO public.habit_activity(user_id,habit_id,period,title,measured,target,difficulty,outcome,xp,gold,bonus_xp,bonus_gold,avatar_bonus_gold,created_at)
-     VALUES(auth.uid(),p_id,period,h.title,p_value,target,CASE WHEN advanced THEN h.difficulty_level-1 ELSE h.difficulty_level END,status,xp,gold,bx,bg,avatar_bonus,p_now)
+     VALUES(auth.uid(),p_id,period,public.habit_goal_title(h.catalog_id,h.title,target,h.progression->>'unit'),p_value,target,CASE WHEN advanced THEN h.difficulty_level-1 ELSE h.difficulty_level END,status,xp,gold,bx,bg,avatar_bonus,p_now)
      ON CONFLICT ON CONSTRAINT habit_activity_habit_id_period_key DO UPDATE SET measured=excluded.measured,target=excluded.target,difficulty=excluded.difficulty,
       outcome=excluded.outcome,xp=excluded.xp,gold=excluded.gold,bonus_xp=excluded.bonus_xp,bonus_gold=excluded.bonus_gold,avatar_bonus_gold=excluded.avatar_bonus_gold,created_at=excluded.created_at;
    END IF;
@@ -268,7 +320,8 @@ BEGIN
  END IF;
  SELECT * INTO a FROM public.avatars WHERE id=a.id;
  RETURN jsonb_build_object('status',status,'avatar',to_jsonb(a),'habits',public.habit_snapshot(a.id::text,p_now),
- 'xp',xp,'gold',gold,'bonus_xp',bx,'bonus_gold',bg,'advanced',advanced,'habit_id',h.id);
+ 'xp',xp,'gold',gold,'bonus_xp',bx,'bonus_gold',bg,'advanced',advanced,'habit_id',h.id,
+ 'rules_version',2,'server_now',p_now,'delete_available_at',delete_after);
 END $$;
 
 CREATE OR REPLACE FUNCTION public.habit_action(p_action text,p_id text DEFAULT NULL,p_config jsonb DEFAULT '{}',p_value numeric DEFAULT NULL,p_expected_period date DEFAULT NULL)
@@ -309,4 +362,30 @@ UPDATE public.habits SET available_after=NULL WHERE available_after IS NOT NULL;
 UPDATE public.habits SET progression='{"initial":2,"max":3,"step":1,"required":7,"unit":"liters"}'::jsonb
  WHERE (catalog_id='hab_water' OR title='Beber 2 Litros de Agua')
  AND progression='{"initial":5,"max":20,"step":5,"required":7,"unit":"units"}'::jsonb;
+-- 3.5.2: seven scheduled completions are fixed by the server, including old settings.
+UPDATE public.habits SET progression=jsonb_set(progression,'{required}','7'::jsonb),progress_count=least(progress_count,6)
+ WHERE progression IS NOT NULL AND progression->'required' IS DISTINCT FROM '7'::jsonb;
+ALTER TABLE public.habits DROP CONSTRAINT IF EXISTS habit_seven_completions;
+ALTER TABLE public.habits ADD CONSTRAINT habit_seven_completions
+ CHECK(progression IS NULL OR coalesce(progression->'required'='7'::jsonb,false));
+
+-- Backfill paid eligibility without rewriting historical activities or balances.
+INSERT INTO public.habit_reward_guard(user_id,habit_key,rewarded_level)
+ SELECT a.user_id,public.habit_reward_key(h.catalog_id,h.title),max(h.rewarded_level)
+ FROM public.habits h JOIN public.avatars a ON a.id=h.avatar_id
+ GROUP BY a.user_id,public.habit_reward_key(h.catalog_id,h.title)
+ ON CONFLICT(user_id,habit_key) DO UPDATE SET rewarded_level=greatest(habit_reward_guard.rewarded_level,excluded.rewarded_level);
+INSERT INTO public.habit_reward_guard(user_id,habit_key,last_period,next_reward_at,rewarded_level)
+ SELECT x.user_id,public.habit_reward_key(h.catalog_id,coalesce(h.title,x.title)),max(x.period),
+ max((x.period+CASE WHEN h.frequency='weekly' THEN 7 ELSE 1 END)::timestamp AT TIME ZONE coalesce(h.habit_timezone,'America/Mexico_City')),
+ max(greatest(coalesce(h.rewarded_level,1),x.difficulty+CASE WHEN x.bonus_xp>0 OR x.bonus_gold>0 THEN 1 ELSE 0 END))
+ FROM public.habit_activity x LEFT JOIN public.habits h ON h.id::text=x.habit_id
+ WHERE x.outcome IN ('completed','legacy')
+ GROUP BY x.user_id,public.habit_reward_key(h.catalog_id,coalesce(h.title,x.title))
+ ON CONFLICT(user_id,habit_key) DO UPDATE SET last_period=greatest(habit_reward_guard.last_period,excluded.last_period),
+ next_reward_at=greatest(habit_reward_guard.next_reward_at,excluded.next_reward_at),
+ rewarded_level=greatest(habit_reward_guard.rewarded_level,excluded.rewarded_level);
+INSERT INTO public.habit_account_rules(user_id,delete_available_at)
+ SELECT user_id,max(created_at)+interval '24 hours' FROM public.habit_events WHERE kind='archived' GROUP BY user_id
+ ON CONFLICT(user_id) DO UPDATE SET delete_available_at=greatest(habit_account_rules.delete_available_at,excluded.delete_available_at);
 COMMIT;

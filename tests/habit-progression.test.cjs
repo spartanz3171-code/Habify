@@ -58,12 +58,12 @@ test('habit transactions preserve history, schedule, ownership and reward eligib
  await t.test('scheduled three-times-weekly periods ignore rest days and clamp the maximum',async()=>{
   const r=await call('create',null,{...config,catalog_id:'hab_cardio',frequency:'3x_week',progression:{initial:10,max:15,step:3,required:2,unit:'minutes'}},null,'2026-10-05');
   const cid=r.habit_id;
+  assert.equal(r.habits.find(h=>h.id===cid).progression.required,7);
   assert.equal((await call('complete',cid,{},10,'2026-10-06')).status,'not_due');
-  await call('complete',cid,{},10,'2026-10-05');
-  assert.equal((await call('complete',cid,{},10,'2026-10-07')).advanced,true);
-  await call('complete',cid,{},13,'2026-10-09');
-  const max=await call('complete',cid,{},13,'2026-10-12');const h=max.habits.find(x=>x.id===cid);assert.equal(h.current_target,15);assert.equal(h.difficulty_level,3);
-  const final=await call('complete',cid,{},15,'2026-10-14');assert.equal(final.advanced,false);assert.equal(final.xp,20);
+  const dates=[];for(let d=new Date('2026-10-05T12:00Z');dates.length<15;d.setUTCDate(d.getUTCDate()+1)){if([1,3,5].includes(d.getUTCDay()))dates.push(d.toISOString().slice(0,10));}
+  let result;for(let i=0;i<14;i++){result=await call('complete',cid,{},i<7?10:13,dates[i]);assert.equal(result.advanced,i===6||i===13);}
+  const h=result.habits.find(x=>x.id===cid);assert.equal(h.current_target,15);assert.equal(h.difficulty_level,3);
+  const final=await call('complete',cid,{},15,dates[14]);assert.equal(final.advanced,false);assert.equal(final.xp,20);
  });
  await t.test('weekly habits pay once per week and midnight rejects a stale period',async()=>{
   const wid=(await call('create',null,{catalog_id:'hab_teeth',frequency:'weekly',timezone:'UTC'},null,'2026-11-02')).habit_id;
@@ -85,9 +85,12 @@ test('habit transactions preserve history, schedule, ownership and reward eligib
   const first=await Promise.all([call('complete',cid,{},5,'2026-11-04','2026-11-02'),call('complete',cid,{},5,'2026-11-04','2026-11-02')]);
   assert.deepEqual(first.map(r=>r.status).sort(),['already_recorded','completed']);
   assert.equal(first.reduce((total,r)=>total+r.xp,0),10);
-  const next=await call('complete',cid,{},5,'2026-11-11','2026-11-09');
+  let next;for(let i=1;i<7;i++){
+   const date=new Date('2026-11-04T12:00Z');date.setUTCDate(date.getUTCDate()+7*i);const day=date.toISOString().slice(0,10);
+   date.setUTCDate(date.getUTCDate()-2);next=await call('complete',cid,{},5,day,date.toISOString().slice(0,10));assert.equal(next.advanced,i===6);
+  }
   const h=next.habits.find(x=>x.id===cid);
-  assert.equal(next.advanced,true);assert.equal(next.bonus_xp,25);assert.equal(h.difficulty_level,2);assert.equal(h.current_target,6);assert.equal(h.current_streak,2);
+  assert.equal(next.bonus_xp,25);assert.equal(h.difficulty_level,2);assert.equal(h.current_target,6);assert.equal(h.current_streak,7);
  });
  await t.test('seven scheduled completions advance without penalizing rest days',async()=>{
   const cid=(await call('create',null,{...config,catalog_id:'hab_read',frequency:'3x_week'},null,'2026-10-05')).habit_id;

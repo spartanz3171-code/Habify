@@ -19,13 +19,13 @@ Las cuentas nuevas deben abrir el enlace enviado por Supabase antes de entrar. L
 
 **Configuración necesaria en Supabase:** activar **Confirm email**, configurar la URL pública de retorno y un servicio SMTP para enviar a correos externos al equipo. Subir el código a GitHub no modifica estos ajustes. Consulta [la guía de correo y la prueba de entrega real](docs/email-verification.md). `node tools/check-auth.cjs` comprueba la confirmación obligatoria y la URL de retorno sin crear cuentas ni enviar mensajes.
 
-## Hábitos y recuperación de contraseña (3.5.1)
+## Hábitos y recuperación de contraseña (3.5.2)
 
 La actualización incorpora reinicio individual, eliminación con confirmación e historial, progresión por cantidades y recompensas atómicas. Ejecuta [`supabase_habit_progression.sql`](supabase_habit_progression.sql) en Supabase para activar estas funciones; los hábitos anteriores y sus saldos se conservan. Iniciar sesión también incluye **¿Olvidaste tu contraseña?**, usando el SMTP y la URL pública existentes.
 
 Consulta la [guía de funcionamiento, migración y pruebas](docs/habits-progression-recovery.md). El catálogo nuevo requiere `avatars.is_admin` asignado desde la administración de la base para añadir misiones; la dirección de correo o los metadatos editables por el usuario no conceden ese permiso.
 
-Si ya instalaste la versión 3.5.0, ejecuta sólo [`supabase_habit_checklist.sql`](supabase_habit_checklist.sql): corrige el agua a litros y retira las esperas móviles antiguas sin borrar el historial. Ahora se completa cada hábito con un botón al alcanzar su meta mínima. El reenvío de verificación se muestra al confirmar una cuenta pendiente, y el tutorial automático sólo aparece para cuentas nuevas.
+Si ya instalaste la versión 3.5.0 o 3.5.1, ejecuta sólo [`supabase_habit_reward_guards.sql`](supabase_habit_reward_guards.sql): restaura una eliminación cada 24 horas, protege los premios entre registros duplicados/reactivados y fija el ascenso en siete cumplimientos. Incluye la corrección del agua y conserva el historial y los saldos. Hasta instalar estas reglas, las acciones de hábitos muestran mantenimiento. Los títulos reflejan la meta actual y se completa cada hábito con un botón. El reenvío de verificación se muestra al confirmar una cuenta pendiente, y el tutorial automático sólo aparece para cuentas nuevas.
 
 ## Personajes y guardarropa
 

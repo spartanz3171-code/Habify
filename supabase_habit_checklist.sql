@@ -2,19 +2,18 @@
 -- Repairs the generic water preset and replaces legacy rolling cooldowns
 -- with the existing calendar-period reward lock. No accounts/history are deleted.
 BEGIN;
-CREATE OR REPLACE FUNCTION public.habit_validate_progression(cfg jsonb,p_type text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
+CREATE OR REPLACE FUNCTION public.habit_validate_progression(cfg jsonb,p_type text) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
 BEGIN
- IF cfg IS NOT NULL THEN
-  IF p_type<>'positive' OR jsonb_typeof(cfg)<>'object' OR
-   coalesce((cfg->>'initial')::numeric,0)<=0 OR coalesce((cfg->>'step')::numeric,0)<=0 OR
-   coalesce((cfg->>'max')::numeric,0)<(cfg->>'initial')::numeric OR (cfg->>'max')::numeric>100000 OR
-   ceil(((cfg->>'max')::numeric-(cfg->>'initial')::numeric)/(cfg->>'step')::numeric)>19 OR
-   coalesce((cfg->>'required')::integer,0) NOT BETWEEN 2 AND 90 OR
-   coalesce(cfg->>'unit','') NOT IN ('liters','hours','minutes','pages','units') THEN
-   RAISE EXCEPTION 'Invalid progression' USING ERRCODE='22023';
+  IF cfg IS NOT NULL THEN
+   IF jsonb_typeof(cfg)<>'object' THEN RAISE EXCEPTION 'Invalid progression' USING ERRCODE='22023'; END IF;
+   cfg:=jsonb_set(cfg,'{required}','7'::jsonb);
+   IF p_type<>'positive' OR jsonb_typeof(cfg)<>'object' OR
+    coalesce((cfg->>'initial')::numeric,0)<=0 OR coalesce((cfg->>'step')::numeric,0)<=0 OR
+    coalesce((cfg->>'max')::numeric,0)<(cfg->>'initial')::numeric OR (cfg->>'max')::numeric>100000 OR
+    ceil(((cfg->>'max')::numeric-(cfg->>'initial')::numeric)/(cfg->>'step')::numeric)>19 OR
+    coalesce(cfg->>'unit','') NOT IN ('liters','hours','minutes','pages','units') THEN RAISE EXCEPTION 'Invalid progression' USING ERRCODE='22023'; END IF;
   END IF;
- END IF;
+
  RETURN cfg;
 END $$;
 
