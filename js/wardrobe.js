@@ -216,6 +216,7 @@ const Wardrobe = (() => {
             // Preserve rewards earned locally while the purchase was in flight;
             // normal avatar saves wait for this purchase before reading gold.
             GameState.avatar.gold = Math.max(0, data.gold + (GameState.avatar.gold - startingGold));
+            if (GameState._avatarBalance) GameState._avatarBalance.gold = data.gold;
             owned.add(itemId);
             ownerId = ctx.userId;
             GameState.cosmeticInventory = [...owned];

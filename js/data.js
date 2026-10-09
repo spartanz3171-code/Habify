@@ -510,6 +510,9 @@ async function loadGameFromDB() {
         GameState.avatar.lastPenaltyCheck = avatar.last_penalty_check;
         GameState.avatar.lastHabitModified = avatar.last_habit_modified;
         GameState.avatar.avatarClass = avatar.avatar_class || 'hero';
+        GameState.avatar.gameRevision = avatar.game_revision;
+        if (typeof HabitProgress !== 'undefined') HabitProgress.installed = avatar.game_revision !== undefined;
+        rememberAvatarBalance(avatar);
 
         // Check Admin privileges
         GameState.isAdmin = !!avatar.is_admin || 
@@ -524,7 +527,7 @@ async function loadGameFromDB() {
             .order('created_at', { ascending: true });
 
         if (!isCurrentUser()) return false;
-        GameState.habits = (habits || []).map(h => ({
+        GameState.habits = (habits || []).filter(h => !h.archived_at).map(h => ({
             id: h.id,
             title: h.title,
             type: h.type,
@@ -534,6 +537,8 @@ async function loadGameFromDB() {
             completedAt: h.completed_at ? new Date(h.completed_at).getTime() : null,
             frequency: h.frequency || 'daily'
         }));
+        if (typeof HabitProgress !== 'undefined') await HabitProgress.load();
+        if (!isCurrentUser()) return false;
 
         // Load shop items
         const { data: shopItems } = await supabase
@@ -602,6 +607,10 @@ async function loadGameFromDB() {
 // Serialize writes which affect gold so a shop purchase cannot be overwritten
 // by an older save still in flight. Each queued save reads the latest state.
 let avatarWriteQueue = Promise.resolve();
+const AVATAR_BALANCE_FIELDS = ['gold', 'current_xp', 'xp_to_level', 'level', 'hp', 'max_hp', 'is_dead'];
+function rememberAvatarBalance(row) {
+    GameState._avatarBalance = row?.game_revision === undefined ? null : Object.fromEntries(AVATAR_BALANCE_FIELDS.map(key => [key, row[key]]));
+}
 function queueAvatarWrite(task) {
     const result = avatarWriteQueue.then(task, task);
     avatarWriteQueue = result.catch(() => undefined);
@@ -617,7 +626,7 @@ async function saveAvatarToDB() {
         const a = GameState.avatar;
         // Appearance is intentionally excluded: wardrobe saves cannot be
         // reverted by a habit, equipment, or combat save.
-        return supabase.from('avatars').update({
+        let query = supabase.from('avatars').update({
             name: a.name,
             level: a.level,
             current_xp: a.currentXP,
@@ -636,6 +645,25 @@ async function saveAvatarToDB() {
             avatar_class: a.avatarClass || 'hero',
             updated_at: new Date().toISOString()
         }).eq('id', avatarId).eq('user_id', userId);
+        const baseline = GameState._avatarBalance;
+        if (!baseline) return query;
+        // A second device may have completed a habit while this screen was open.
+        // Compare the full previous balance so an older save cannot overwrite it.
+        for (const key of AVATAR_BALANCE_FIELDS) query = query.eq(key, baseline[key]);
+        const response = await query.select('*');
+        if (GameState.user?.id !== userId) return response;
+        if (response.error) throw response.error;
+        if (response.data?.length) {
+            rememberAvatarBalance(response.data[0]);
+            return response;
+        }
+        const fresh = await supabase.from('avatars').select('*').eq('id', avatarId).eq('user_id', userId).single();
+        if (GameState.user?.id === userId && fresh.data) {
+            HabitProgress.syncAvatar(fresh.data);
+            App.updateHeader();
+            App.showToast(HabitProgress.text('Tu saldo cambió en otro dispositivo. Se actualizó la cuenta; vuelve a intentar la acción.', 'Your balance changed on another device. Your account was refreshed; retry the action.'), 'error');
+        }
+        throw new Error('Concurrent avatar update');
     });
 }
 
@@ -699,12 +727,14 @@ function getHabitCooldownMs(habit) {
 }
 
 function isOnCooldown(habit) {
+    if (typeof HabitProgress !== 'undefined' && HabitProgress.ready && habit.habit_timezone) return !HabitProgress.available(habit);
     if (!habit.completedAt) return false;
     const cdMs = getHabitCooldownMs(habit);
     return (Date.now() - habit.completedAt) < cdMs;
 }
 
 function getRemainingCooldown(habit) {
+    if (typeof HabitProgress !== 'undefined' && HabitProgress.ready && habit.habit_timezone) return null;
     if (!habit.completedAt) return null;
     const cdMs = getHabitCooldownMs(habit);
     const remaining = cdMs - (Date.now() - habit.completedAt);

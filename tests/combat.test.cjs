@@ -195,6 +195,20 @@ test('defeat and surrender retain the minimum real avatar HP', async () => {
     }
 });
 
+test('a conflicting reward save finishes combat without claiming saved rewards', async () => {
+    const { engine, state, context } = setup();
+    context.saveAvatarToDB = async () => { state.avatar.gold = 90; throw new Error('Concurrent avatar update'); };
+    let logs = 0;
+    context.addBattleLogToDB = async () => { logs++; };
+    const result = await engine._endBattle(true);
+    assert.equal(result.saved, false);
+    assert.equal(result.xpGain, 0);
+    assert.equal(result.goldGain, 0);
+    assert.equal(state.avatar.gold, 90);
+    assert.equal(logs, 0);
+    assert.equal(state.currentBattle, null);
+});
+
 test('knockout resolves once and surrender cannot replace a victory during its animation', async () => {
     const { engine, state, advance, context } = setup();
     let saves = 0;

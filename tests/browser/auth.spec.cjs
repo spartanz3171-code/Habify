@@ -1,5 +1,74 @@
 const { test, expect } = require('@playwright/test');
 
+test('password recovery requests are generic, use the public return URL and throttle repeated sends', async ({page}) => {
+    await bootAuth(page);
+    await page.evaluate(() => {
+        supabase.auth.resetPasswordForEmail = async (email, options) => {
+            authCalls.push({method:'recover', email, options}); return {data:{},error:null};
+        };
+    });
+    await page.locator('#forgot-password').click();
+    await page.locator('#recovery-email').fill('student@example.edu');
+    await page.locator('#recovery-send').click();
+    await expect(page.locator('#recovery-status')).toContainText('Si existe una cuenta');
+    await page.locator('#recovery-send').click();
+    expect(await page.evaluate(()=>authCalls.filter(x=>x.method==='recover'))).toEqual([{method:'recover',email:'student@example.edu',options:{redirectTo:'https://habify-ten.vercel.app/'}}]);
+    await page.evaluate(()=>I18N.setLang('en'));
+    await expect(page.locator('#recovery-request')).toBeVisible();
+    await expect(page.locator('#recovery-status')).toContainText('If an account');
+    expect(await page.evaluate(()=>authCalls.some(x=>x.method==='loadUserData'))).toBe(false);
+});
+
+test('a recovery event verifies the session and changes the password before returning to sign in', async ({page}) => {
+    await bootAuth(page);
+    await page.evaluate(async()=>{
+        authMock.user.email_confirmed_at='2026-10-08T00:00:00Z';
+        authMock.user.app_metadata={providers:['email']};
+        await App.init();
+        authMock.listener('PASSWORD_RECOVERY',{user:authMock.user});
+    });
+    await expect(page.locator('#recovery-password')).toBeVisible();
+    await page.locator('#new-password').fill('new-password-123');
+    await page.locator('#repeat-password').fill('different-123');
+    await page.locator('#recovery-save').click();
+    await expect(page.locator('#auth-error')).toContainText('no coinciden');
+    expect(await page.evaluate(()=>authCalls.some(x=>x.method==='updateUser'))).toBe(false);
+    await page.locator('#repeat-password').fill('new-password-123');
+    await page.locator('#recovery-save').click();
+    await expect(page.locator('#password-updated')).toContainText('Contraseña actualizada');
+    expect(await page.evaluate(()=>authCalls.filter(x=>x.method==='updateUser').length)).toBe(1);
+    expect(await page.evaluate(()=>authCalls.find(x=>x.method==='updateUser').args)).toEqual({password:'new-password-123'});
+    expect(await page.evaluate(()=>authCalls.some(x=>x.method==='signOut'))).toBe(true);
+    expect(await page.evaluate(()=>authCalls.some(x=>x.method==='loadUserData'))).toBe(false);
+    expect(await page.evaluate(()=>GameState.user)).toBeNull();
+});
+
+test('a recovery marker with an ordinary cached session cannot authorize a password change', async ({page}) => {
+    await bootAuth(page);
+    await page.evaluate(async()=>{
+        history.replaceState(null,'','/#type=recovery');
+        authMock.user.email_confirmed_at='2026-10-08T00:00:00Z';
+        authMock.session={user:authMock.user};
+        await App.init();
+    });
+    await expect(page.locator('#recovery-request')).toBeVisible();
+    await expect(page.locator('#recovery-password')).toHaveCount(0);
+    expect(await page.evaluate(()=>authCalls.some(x=>x.method==='updateUser'))).toBe(false);
+    expect(new URL(page.url()).hash).toBe('');
+});
+
+test('an invalid recovery session never opens the password form and never logs callback tokens', async ({page}) => {
+    await bootAuth(page);
+    await page.evaluate(async()=>{
+        authMock.userError={code:'session_not_found'};
+        await App.init();
+        authMock.listener('PASSWORD_RECOVERY',{user:authMock.user});
+    });
+    await expect(page.locator('#recovery-request')).toBeVisible();
+    await expect(page.locator('#auth-error')).toContainText('no es válido');
+    expect(await page.evaluate(()=>authCalls.some(x=>x.method==='updateUser'))).toBe(false);
+});
+
 // Exercise the real auth forms and controller without sending email or writing to Supabase.
 async function bootAuth(page) {
     await page.route('**/*.supabase.co/**', route => route.abort());

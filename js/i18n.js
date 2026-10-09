@@ -257,7 +257,9 @@ const I18N = {
             this.updateStaticUI();
             if (typeof App !== 'undefined' && typeof GameState !== 'undefined' && GameState.currentView) {
                 if (document.body.dataset.view === 'auth') {
-                    if (document.getElementById('email-verification')) App.showEmailVerification(App.pendingVerificationEmail);
+                    if (document.getElementById('recovery-request')) PasswordRecovery.requestView();
+                    else if (document.getElementById('recovery-password')) PasswordRecovery.passwordView();
+                    else if (document.getElementById('email-verification')) App.showEmailVerification(App.pendingVerificationEmail);
                     else App.showAuth(App.authMode || 'login');
                 } else App.navigate(GameState.currentView);
             }

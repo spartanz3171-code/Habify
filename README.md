@@ -19,6 +19,12 @@ Las cuentas nuevas deben abrir el enlace enviado por Supabase antes de entrar. L
 
 **Configuración necesaria en Supabase:** activar **Confirm email**, configurar la URL pública de retorno y un servicio SMTP para enviar a correos externos al equipo. Subir el código a GitHub no modifica estos ajustes. Consulta [la guía de correo y la prueba de entrega real](docs/email-verification.md). `node tools/check-auth.cjs` comprueba la confirmación obligatoria y la URL de retorno sin crear cuentas ni enviar mensajes.
 
+## Hábitos y recuperación de contraseña (3.5.0)
+
+La actualización incorpora reinicio individual, eliminación con confirmación e historial, progresión por cantidades y recompensas atómicas. Ejecuta [`supabase_habit_progression.sql`](supabase_habit_progression.sql) en Supabase para activar estas funciones; los hábitos anteriores y sus saldos se conservan. Iniciar sesión también incluye **¿Olvidaste tu contraseña?**, usando el SMTP y la URL pública existentes.
+
+Consulta la [guía de funcionamiento, migración y pruebas](docs/habits-progression-recovery.md). El catálogo nuevo requiere `avatars.is_admin` asignado desde la administración de la base para añadir misiones; la dirección de correo o los metadatos editables por el usuario no conceden ese permiso.
+
 ## Personajes y guardarropa
 
 - **Personaje** permite elegir mujer u hombre para cualquiera de las cuatro clases, tono de piel, peinado, cabello y color del atuendo. Cambiar la apariencia conserva la clase y las habilidades.

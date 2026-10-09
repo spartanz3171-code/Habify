@@ -238,6 +238,41 @@ button:disabled { cursor: default; opacity: .45; }
 .auth-container { max-width: 440px; padding: 30px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg-mid); margin: 30px auto; box-shadow: 0 24px 64px rgba(0,0,0,.23); }
 .auth-party { display: flex; justify-content: center; align-items: flex-end; height: 125px; overflow: hidden; margin-bottom: 24px; }
 .auth-text-button { border: 0; background: none; color: #82c7ff; font: inherit; cursor: pointer; padding: 8px 0; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Scheduled missions use the existing RPG palette, with readable long-form detail. */
+.habit-progress-card { min-width: 0; padding: 18px; }
+.habit-progress-card p, .habit-config, .habit-history p, .habit-measure p { font: 14px/1.65 system-ui, sans-serif; overflow-wrap: anywhere; margin: 8px 0; }
+.habit-progress-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.habit-progress-heading h3 { font-size: 12px; line-height: 1.8; margin: 0; overflow-wrap: anywhere; }
+.habit-description, .habit-schedule { color: var(--text-secondary); }
+.habit-progress-heading .section-badge { flex-shrink: 0; font-size: 8px; }
+.habit-progress-meter { display: grid; gap: 6px; margin: 14px 0; font: 13px/1.6 system-ui, sans-serif; }
+.habit-progress-meter progress { width: 100%; height: 14px; accent-color: var(--pixel-cyan); }
+.habit-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 14px; margin-top: 16px; border-top: 1px solid var(--pixel-dark-gray); }
+.habit-page-actions { flex-wrap: wrap; }
+.habit-page-actions > button { max-width: 100%; white-space: normal; }
+.habit-progress-card .btn { min-height: 42px; font-size: 9px; line-height: 1.7; white-space: normal; }
+.habit-config { margin: 12px 0; }
+.habit-config summary { cursor: pointer; color: var(--pixel-cyan); padding: 8px 0; }
+html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
+.habit-config summary, .habit-actions button { scroll-margin-block: 100px; }
+@media(hover:none) { .catalog-card:hover { transform: none; } }
+.habit-config-fields { display: grid; gap: 8px; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.habit-config label { display: block; }
+.habit-config input[type=number], .habit-config select { width: 100%; min-width: 0; font: 14px system-ui,sans-serif; }
+.modal-overlay { position: fixed; z-index: 2000; inset: 0; background: #0a0b19d9; display: grid; place-items: center; padding: 16px; }
+.habit-measure, .habit-history { width: min(540px,100%); max-height: 85dvh; overflow: auto; padding: 24px; }
+.habit-measure h2, .habit-history h2 { font-size: 14px; line-height: 1.8; }
+.habit-measure form, #recovery-request-form, #recovery-password-form { display: grid; gap: 16px; text-align: left; }
+.habit-measure label, #recovery-request label, #recovery-password label { font: 14px/1.6 system-ui,sans-serif; }
+#recovery-request h1, #recovery-password h1 { font-size: 18px; line-height: 1.8; }
+#recovery-request p, #recovery-password p, #password-updated { font: 14px/1.7 system-ui,sans-serif; }
+@media(max-width:420px) {
+    .habit-progress-card { padding: 14px; }
+    .habit-progress-heading { flex-direction: column; gap: 6px; }
+    .habit-actions > button { flex: 1 1 100%; }
+    .habit-measure, .habit-history { padding: 16px; }
+}
 .auth-text-button:focus-visible { outline: 2px solid #82c7ff; outline-offset: 4px; }
 #auth-request-verification { display: block; margin: 10px auto 0; font-size: 12px; }
 .auth-verification-help { line-height: 1.7; }

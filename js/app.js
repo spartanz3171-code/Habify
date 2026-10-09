@@ -14,6 +14,7 @@ const App = {
         I18N.updateStaticUI();
         document.getElementById('lang-switch').value = I18N.current;
         const callback = new URLSearchParams(location.hash.slice(1));
+        PasswordRecovery.expected = callback.get('type') === 'recovery';
         const query = new URLSearchParams(location.search);
         const callbackError = callback.get('error_code') || query.get('error_code') || callback.get('error') || query.get('error');
         try {
@@ -28,11 +29,17 @@ const App = {
         // SDK callbacks run under an auth lock. Schedule network work after they return.
         const subscription = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT') {
+                PasswordRecovery.clear();
                 this.authSessionVersion++;
                 this.clearAccountView();
                 GameState.user = null;
                 if (!this.authBusy) this.showAuth('login');
-            } else if (event === 'SIGNED_IN' && session && !this.authBusy) {
+            } else if (event === 'PASSWORD_RECOVERY') {
+                PasswordRecovery.expected = true;
+                PasswordRecovery.received = true;
+                this.authSessionVersion++;
+                setTimeout(() => PasswordRecovery.authorize(session), 0);
+            } else if (event === 'SIGNED_IN' && session && !this.authBusy && !PasswordRecovery.expected) {
                 const version = this.authSessionVersion;
                 setTimeout(() => { if (version === this.authSessionVersion) this.acceptAuthSession(session); }, 0);
             }
@@ -42,13 +49,16 @@ const App = {
         if (callbackError) {
             // Never keep callback tokens/errors in links, screenshots or browser history.
             history.replaceState(null, '', location.pathname);
-            this.showAuth('login');
-            this.showAuthError({ code: callbackError === 'otp_expired' ? 'otp_expired' : 'invalid_confirmation' });
+            if (PasswordRecovery.expected) PasswordRecovery.invalid();
+            else { this.showAuth('login'); this.showAuthError({ code: callbackError === 'otp_expired' ? 'otp_expired' : 'invalid_confirmation' }); }
         } else {
             try {
                 const { data, error } = await supabase.auth.getSession();
                 if (error) throw error;
-                if (data?.session) await this.acceptAuthSession(data.session);
+                if (PasswordRecovery.expected || PasswordRecovery.received) {
+                    if (PasswordRecovery.received) await PasswordRecovery.authorize(data?.session);
+                    else PasswordRecovery.invalid();
+                } else if (data?.session) await this.acceptAuthSession(data.session);
                 else {
                     let pending = '';
                     try { pending = sessionStorage.getItem('habify_pending_verification') || ''; } catch (_) { /* Storage can be unavailable. */ }
@@ -62,6 +72,10 @@ const App = {
     },
 
     clearAccountView() {
+        HabitProgress.ready = false;
+        HabitProgress.installed = false;
+        GameState._avatarBalance = null;
+        GameState.habits = [];
         Engine.stopGameLoop();
         Wardrobe.reset();
         Atelier.draft = null;
@@ -224,7 +238,7 @@ const App = {
     authErrorMessage(error) {
         const code = error?.code || '';
         const message = error?.message || '';
-        if (code === 'otp_expired' || code === 'invalid_confirmation') return this.authText('El enlace de verificación venció o ya fue utilizado. Solicita uno nuevo con tu correo.', 'The verification link expired or was already used. Request a new one with your email.');
+        if (code === 'otp_expired' || code === 'invalid_confirmation') return this.authText('El enlace venció o ya fue utilizado. Solicita uno nuevo con tu correo.', 'The link expired or was already used. Request a new one with your email.');
         if (code === 'email_not_confirmed' || /email not confirmed/i.test(message)) return this.authText('Confirma tu correo antes de iniciar sesión.', 'Confirm your email before signing in.');
         if (code === 'invalid_credentials' || /Invalid login credentials/i.test(message)) return this.authText('Correo o contraseña incorrectos.', 'Incorrect email or password.');
         if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || /rate limit|too many|security purposes/i.test(message)) return this.authText('Se alcanzó el límite de envíos. Espera unos minutos antes de volver a intentarlo.', 'The sending limit was reached. Wait a few minutes before trying again.');
@@ -242,6 +256,7 @@ const App = {
     },
 
     async acceptAuthSession(session) {
+        if (PasswordRecovery.expected || PasswordRecovery.received) return false;
         if (!session?.user?.id || this.authBusy && this._registering) return false;
         if (this._acceptingUser === session.user.id) return this._acceptingPromise;
         const version = this.authSessionVersion;
@@ -471,6 +486,7 @@ const App = {
         if (GameState._cooldownInterval) clearInterval(GameState._cooldownInterval);
 
         GameState._cooldownInterval = setInterval(() => {
+            if (HabitProgress.ready) { HabitProgress.refreshDay(); return; }
             if (GameState.currentView !== 'dashboard') return;
 
             // Update all cooldown displays
@@ -492,6 +508,8 @@ const App = {
     // --- Habit Actions ---
 
     async toggleHabit(id) {
+        if (HabitProgress.installed && !HabitProgress.ready) return this.showToast(this.authText('Recarga para sincronizar tus hábitos antes de registrar progreso.', 'Reload to sync your habits before recording progress.'), 'error');
+        if (HabitProgress.ready) return HabitProgress.complete(id);
         const habit = GameState.habits.find(h => h.id === id);
         if (!habit || isOnCooldown(habit)) return;
 
@@ -526,7 +544,7 @@ const App = {
         const chosenFreq = selectEl ? selectEl.value : 'daily';
         const res = await Engine.addHabitFromCatalog(catalogId, chosenFreq);
         if (res.success) {
-            this.showToast('¡MISIÓN ACTIVADA!', 'success');
+            this.showToast(res.message || '¡MISIÓN ACTIVADA!', 'success');
             this.navigate('habits');
         } else {
             this.showToast(res.message, 'error');
@@ -534,6 +552,10 @@ const App = {
     },
 
     async deleteHabit(id) {
+        if (HabitProgress.ready) return HabitProgress.confirmDelete(id);
+        if (HabitProgress.installed) return this.showToast(this.authText('Recarga para sincronizar tus hábitos.', 'Reload to sync your habits.'), 'error');
+        if (!confirm(this.authText('¿Estás seguro de que deseas eliminar este hábito? Esta acción eliminará su configuración y dejará de aparecer en tu lista.', 'Delete this habit? Its configuration will be removed and it will disappear from your list.'))) return;
+        if (getHabitEditCooldown()) return;
         await Engine.removeHabit(id);
         this.showToast('MISIÓN ELIMINADA', 'gold');
         this.navigate('habits');
@@ -730,14 +752,17 @@ const App = {
             description
         };
 
+        if (HabitProgress.ready) {
+            const { error } = await supabase.rpc('save_habit_catalog', { p_definition: newHabit });
+            if (error) { this.showToast(this.authText('No se pudo guardar. Revisa los valores y tus permisos de administrador.', 'Could not save. Check the values and your administrator permissions.'), 'error'); return; }
+        }
         GameState.presetCatalog.unshift(newHabit);
         this.showToast('¡HÁBITO AÑADIDO AL CATÁLOGO GLOBAL!', 'success');
         await this.setAdminTab('catalog');
     },
 
     confirmReset() {
-        if (confirm('BORRAR TODOS LOS DATOS?')) {
-            // We don't actually delete DB data, just clear local state
+        if (confirm(this.authText('¿Recargar la aplicación? Los hábitos, personajes y recompensas guardados se conservarán.', 'Reload the app? Saved habits, characters and rewards will be kept.'))) {
             location.reload();
         }
     },
@@ -768,7 +793,7 @@ const App = {
     },
 
     async performShopAction(action) {
-        if (this.shopBusy || Atelier.busy) return;
+        if (this.shopBusy || Atelier.busy || HabitProgress.busy) return;
         const userId = GameState.user?.id;
         if (!userId) return;
         const isCurrentUser = () => GameState.user?.id === userId;
@@ -786,6 +811,7 @@ const App = {
     // --- Battle ---
 
     async startBattle(mode) {
+        if (HabitProgress.busy || this.shopBusy || Atelier.busy) return;
         if (mode === 'pvp') {
             this.startPvP();
             return;

@@ -30,6 +30,13 @@ const Engine = {
     },
 
     async addHabitFromCatalog(catalogId, frequencyOverride = null) {
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.installed && !HabitProgress.ready) return { success: false, message: HabitProgress.text('Recarga para sincronizar tus hábitos.', 'Reload to sync your habits.') };
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.ready) {
+            const config = HabitProgress.readConfig(catalogId, frequencyOverride || GameState.presetCatalog.find(p => p.id === catalogId)?.defaultFrequency || 'daily');
+            if (!config) return { success: false, message: HabitProgress.text('Revisa la configuración.', 'Check the configuration.') };
+            const result = await HabitProgress.act('create', null, config);
+            return { success: !!result, message: result?.status === 'reactivated' ? HabitProgress.text('Hábito reactivado con sus objetivos, frecuencia y nivel anteriores.', 'Habit reactivated with its previous targets, schedule and level.') : result ? HabitProgress.text('Hábito activado.', 'Habit activated.') : HabitProgress.text('No se pudo activar el hábito.', 'Could not activate habit.') };
+        }
         if (GameState.habits.length >= 20) {
             return { success: false, message: 'Límite alcanzado (Máximo 20 misiones activas)' };
         }
@@ -55,6 +62,8 @@ const Engine = {
     },
 
     async removeHabit(id) {
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.installed && !HabitProgress.ready) return;
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.ready) return HabitProgress.confirmDelete(id);
         // Deleting IS blocked for 24h after the last deletion (anti-farming)
         if (getHabitEditCooldown()) {
             console.warn("Habit deletion is on cooldown.");
@@ -80,6 +89,8 @@ const Engine = {
     // --- Habit Completion (24h Cooldown) ---
 
     async completeHabit(id) {
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.installed && !HabitProgress.ready) return null;
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.ready) return HabitProgress.complete(id);
         const habit = GameState.habits.find(h => h.id === id);
         if (!habit) return null;
 
@@ -126,6 +137,8 @@ const Engine = {
     // --- Daily Penalty Check ---
 
     async checkDailyPenalties() {
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.installed) return []; // Never fall back to client writes after migration.
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.ready) return []; // Reconciled once per scheduled period by the server.
         const now = Date.now();
         const lastCheck = GameState.avatar.lastPenaltyCheck
             ? new Date(GameState.avatar.lastPenaltyCheck).getTime()
@@ -918,7 +931,6 @@ const Engine = {
                 won: false, fled: true, xpGain: 0, goldGain: 0, hpLost: penalty,
                 message: `⚑ Huiste del combate. Penalización: -${penalty} HP a tu avatar. (HP restante: ${GameState.avatar.hp}/${GameState.avatar.maxHp})`
             };
-            if (typeof App !== 'undefined' && App.showToast) App.showToast(`⚑ Huiste de la batalla (-${penalty} HP)`, 'warning');
         } else if (playerWon) {
             const xpGain = b.opponent.xp;
             const goldGain = b.opponent.goldRaw;
@@ -931,7 +943,6 @@ const Engine = {
                 won: true, fled: false, xpGain, goldGain, hpLost: 0,
                 message: `¡VICTORIA! +${xpGain}XP +${goldGain}G (+5 HP avatar recuperados)`
             };
-            if (typeof App !== 'undefined' && App.showToast) App.showToast(`¡VICTORIA! +${xpGain}XP +${goldGain}G`, 'gold');
         } else {
             // Defeat in the arena
             const penalty = 20;
@@ -942,16 +953,29 @@ const Engine = {
                 won: false, fled: false, hpLoss: penalty, xpGain: 0, goldGain: 0,
                 message: `DERROTA EN ARENA: Caíste en combate. Penalización: -${penalty} HP a tu avatar. (HP restante: ${GameState.avatar.hp}/${GameState.avatar.maxHp})`
             };
-            if (typeof App !== 'undefined' && App.showToast) App.showToast(`Derrota en arena (-${penalty} HP)`, 'error');
         }
 
-        const logEntry = {
-            opponent: b.opponent.name, won: result.won, fled: !!result.fled,
-            xpGained: result.xpGain, goldGained: result.goldGain, hpLost: result.hpLost || result.hpLoss || 0
-        };
-        GameState.battleLog.unshift({ ...logEntry, date: new Date().toLocaleDateString() });
-        await addBattleLogToDB(logEntry);
-        await saveAvatarToDB();
+        try {
+            await saveAvatarToDB();
+        } catch (_) {
+            result.saved = false;
+            result.xpGain = result.goldGain = result.hpLost = result.hpLoss = 0;
+            result.message = typeof I18N !== 'undefined' && I18N.current === 'en'
+                ? 'Combat finished, but its rewards could not be saved. Reload to sync your account.'
+                : 'Combate terminado, pero no se pudieron guardar sus recompensas. Recarga para sincronizar tu cuenta.';
+            if (typeof HabitProgress !== 'undefined' && GameState._avatarBalance) {
+                HabitProgress.syncAvatar({ ...GameState._avatarBalance, game_revision: GameState.avatar.gameRevision });
+            }
+        }
+        if (result.saved !== false) {
+            const logEntry = {
+                opponent: b.opponent.name, won: result.won, fled: !!result.fled,
+                xpGained: result.xpGain, goldGained: result.goldGain, hpLost: result.hpLost || result.hpLoss || 0
+            };
+            GameState.battleLog.unshift({ ...logEntry, date: new Date().toLocaleDateString() });
+            try { await addBattleLogToDB(logEntry); } catch (_) { /* Balance was already saved; do not pay again. */ }
+        }
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(result.message, result.saved === false || !result.won ? 'error' : 'gold');
         // A completed save must never clear or navigate away from a newer match.
         if (GameState.currentBattle !== b) return result;
         
@@ -971,6 +995,10 @@ const Engine = {
     },
 
     getCompletionRate() {
+        if (typeof HabitProgress !== 'undefined' && HabitProgress.ready) {
+            const due = GameState.habits.filter(h => h.period);
+            return due.length ? Math.round(due.filter(h => h.recorded).length / due.length * 100) : 0;
+        }
         if (GameState.habits.length === 0) return 0;
         const completed = GameState.habits.filter(h => isOnCooldown(h)).length;
         return Math.round((completed / GameState.habits.length) * 100);

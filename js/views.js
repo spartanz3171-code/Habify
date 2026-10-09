@@ -66,6 +66,7 @@ const Views = {
                         ${isLogin ? '>> ' + I18N.t('auth.login') + ' <<' : '>> ' + I18N.t('auth.register') + ' <<'}
                     </button>
                 </form>
+                ${isLogin ? `<button type="button" class="auth-text-button" id="forgot-password" onclick="PasswordRecovery.requestView()">${t('¿Olvidaste tu contraseña?', 'Forgot your password?')}</button>` : ''}
                 ${isLogin ? `<button type="button" class="auth-text-button" id="auth-request-verification" onclick="App.requestVerificationFromLogin()">${t('¿Necesitas otro enlace de verificación?', 'Need another verification link?')}</button>` : ''}
 
                 <div class="auth-switch">
@@ -235,6 +236,7 @@ const Views = {
         } else {
             html += '<div class="habit-list">';
             GameState.habits.forEach(h => {
+                if (HabitProgress.ready) { html += HabitProgress.card(h); return; }
                 const onCooldown = isOnCooldown(h);
                 const cooldownText = getRemainingCooldown(h);
                 const typeClass = h.type === 'positive' ? 'positive' : 'negative';
@@ -272,7 +274,7 @@ const Views = {
     // ========================================
     renderHabits() {
         const habits = GameState.habits;
-        const editCooldown = getHabitEditCooldown();
+        const editCooldown = HabitProgress.ready ? null : getHabitEditCooldown();
         const atCap = habits.length >= 20;
         const catalogFilter = GameState._catalogFilter || 'all';
 
@@ -325,6 +327,7 @@ const Views = {
         } else {
             html += '<div class="habit-list" style="margin-bottom: 20px;">';
             habits.forEach(h => {
+                if (HabitProgress.ready) { html += HabitProgress.card(h, true); return; }
                 const typeClass = h.type === 'positive' ? 'positive' : 'negative';
                 const rewardText = h.type === 'positive'
                     ? `<span class="habit-reward">+${h.xpReward}XP +${h.goldReward}G</span>`
@@ -392,13 +395,13 @@ const Views = {
                 <div class="catalog-card ${alreadyActive ? 'active-in-habits' : ''} ${isNegative ? 'negative' : ''}">
                     <div>
                         <div class="catalog-card-header">
-                            <span class="catalog-card-icon">${item.icon}</span>
-                            <span class="catalog-card-title">${item.title}</span>
+                            <span class="catalog-card-icon">${this.escape(item.icon)}</span>
+                            <span class="catalog-card-title">${this.escape(item.title)}</span>
                         </div>
-                        <div class="catalog-card-desc">${item.description}</div>
+                        <div class="catalog-card-desc">${this.escape(item.description)}</div>
                         <div class="catalog-card-meta">
                             <span>${!isNegative ? `<span style="color:var(--pixel-green);">+${item.xpReward} XP</span> | <span style="color:var(--pixel-gold);">+${item.goldReward} G</span>` : `<span style="color:var(--pixel-red);">-${item.hpPenalty} HP</span>`}</span>
-                            <span style="font-size:6px; color:var(--text-muted);">${item.category.toUpperCase()}</span>
+                            <span style="font-size:6px; color:var(--text-muted);">${this.escape(String(item.category || '').toUpperCase())}</span>
                         </div>
                     </div>
 
@@ -406,14 +409,15 @@ const Views = {
                         <div class="catalog-card-freq">
                             <label style="font-size: 6px; color: var(--text-muted); display:block; margin-bottom: 2px;" data-i18n="habits.frequency_label">${I18N.t('habits.frequency_label')}</label>
                             <select id="freq-select-${item.id}" ${alreadyActive ? 'disabled' : ''}>
-                                <option value="daily" ${item.defaultFrequency === 'daily' ? 'selected' : ''}>Diario (24h)</option>
-                                <option value="workdays" ${item.defaultFrequency === 'workdays' ? 'selected' : ''}>Días Laborales (Lun-Vie)</option>
-                                <option value="3x_week" ${item.defaultFrequency === '3x_week' ? 'selected' : ''}>3 veces por semana (48h)</option>
-                                <option value="2x_week" ${item.defaultFrequency === '2x_week' ? 'selected' : ''}>2 veces por semana (72h)</option>
-                                <option value="weekly" ${item.defaultFrequency === 'weekly' ? 'selected' : ''}>Semanal (7 días)</option>
+                                <option value="daily" ${item.defaultFrequency === 'daily' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('daily') : 'Diario (24h)'}</option>
+                                <option value="workdays" ${item.defaultFrequency === 'workdays' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('workdays') : 'Días Laborales (Lun-Vie)'}</option>
+                                <option value="3x_week" ${item.defaultFrequency === '3x_week' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('3x_week') : '3 veces por semana (48h)'}</option>
+                                <option value="2x_week" ${item.defaultFrequency === '2x_week' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('2x_week') : '2 veces por semana (72h)'}</option>
+                                <option value="weekly" ${item.defaultFrequency === 'weekly' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('weekly') : 'Semanal (7 días)'}</option>
                             </select>
                         </div>
 
+                        ${!alreadyActive ? HabitProgress.configForm(item) : ''}
                         ${alreadyActive ? `
                             <button class="btn btn-secondary btn-block" style="font-size:7px; padding: 6px; opacity: 0.7;" disabled data-i18n="habits.btn_activated">
                                 ${I18N.t('habits.btn_activated')}
@@ -437,9 +441,10 @@ const Views = {
             </div>
 
             <div class="divider" style="margin-top: 24px;"></div>
-            <div class="flex-center gap-8">
-                <button class="btn btn-danger btn-sm" onclick="App.confirmReset()">
-                    REINICIAR
+            <div class="flex-center gap-8 habit-page-actions">
+                ${HabitProgress.ready ? `<button class="btn btn-secondary btn-sm" onclick="HabitProgress.history()">${HabitProgress.text('HISTORIAL GENERAL', 'ALL HISTORY')}</button>` : ''}
+                <button class="btn btn-secondary btn-sm" onclick="App.confirmReset()">
+                    ${I18N.current === 'en' ? 'RELOAD APP' : 'RECARGAR APLICACIÓN'}
                 </button>
                 <button class="btn btn-secondary btn-sm" onclick="App.logout()">
                     SALIR
@@ -966,12 +971,12 @@ const Views = {
             GameState.presetCatalog.forEach(c => {
                 contentHtml += `
                     <tr>
-                        <td style="font-size:16px;">${c.icon}</td>
-                        <td><strong>${c.title}</strong></td>
-                        <td>${c.category}</td>
-                        <td>${c.type}</td>
+                        <td style="font-size:16px;">${this.escape(c.icon)}</td>
+                        <td><strong>${this.escape(c.title)}</strong></td>
+                        <td>${this.escape(c.category)}</td>
+                        <td>${this.escape(c.type)}</td>
                         <td>${c.type === 'positive' ? `+${c.xpReward}XP / +${c.goldReward}G` : `-${c.hpPenalty}HP`}</td>
-                        <td>${c.defaultFrequency}</td>
+                        <td>${this.escape(c.defaultFrequency)}</td>
                     </tr>
                 `;
             });

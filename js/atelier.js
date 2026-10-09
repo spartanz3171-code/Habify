@@ -138,7 +138,7 @@ const Atelier = {
     async equip(id) { await this.perform(() => Wardrobe.equip(id)); },
     async unequip(slot) { await this.perform(() => Wardrobe.unequip(slot)); },
     async perform(action) {
-        if (this.busy || App.shopBusy) return;
+        if (this.busy || App.shopBusy || (typeof HabitProgress !== 'undefined' && HabitProgress.busy)) return;
         const userId = GameState.user?.id;
         if (!userId) return;
         App.shopBusy = true;
