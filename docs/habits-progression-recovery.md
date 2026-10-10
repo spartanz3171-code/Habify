@@ -1,5 +1,14 @@
 # Hábitos, progresión y recuperación de contraseña
 
+## Actualización 3.5.3: tarjetas y configuración más claras
+
+Esta actualización cambia la interfaz; **no requiere ejecutar otro SQL** si ya instalaste las reglas 3.5.2.
+
+- Las metas fijas, incluido Dormir si se guardó sin niveles, muestran una barra de pendiente/completado para el día o la semana. No cambia su meta ni añade niveles automáticamente. La barra de los hábitos con niveles sigue contando siete cumplimientos seguidos para avanzar.
+- Las tarjetas usan letra más legible, un icono por hábito, premios expresados en monedas y una acción principal. Reiniciar, eliminar, activar niveles y consultar el historial están en **Opciones e historial**. Se mantienen el bloqueo de eliminación y la protección contra premios repetidos.
+- **Personalizar mi meta** pregunta con cuánto empezar, cuánto aumentar y hasta dónde llegar. Un ejemplo se actualiza al escribir; apagar los niveles oculta los campos y explica que se usará la meta fija del título. Los premios del catálogo reflejan si se activarán niveles.
+- La guía inicial explica los tres pasos: elegir, cumplir y marcar completado. Se conservan los datos existentes. Las nuevas instrucciones están disponibles en español e inglés.
+
 ## Actualización 3.5.2: recompensas, eliminaciones y siete cumplimientos
 
 Si ya instalaste 3.5.0 o 3.5.1, ejecuta completo [`supabase_habit_reward_guards.sql`](../supabase_habit_reward_guards.sql) en SQL Editor y recarga la aplicación. Incluye la corrección anterior del agua; no es necesario ejecutar los parches anteriores después. La migración principal actualizada incluye todo para instalaciones nuevas. No se aplicó SQL al proyecto alojado desde este entorno.

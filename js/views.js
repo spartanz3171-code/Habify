@@ -276,6 +276,7 @@ const Views = {
         const editCooldown = HabitProgress.ready ? null : getHabitEditCooldown();
         const atCap = habits.length >= 20;
         const catalogFilter = GameState._catalogFilter || 'all';
+        const t = HabitProgress.text.bind(HabitProgress);
 
         let html = `
             <div class="section-header">
@@ -285,7 +286,7 @@ const Views = {
                 </div>
             </div>
             
-            ${HabitProgress.ready ? `<p class="card habit-management-notice" role="status">${this.escape(HabitProgress.managementNotice())}</p>` : ''}
+            ${HabitProgress.ready ? `<section class="habit-quick-guide" aria-label="${t('Cómo funcionan los hábitos', 'How habits work')}"><p>${t('Un paso pequeño cada día', 'One small step each day')}</p><ol><li><span>1</span>${t('Elige un hábito', 'Choose a habit')}</li><li><span>2</span>${t('Cumple tu meta', 'Meet your goal')}</li><li><span>3</span>${t('Marca Completado', 'Mark completed')}</li></ol><small>${t('Ganas monedas y experiencia (XP) para tu personaje.', 'Earn coins and experience (XP) for your character.')}</small></section><details class="habit-management-notice" ${!HabitProgress.rulesReady ? 'open' : ''}><summary>${t('Sobre eliminar hábitos', 'About deleting habits')}</summary><p role="status">${this.escape(HabitProgress.managementNotice())}</p></details>` : ''}
             ${editCooldown ? `
             <div class="card" style="border-color: var(--pixel-red); margin-bottom: 12px; text-align: center;">
                 <div style="font-size: 9px; color: var(--pixel-red); margin-bottom: 4px;">🔒 ELIMINACIÓN BLOQUEADA</div>
@@ -400,15 +401,12 @@ const Views = {
                             <span class="catalog-card-title">${this.escape(HabitProgress.ready ? activeHabit ? HabitProgress.title(activeHabit) : HabitProgress.catalogTitle(item) : item.title)}</span>
                         </div>
                         <div class="catalog-card-desc">${this.escape(item.description)}</div>
-                        <div class="catalog-card-meta">
-                            <span>${!isNegative ? `<span style="color:var(--pixel-green);">+${item.xpReward} XP</span> | <span style="color:var(--pixel-gold);">+${item.goldReward} G</span>` : `<span style="color:var(--pixel-red);">-${item.hpPenalty} HP</span>`}</span>
-                            <span style="font-size:6px; color:var(--text-muted);">${this.escape(String(item.category || '').toUpperCase())}</span>
-                        </div>
+                        <div class="catalog-card-meta"><span data-habit-reward>${this.escape(HabitProgress.rewardText(activeHabit || item, HabitProgress.ready && !alreadyActive && !isNegative && !!HabitProgress.preset(item)))}</span><span class="catalog-category">${this.escape(I18N.t('habits.filter_' + item.category))}</span></div>
                     </div>
 
                     <div>
                         <div class="catalog-card-freq">
-                            <label style="font-size: 6px; color: var(--text-muted); display:block; margin-bottom: 2px;" data-i18n="habits.frequency_label">${I18N.t('habits.frequency_label')}</label>
+                            <label for="freq-select-${item.id}" data-i18n="habits.frequency_label">${I18N.t('habits.frequency_label')}</label>
                             <select id="freq-select-${item.id}" ${alreadyActive ? 'disabled' : ''}>
                                 <option value="daily" ${item.defaultFrequency === 'daily' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('daily') : 'Diario (24h)'}</option>
                                 <option value="workdays" ${item.defaultFrequency === 'workdays' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('workdays') : 'Días Laborales (Lun-Vie)'}</option>

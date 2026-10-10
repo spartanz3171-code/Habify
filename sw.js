@@ -2,30 +2,30 @@
 // HABIFY - Service Worker for PWA Offline Support
 // ==========================================
 
-const CACHE_NAME = 'habify-v3.5.2';
+const CACHE_NAME = 'habify-v3.5.3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
     './assets/backgrounds/arena_ruins.svg',
-    './css/style.css?v=3.5.2',
-    './css/sprites.css?v=3.5.2',
-    './css/characters.css?v=3.5.2',
-    './css/pets.css?v=3.5.2',
-    './css/combat.css?v=3.5.2',
-    './css/polish.css?v=3.5.2',
-    './js/i18n.js?v=3.5.2',
-    './js/characters.js?v=3.5.2',
-    './js/pets.js?v=3.5.2',
-    './js/data.js?v=3.5.2',
-    './js/wardrobe.js?v=3.5.2',
-    './js/habits.js?v=3.5.2',
-    './js/recovery.js?v=3.5.2',
-    './js/engine.js?v=3.5.2',
-    './js/views.js?v=3.5.2',
-    './js/atelier.js?v=3.5.2',
-    './js/app.js?v=3.5.2',
-    './js/supabase.min.js?v=3.5.2'
+    './css/style.css?v=3.5.3',
+    './css/sprites.css?v=3.5.3',
+    './css/characters.css?v=3.5.3',
+    './css/pets.css?v=3.5.3',
+    './css/combat.css?v=3.5.3',
+    './css/polish.css?v=3.5.3',
+    './js/i18n.js?v=3.5.3',
+    './js/characters.js?v=3.5.3',
+    './js/pets.js?v=3.5.3',
+    './js/data.js?v=3.5.3',
+    './js/wardrobe.js?v=3.5.3',
+    './js/habits.js?v=3.5.3',
+    './js/recovery.js?v=3.5.3',
+    './js/engine.js?v=3.5.3',
+    './js/views.js?v=3.5.3',
+    './js/atelier.js?v=3.5.3',
+    './js/app.js?v=3.5.3',
+    './js/supabase.min.js?v=3.5.3'
 ];
 
 // Install Event - Caching App Shell

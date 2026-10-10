@@ -19,7 +19,9 @@ Las cuentas nuevas deben abrir el enlace enviado por Supabase antes de entrar. L
 
 **Configuración necesaria en Supabase:** activar **Confirm email**, configurar la URL pública de retorno y un servicio SMTP para enviar a correos externos al equipo. Subir el código a GitHub no modifica estos ajustes. Consulta [la guía de correo y la prueba de entrega real](docs/email-verification.md). `node tools/check-auth.cjs` comprueba la confirmación obligatoria y la URL de retorno sin crear cuentas ni enviar mensajes.
 
-## Hábitos y recuperación de contraseña (3.5.2)
+## Hábitos y recuperación de contraseña (3.5.3)
+
+Las tarjetas muestran una acción principal, monedas y progreso con textos sencillos. Los hábitos con meta fija, como Dormir sin niveles, también tienen una barra de completado. **Personalizar mi meta** explica los cambios con un ejemplo que se actualiza al escribir; **Opciones e historial** reúne las acciones de administración. Estos ajustes de interfaz no necesitan SQL adicional si ya instalaste 3.5.2.
 
 La actualización incorpora reinicio individual, eliminación con confirmación e historial, progresión por cantidades y recompensas atómicas. Ejecuta [`supabase_habit_progression.sql`](supabase_habit_progression.sql) en Supabase para activar estas funciones; los hábitos anteriores y sus saldos se conservan. Iniciar sesión también incluye **¿Olvidaste tu contraseña?**, usando el SMTP y la URL pública existentes.
 

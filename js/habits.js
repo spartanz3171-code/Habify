@@ -99,12 +99,31 @@ const HabitProgress = {
         return titles[id] || item.title;
     },
     catalogTitle(item) { const p = this.preset(item); return p && item.type === 'positive' ? this.title(item,p.initial,p.unit) : item.title; },
+    rewardText(item, growing = false) {
+        if (item.type === 'negative') return this.text(`−${item.hpPenalty} de vida si ocurre`, `−${item.hpPenalty} health if it happens`);
+        const xp = growing ? 10 : item.xpReward, gold = growing ? 5 : item.goldReward;
+        return this.text(`+${xp} XP · +${gold} monedas`, `+${xp} XP · +${gold} coins`);
+    },
+    configExample(p) {
+        const amount = value => `${new Intl.NumberFormat(I18N.current === 'en' ? 'en-US' : 'es-MX', {maximumFractionDigits:3}).format(value)} ${this.unit(p.unit)}`;
+        if (p.max < p.initial || ![p.initial,p.max,p.step].every(v => Number.isFinite(v) && v > 0)) return this.text('Elige cantidades mayores que cero. La meta final no puede ser menor que la del inicio.', 'Choose amounts above zero. Your final goal cannot be smaller than your starting goal.');
+        if (p.initial === p.max) return this.text(`Tu meta será ${amount(p.initial)}. Ya está en el límite que elegiste y no aumentará.`, `Your goal will be ${amount(p.initial)}. It is already at your chosen limit and will not increase.`);
+        return this.text(`Empiezas con ${amount(p.initial)}. Al cumplir tu meta 7 veces seguidas, sube a ${amount(Math.min(p.max,p.initial+p.step))}. Nunca pasará de ${amount(p.max)}.`, `Start with ${amount(p.initial)}. After meeting your goal 7 times in a row, it grows to ${amount(Math.min(p.max,p.initial+p.step))}. It will never exceed ${amount(p.max)}.`);
+    },
     previewCatalog(id) {
-        const root = document.getElementById(`config-${id}`), item = GameState.presetCatalog.find(p => p.id === id);
-        const label = root?.closest('.catalog-card')?.querySelector('.catalog-card-title');
-        if (!label || !item) return;
-        const value = Number(root.querySelector('[data-progress="initial"]').value);
-        label.textContent = root.querySelector('[data-progress="enabled"]').checked && value > 0 ? this.title(item,value,this.preset(item)?.unit) : item.title;
+        const root = document.getElementById(`config-${id}`), item = GameState.presetCatalog.find(p => p.id === id) || GameState.habits.find(h => h.id === id);
+        if (!root || !item) return;
+        const enabled = root.querySelector('[data-progress="enabled"]').checked;
+        const fields = root.querySelector('fieldset');
+        fields.disabled = !enabled; fields.hidden = !enabled;
+        const p = {unit:this.preset(item).unit};
+        for (const key of ['initial','max','step']) p[key] = Number(root.querySelector(`[data-progress="${key}"]`).value);
+        root.querySelector('.habit-config-example').textContent = enabled ? this.configExample(p) : this.text('Usarás la meta del título. Se mantendrá igual y seguirás ganando premios al completarla.', 'Use the goal in the title. It stays the same and you still earn rewards for completing it.');
+        const card = root.closest('.catalog-card');
+        if (card) {
+            card.querySelector('.catalog-card-title').textContent = enabled && p.initial > 0 ? this.title(item,p.initial,p.unit) : item.title;
+            card.querySelector('[data-habit-reward]').textContent = this.rewardText(item,enabled);
+        }
     },
     availabilityText(h) {
         if (!this.rulesReady) return this.managementNotice();
@@ -127,39 +146,46 @@ const HabitProgress = {
     available(h) { return this.rulesReady && !!h.period && !h.recorded && (!h.available_after || Date.now() >= Date.parse(h.available_after)); },
     card(h, management = false) {
         const t = this.text.bind(this), esc = Views.escape;
-        const p = h.progression, done = h.recorded, available = this.available(h);
-        const title = this.title(h);
+        const p = h.progression, done = h.recorded, available = this.available(h), positive = h.type === 'positive';
+        const catalog = GameState.presetCatalog.find(item => item.id === h.catalog_id || item.title === h.title);
+        const icon = catalog?.icon || (positive ? '🌱' : '🧭');
         const max = p && Number(h.current_target) >= p.max;
         const next = p ? Math.min(p.max, Number(h.current_target) + p.step) : null;
         const bonusPaid = p && h.difficulty_level + 1 <= h.rewarded_level;
-        return `<article class="card habit-progress-card ${done ? 'completed' : ''}" data-progress-habit="${esc(h.id)}">
-            <div class="habit-progress-heading"><h3>${esc(title)}</h3><span class="section-badge">${p ? `${t('NIVEL', 'LEVEL')} ${h.difficulty_level}` : t('META FIJA', 'FIXED GOAL')}</span></div>
-            <p class="habit-description">${esc(h.description || '')}</p>
-            <p>${p ? `${t('Meta mínima', 'Minimum goal')}: <strong>${h.current_target} ${this.unit(p.unit)}</strong>. ${t('Si la alcanzaste o superaste, marca Completado.', 'If you reached or exceeded it, mark Completed.')}` : h.type === 'negative' ? t('Registra el incumplimiento sólo si ocurrió.', 'Log the setback only if it happened.') : t('Marca Completado cuando hayas cumplido este hábito.', 'Mark Completed when you have fulfilled this habit.')}</p>
-            <p class="habit-schedule">${this.frequency(h.frequency)}</p>
-            ${p ? `<div class="habit-progress-meter"><label>${max ? t('Nivel máximo alcanzado', 'Maximum level reached') : `${t('Próximo nivel', 'Next level')}: ${h.progress_count}/7 ${t('cumplimientos programados consecutivos', 'consecutive scheduled completions')}`}</label><progress max="7" value="${max ? 7 : h.progress_count}" aria-label="${t('Progreso al siguiente nivel', 'Progress to next level')}"></progress></div>
-                ${!max ? `<p>${t('Siguiente objetivo', 'Next target')}: ${next} ${this.unit(p.unit)} · ${bonusPaid ? t('Bonificación ya obtenida', 'Bonus already earned') : `+${h.rewards.bonus_xp} XP / +${h.rewards.bonus_gold} G`}</p>` : ''}` : ''}
-            <p>${t('Racha actual', 'Current streak')}: ${h.current_streak} · ${t('Mejor racha', 'Best streak')}: ${h.best_streak}</p>
-            <p class="habit-reward">${h.type === 'positive' ? `+${h.xpReward} XP / +${h.goldReward} G` : `−${h.hpPenalty} HP`}</p>
+        const fixedLabel = t(h.frequency === 'weekly' ? 'Tu meta de esta semana' : 'Tu meta de hoy', h.frequency === 'weekly' ? 'Your goal this week' : 'Your goal today');
+        return `<article class="card habit-progress-card ${done ? 'completed' : ''} ${positive ? 'positive' : 'negative'}" data-progress-habit="${esc(h.id)}">
+            <div class="habit-progress-heading"><span class="habit-symbol" aria-hidden="true">${esc(icon)}</span><div class="habit-heading-copy"><h3>${esc(this.title(h))}</h3><p class="habit-schedule">${this.frequency(h.frequency)}</p></div><span class="habit-kind">${p ? `${t('NIVEL', 'LEVEL')} ${h.difficulty_level}` : positive ? t('Meta fija', 'Fixed goal') : t('A evitar', 'To avoid')}</span></div>
+            <p class="habit-instruction">${p && !this.preset(h) ? `<strong>${t('Tu meta', 'Your goal')}: ${h.current_target} ${this.unit(p.unit)}.</strong> ` : ''}${positive ? t('Cuando lo logres, pulsa Marcar completado. ¡También cuenta si haces más!', 'When you reach your goal, tap Mark completed. Doing more counts too!') : t('Regístralo solo si ocurrió. Así puedes reconocer qué mejorar.', 'Log this only if it happened. It helps you see what to work on.')}</p>
+            ${p ? `<div class="habit-progress-meter"><div class="habit-meter-label"><label for="habit-meter-${esc(h.id)}">${max ? t('¡Llegaste al último nivel!', 'You reached the final level!') : t(`Camino al nivel ${h.difficulty_level+1}`, `On the way to level ${h.difficulty_level+1}`)}</label><strong>${max ? '7/7' : `${h.progress_count}/7`}</strong></div><progress id="habit-meter-${esc(h.id)}" max="7" value="${max ? 7 : h.progress_count}" aria-label="${max ? t('Último nivel alcanzado', 'Final level reached') : t('Progreso al siguiente nivel', 'Progress to next level')}"></progress>
+                <p>${max ? t('Sigue cumpliendo esta meta para ganar premios.', 'Keep meeting this goal to earn rewards.') : t(`Completa tu meta 7 veces seguidas para llegar a ${next} ${this.unit(p.unit)}.`, `Meet your goal 7 times in a row to reach ${next} ${this.unit(p.unit)}.`)}</p></div>` : positive ? `<div class="habit-progress-meter habit-fixed-meter"><div class="habit-meter-label"><label for="habit-meter-${esc(h.id)}">${fixedLabel}</label><strong>${done ? t('¡Lista!', 'Done!') : !h.period ? t('Descanso', 'Rest day') : t('Pendiente', 'Not yet')}</strong></div><progress id="habit-meter-${esc(h.id)}" max="1" value="${done ? 1 : 0}"></progress><p>${t('Esta meta se mantiene igual. También ganas premios al completarla.', 'This goal stays the same. You still earn rewards for completing it.')}</p></div>` : ''}
+            <div class="habit-reward-row"><span class="habit-reward">${esc(this.rewardText(h))}</span>${positive ? `<span class="habit-streak" title="${t('Cumplimientos seguidos', 'Completions in a row')}"><span aria-hidden="true">🔥</span> ${h.current_streak === 1 ? t('1 vez', '1 time') : t(`${h.current_streak} veces seguidas`, `${h.current_streak} in a row`)}</span>` : ''}</div>
             ${!available ? `<p class="habit-availability" role="status">${esc(this.availabilityText(h))}</p>` : ''}
-            <button class="btn btn-primary" ${!available || this.busy ? 'disabled' : ''} onclick="App.toggleHabit('${esc(h.id)}')">${!this.rulesReady ? t('EN MANTENIMIENTO', 'UNDER MAINTENANCE') : done ? h.type === 'negative' ? t('REGISTRADO', 'RECORDED') : t('COMPLETADO', 'COMPLETED') : !h.period ? t('DÍA DE DESCANSO', 'REST DAY') : !available ? t('YA REGISTRADO', 'ALREADY RECORDED') : h.type === 'negative' ? t('REGISTRAR INCUMPLIMIENTO', 'LOG SETBACK') : t('MARCAR COMPLETADO', 'MARK COMPLETED')}</button>
-            ${management ? `<div class="habit-actions">
-                ${!p && h.type === 'positive' && this.preset(h) ? `<button class="btn btn-secondary" onclick="HabitProgress.configure('${esc(h.id)}')">${t('Añadir niveles', 'Add levels')}</button>` : ''}
+            <button class="btn ${positive ? 'btn-primary' : 'btn-secondary'} habit-complete-button" ${!available || this.busy ? 'disabled' : ''} onclick="App.toggleHabit('${esc(h.id)}')">${!this.rulesReady ? t('EN MANTENIMIENTO', 'UNDER MAINTENANCE') : done ? positive ? t('COMPLETADO', 'COMPLETED') : t('REGISTRADO', 'RECORDED') : !h.period ? t('DÍA DE DESCANSO', 'REST DAY') : !available ? t('YA REGISTRADO', 'ALREADY RECORDED') : positive ? t('MARCAR COMPLETADO', 'MARK COMPLETED') : t('REGISTRAR TROPIEZO', 'LOG SETBACK')}</button>
+            ${management ? `<details class="habit-options"><summary>${t('Opciones e historial', 'Options and history')}</summary>
+                ${h.description ? `<p class="habit-description">${esc(h.description)}</p>` : ''}
+                ${positive ? `<p>${t('Mejor racha', 'Best streak')}: ${h.best_streak} ${t('veces seguidas', 'times in a row')}.</p>` : ''}
+                ${p && !max ? `<p>${t('Los días de descanso no cortan tu avance. Si un día que toca no completas la meta, la cuenta de 7 vuelve a cero.', 'Rest days do not break your progress. If you miss a scheduled goal, the count of 7 starts over.')}</p><p>${bonusPaid ? t('Ya recibiste el premio extra del siguiente nivel.', 'You already received the next level bonus.') : t(`Premio extra al subir: +${h.rewards.bonus_xp} XP y +${h.rewards.bonus_gold} monedas.`, `Level-up bonus: +${h.rewards.bonus_xp} XP and +${h.rewards.bonus_gold} coins.`)}</p>` : ''}
+                ${!p && positive && this.preset(h) ? `<p>${t('¿Quieres que tu meta crezca poco a poco? Puedes activar los niveles.', 'Want your goal to grow little by little? You can enable levels.')}</p><button class="btn btn-secondary" ${!this.rulesReady ? 'disabled' : ''} onclick="HabitProgress.configure('${esc(h.id)}')">${t('Activar niveles', 'Enable levels')}</button>` : ''}
+                <div class="habit-actions">
+                <button class="btn btn-secondary" onclick="HabitProgress.history('${esc(h.id)}')">${t('Historial', 'History')}</button>
                 <button class="btn btn-secondary" onclick="HabitProgress.confirmReset('${esc(h.id)}')">${t('Reiniciar progreso', 'Reset progress')}</button>
                 <button class="btn btn-danger" ${!this.rulesReady || this.deleteRemaining() ? 'disabled' : ''} onclick="HabitProgress.confirmDelete('${esc(h.id)}')">${t('Eliminar hábito', 'Delete habit')}</button>
-                <button class="btn btn-secondary" onclick="HabitProgress.history('${esc(h.id)}')">${t('Historial', 'History')}</button></div>` : ''}</article>`;
+                </div>${this.deleteRemaining() ? `<p class="habit-availability">${esc(this.managementNotice())}</p>` : ''}</details>` : ''}</article>`;
     },
-    configForm(item) {
+    configForm(item, enableOnly = false) {
         const p = this.preset(item);
         if (!this.ready || item.type !== 'positive' || !p) return '';
         const t = this.text.bind(this);
-        const field = (key, label, value, min, max) => `<label>${label}<input class="form-input" data-progress="${key}" type="number" step="any" min="${min}" max="${max}" value="${value}" required></label>`;
-        return `<details class="habit-config" id="config-${item.id}" oninput="HabitProgress.previewCatalog('${item.id}')" onchange="HabitProgress.previewCatalog('${item.id}')"><summary>${t('Configurar progresión opcional', 'Configure optional progression')}</summary>
-            <label><input data-progress="enabled" type="checkbox" checked> ${t('Aumentar la meta al cumplirla varios días', 'Increase the goal after consistent completions')}</label>
-            <div class="habit-config-fields">${field('initial',t('Objetivo inicial','Initial target'),p.initial,0.1,100000)}${field('max',t('Objetivo máximo','Maximum target'),p.max,0.1,100000)}${field('step',t('Incremento','Increment'),p.step,0.1,100000)}
-            <input data-progress="unit" type="hidden" value="${p.unit}"></div>
-            <p>${t('Subes de dificultad después de 7 cumplimientos programados consecutivos. Este número es fijo.', 'Difficulty increases after 7 consecutive scheduled completions. This number is fixed.')}</p>
-            <p>${t('Estas metas se expresan en', 'These goals use')} <strong>${this.unit(p.unit)}</strong>. ${t('Sólo tendrás que marcar Completado si alcanzaste la meta mínima, aunque hayas hecho más. No se te pedirá escribir cantidades.', 'Just mark Completed when you reach the minimum goal, even if you do more. No amount entry is needed.')}</p></details>`;
+        const field = (key, label, help, value) => `<label>${label}<span class="habit-input-unit"><input class="form-input" data-progress="${key}" type="number" inputmode="decimal" step="any" min="0.1" max="100000" value="${value}" aria-label="${label} (${this.unit(p.unit)})" aria-describedby="hint-${item.id}-${key}" required><span aria-hidden="true">${this.unit(p.unit)}</span></span><small id="hint-${item.id}-${key}">${help}</small></label>`;
+        return `<details class="habit-config" id="config-${item.id}" oninput="HabitProgress.previewCatalog('${item.id}')" onchange="HabitProgress.previewCatalog('${item.id}')"><summary>${t('Personalizar mi meta', 'Make this goal mine')}</summary>
+            <label class="habit-level-toggle" ${enableOnly ? 'hidden' : ''}><input data-progress="enabled" type="checkbox" checked ${enableOnly ? 'disabled' : ''}> ${t('Quiero que mi meta crezca con niveles', 'I want my goal to grow with levels')}</label>
+            <fieldset class="habit-config-fields"><legend class="sr-only">${t('Tu meta paso a paso', 'Your goal step by step')}</legend>
+            ${field('initial',t('¿Con cuánto empiezas?','Where do you start?'),t('Tu primera meta.','Your first goal.'),p.initial)}
+            ${field('step',t('¿Cuánto aumenta?','How much does it grow?'),t('Lo que añades al subir un nivel.','What you add at each new level.'),p.step)}
+            ${field('max',t('¿Hasta dónde quieres llegar?','Where do you want to stop?'),t('Tu meta final. No subirá más.','Your final goal. It will not grow past this.'),p.max)}
+            <input data-progress="unit" type="hidden" value="${p.unit}"></fieldset>
+            <p class="habit-config-example" aria-live="polite">${this.configExample(p)}</p>
+            <p class="habit-config-help">${t('Solo cuentan los días que elegiste. Los días de descanso no cortan tu avance.', 'Only your chosen days count. Rest days do not break your progress.')}</p></details>`;
     },
     readConfig(id, frequency) {
         const root = document.getElementById(`config-${id}`);
@@ -168,11 +194,12 @@ const HabitProgress = {
             progression = { required: 7 };
             for (const key of ['initial','max','step','unit']) {
                 const input = root.querySelector(`[data-progress="${key}"]`);
-                if (!input.reportValidity()) return null;
+                if (!input.checkValidity()) { root.open = true; input.reportValidity(); return null; }
                 progression[key] = key === 'unit' ? input.value : Number(input.value);
             }
             if (progression.max < progression.initial || Math.ceil((progression.max - progression.initial) / progression.step) > 19) {
-                App.showToast(this.text('El máximo debe ser igual o mayor al inicio y permitir hasta 20 niveles.', 'The maximum must be at least the initial target, with up to 20 levels.'), 'error'); return null;
+                root.open = true;
+                App.showToast(this.text('La meta final no puede ser menor que la primera. Elige un aumento que permita llegar en 20 niveles o menos.', 'The final goal cannot be smaller than the first. Choose an increase that reaches it in 20 levels or fewer.'), 'error'); return null;
             }
         }
         return { catalog_id: id, frequency, progression, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
@@ -186,7 +213,7 @@ const HabitProgress = {
     closeModal() { document.getElementById('modal-root').innerHTML = ''; },
     configure(id) {
         const h=GameState.habits.find(x=>x.id===id);if(!h || h.progression || !this.preset(h) || this.busy)return;
-        document.getElementById('modal-root').innerHTML=`<div class="modal-overlay"><section class="card habit-measure" role="dialog" aria-modal="true" aria-labelledby="configure-title"><h2 id="configure-title">${this.text('Añadir niveles','Add levels')}: ${Views.escape(h.title)}</h2>${this.configForm(h)}<p>${this.text('La frecuencia, el historial y las recompensas anteriores se conservan. Las cantidades quedarán fijadas para este hábito.','Schedule, history and prior rewards are retained. Targets will be fixed for this habit.')}</p><button class="btn btn-primary" onclick="HabitProgress.saveConfig('${h.id}')">${this.text('GUARDAR','SAVE')}</button><button class="btn btn-secondary" onclick="HabitProgress.closeModal()">${this.text('CANCELAR','CANCEL')}</button></section></div>`;
+        document.getElementById('modal-root').innerHTML=`<div class="modal-overlay"><section class="card habit-measure" role="dialog" aria-modal="true" aria-labelledby="configure-title"><h2 id="configure-title">${this.text('Activar niveles','Enable levels')}: ${Views.escape(h.title)}</h2>${this.configForm(h,true)}<p>${this.text('Tus premios e historial se conservan. Revisa bien las metas: quedarán guardadas para este hábito.','Your rewards and history stay saved. Check your goals carefully: they will be saved for this habit.')}</p><button class="btn btn-primary" onclick="HabitProgress.saveConfig('${h.id}')">${this.text('GUARDAR','SAVE')}</button><button class="btn btn-secondary" onclick="HabitProgress.closeModal()">${this.text('CANCELAR','CANCEL')}</button></section></div>`;
         const root=document.getElementById(`config-${id}`);root.open=true;root.querySelector('[data-progress="enabled"]').checked=true;
     },
     async saveConfig(id) {
