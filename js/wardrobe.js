@@ -137,21 +137,33 @@ const Wardrobe = (() => {
             }
             const savedAppearance = normalize(cloudAppearance);
             const hasHeadwear = Object.prototype.hasOwnProperty.call(cloudAppearance, 'headwear');
+            let pendingHeadwear = false;
             if (!hasHeadwear || cloudAppearance.headwear !== appearance.headwear) {
                 // Older validators discard unknown fields. Keep a free helmet
                 // choice pending locally, while retaining all cloud-validated fields.
                 if (!hasHeadwear && ['default', 'none'].includes(appearance.headwear)) {
-                    const pendingAppearance = { ...savedAppearance, headwear: appearance.headwear };
-                    if (!writeLocal(ctx.userId, pendingAppearance, true)) {
-                        return result(false, 'error', say('No se pudo conservar el casco. Revisa el almacenamiento del navegador.', 'Could not keep your headwear choice. Check your browser storage.'), 'storage_unavailable');
-                    }
-                    GameState.avatar.appearance = pendingAppearance;
-                    GameState.appearanceSaveStatus = 'local';
-                    return result(true, 'local', say('Apariencia guardada. El casco se conserva en este dispositivo; su sincronización con tu cuenta está pendiente.', 'Appearance saved. Your headwear choice is kept on this device; account syncing is pending.'), 'headwear_sync_pending');
+                    pendingHeadwear = true;
+                } else {
+                    // Paid equipment still needs explicit server confirmation.
+                    return result(false, 'error', say('Tu cuenta no confirmó el casco. No se equipó; vuelve a intentarlo más tarde.', 'Your account did not confirm the headwear. It was not equipped; try again later.'), 'headwear_not_saved');
                 }
-                // A paid helmet needs explicit confirmation; never turn a
-                // different or missing server value into a successful equip.
-                return result(false, 'error', say('Tu cuenta no confirmó el casco. No se equipó; vuelve a intentarlo más tarde.', 'Your account did not confirm the headwear. It was not equipped; try again later.'), 'headwear_not_saved');
+            }
+            const hasBeard = Object.prototype.hasOwnProperty.call(cloudAppearance, 'beardStyle');
+            if (hasBeard && cloudAppearance.beardStyle !== appearance.beardStyle) {
+                return result(false, 'error', say('Tu cuenta no confirmó el estilo de barba. Vuelve a intentarlo.', 'Your account did not confirm the beard style. Please try again.'), 'beard_not_saved');
+            }
+            const pendingBeard = !hasBeard && appearance.beardStyle !== 'default';
+            if (pendingHeadwear || pendingBeard) {
+                const pendingAppearance = { ...savedAppearance,
+                    ...(pendingHeadwear ? {headwear:appearance.headwear} : {}),
+                    ...(pendingBeard ? {beardStyle:appearance.beardStyle} : {}) };
+                if (!writeLocal(ctx.userId, pendingAppearance, true)) {
+                    return result(false, 'error', say('No se pudieron conservar los cambios. Revisa el almacenamiento del navegador.', 'Could not keep your changes. Check your browser storage.'), 'storage_unavailable');
+                }
+                GameState.avatar.appearance = pendingAppearance;
+                GameState.appearanceSaveStatus = 'local';
+                const part = pendingBeard ? pendingHeadwear ? say('El casco y la barba se conservan', 'Headwear and beard are saved') : say('La barba se conserva', 'Your beard is saved') : say('El casco se conserva', 'Headwear is saved');
+                return result(true, 'local', part + say(' en este dispositivo. Su sincronización con tu cuenta está pendiente.', ' on this device. Account syncing is pending.'), pendingBeard ? 'beard_sync_pending' : 'headwear_sync_pending');
             }
             GameState.avatar.appearance = savedAppearance;
             GameState.appearanceSaveStatus = 'cloud';

@@ -1,4 +1,4 @@
-﻿const { test, expect } = require('@playwright/test');
+const { test, expect } = require('@playwright/test');
 
 // The full UI runs with a test account and in-memory backend. Never writes to Supabase.
 async function boot(page, migrated = false) {
@@ -77,6 +77,70 @@ test('unlocked cosmetics buy once, equip visibly, and save to account', async ({
     await expect(page.locator('#appearance-status')).toContainText('guardada en tu cuenta');
     await page.locator('.nav-item[data-view="arena"]').click();
     await expect(page.locator('.arena-fighter.player .character-art')).toBeVisible();
+});
+
+test('mage can shave, reload, try every beard and keep the saved style in the arena', async ({ page }, testInfo) => {
+    await boot(page);
+    const openMage = async () => page.evaluate(() => {
+        GameState.avatar.avatarClass = 'mage';
+        GameState.avatar.appearance.body = 'male';
+        App.navigate('character');
+    });
+    await openMage();
+    await expect(page.locator('#character-preview .char-beard')).toHaveAttribute('data-beard', 'short');
+    await page.getByRole('button', { name: 'Sin barba', exact: true }).click();
+    await expect(page.locator('#character-preview .char-beard')).toHaveCount(0);
+    expect(await page.evaluate(() => GameState.avatar.appearance.beardStyle)).toBe('default');
+    await page.getByRole('button', { name: 'GUARDAR APARIENCIA', exact: true }).click();
+    await expect(page.locator('#appearance-status')).toContainText('Guardado en este dispositivo');
+    await boot(page);
+    await openMage();
+    await expect(page.getByRole('button', { name: 'Sin barba', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#character-preview .char-beard')).toHaveCount(0);
+    for (const [label, style] of [['Corta','short'], ['Perilla','goatee'], ['Larga','long'], ['Trenzada','braided']]) {
+        await page.getByRole('button', { name: label, exact: true }).click();
+        await expect(page.locator('#character-preview .char-beard')).toHaveAttribute('data-beard', style);
+    }
+    await page.getByRole('button', { name: 'DESHACER', exact: true }).click();
+    await expect(page.locator('#character-preview .char-beard')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Trenzada', exact: true }).click();
+    await page.getByRole('button', { name: 'Correr', exact: true }).click();
+    await page.getByRole('button', { name: 'Mirar a la izquierda', exact: true }).click();
+    await expect(page.locator('#character-preview .character-art')).toHaveAttribute('data-state', 'RUNNING');
+    await expect(page.locator('#character-preview .character-art')).toHaveAttribute('data-facing', 'left');
+    await page.getByRole('button', { name: 'GUARDAR APARIENCIA', exact: true }).click();
+    await expect(page.locator('#appearance-status')).toContainText('Guardado en este dispositivo');
+    expect(await page.evaluate(() => GameState.avatar.gold)).toBe(500);
+    expect(await page.evaluate(() => GameState.avatar.avatarClass)).toBe('mage');
+    await page.screenshot({ path: testInfo.outputPath('beard-editor.png'), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.locator('.nav-item[data-view="arena"]').click();
+    await expect(page.locator('.arena-fighter.player .char-beard')).toHaveAttribute('data-beard', 'braided');
+});
+
+test('creature gallery renders all enemies in either direction and supports each animation', async ({ page }, testInfo) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto('/tools/art-preview.html');
+    await expect(page.locator('#monsters .character-art')).toHaveCount(5);
+    for (const [label, state] of [['Correr', 'RUNNING'], ['Golpe', 'ATTACKING'], ['Salto', 'JUMPING'], ['Magia', 'CASTING'], ['Defensa', 'GUARDING'], ['Reposo', 'IDLE']]) {
+        await page.getByRole('button', { name: label, exact: true }).click();
+        for (const kind of ['goblin', 'skeleton', 'orc', 'ghost', 'slime']) {
+            const art = page.locator(`#monsters .character-${kind}`);
+            await expect(art).toHaveAttribute('data-state', state);
+            if (kind !== 'slime') await expect(art.locator('.char-head')).toHaveCount(1);
+            if (['goblin', 'skeleton', 'orc'].includes(kind)) await expect(art.locator('.char-shin')).toHaveCount(2);
+        }
+    }
+    await page.locator('#direction').click();
+    await expect(page.locator('#monsters [data-facing="left"]')).toHaveCount(5);
+    await page.locator('#beard').selectOption('none');
+    await expect(page.locator('#characters .char-beard')).toHaveCount(0);
+    await page.locator('#beard').selectOption('long');
+    await expect(page.locator('#characters .char-beard[data-beard="long"]')).toHaveCount(32);
+    await page.locator('#monsters').screenshot({ path: testInfo.outputPath('creatures.png') });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(errors).toEqual([]);
 });
 
 test('headwear can be hidden, saved locally, reloaded and restored in the editor', async ({ page }) => {

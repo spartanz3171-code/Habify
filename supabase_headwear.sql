@@ -42,6 +42,11 @@ BEGIN
        AND OLD.appearance ? 'headwear' THEN
         v_value := v_value || jsonb_build_object('headwear', OLD.appearance->'headwear');
     END IF;
+    -- Keep beard choices when an older client omits the new free style field.
+    IF TG_OP = 'UPDATE' AND NOT (v_value ? 'beardStyle')
+       AND OLD.appearance ? 'beardStyle' THEN
+        v_value := v_value || jsonb_build_object('beardStyle', OLD.appearance->'beardStyle');
+    END IF;
     -- Keep the empty initial value so first-login preferences from signup
     -- metadata can be restored by the client, including confirmation by email.
     IF v_value = '{}'::jsonb THEN
@@ -75,7 +80,8 @@ BEGIN
         'outfitColor', CASE WHEN v_value->>'outfitColor' ~ '^#[0-9a-fA-F]{6}$' THEN lower(v_value->>'outfitColor') ELSE '#8256c6' END,
         'outfit', v_outfit,
         'accessory', v_accessory,
-        'headwear', v_headwear
+        'headwear', v_headwear,
+        'beardStyle', CASE WHEN v_value->>'beardStyle' IN ('default', 'none', 'short', 'goatee', 'long', 'braided') THEN v_value->>'beardStyle' ELSE 'default' END
     );
     RETURN NEW;
 END;

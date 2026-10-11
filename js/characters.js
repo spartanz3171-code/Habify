@@ -15,7 +15,7 @@
     });
     const DEFAULT_APPEARANCE = Object.freeze({
         body: 'male', skin: '#efbd91', hairStyle: 'short', hairColor: '#44302e',
-        outfitColor: '#8256c6', outfit: 'default', accessory: 'none', headwear: 'default'
+        outfitColor: '#8256c6', outfit: 'default', accessory: 'none', headwear: 'default', beardStyle: 'default'
     });
 
     function normalizeAppearance(value) {
@@ -25,6 +25,7 @@
         return {
             body: pick('body', ['male', 'female']), skin: color('skin'),
             hairStyle: pick('hairStyle', ['short', 'long', 'ponytail', 'braids']),
+            beardStyle: pick('beardStyle', ['default', 'none', 'short', 'goatee', 'long', 'braided']),
             hairColor: color('hairColor'), outfitColor: color('outfitColor'),
             outfit: pick('outfit', ['default', 'outfit_ranger', 'outfit_knight', 'outfit_arcane']),
             accessory: pick('accessory', ['none', 'acc_scarf', 'acc_circlet', 'acc_cape']),
@@ -483,15 +484,38 @@
         return art;
     }
 
+    function beard(c, role, a) {
+        const style = a.beardStyle === 'default' ? (role === 'mage' && a.body === 'male' ? 'short' : 'none') : a.beardStyle;
+        if (style === 'none') return '';
+        const moustache = path('M51.4 35.1Q53.2 34.3 54.5 35Q56.2 34.2 57.7 35L59 36.3Q56.6 36.1 54.5 35.7Q52.8 36.3 50.7 36.4Z', c.hair) +
+            path('M52 35.3L53.6 35.1M55.2 35.1L57 35.4', 'none', `stroke="${c.hairLight}" stroke-width=".45" stroke-linecap="round"`);
+        let art;
+        if (style === 'goatee') art = moustache +
+            path('M50.4 38.4Q54 39.3 57.3 38.2L56.6 42.4L54.1 45L51.6 42.7Z', c.hairDark) +
+            path('M51.8 39.1L55.7 39.2L55.1 42.1L54 43.1L52.8 41.9Z', c.hair) +
+            path('M52.7 39.7L53.5 41.5', 'none', `stroke="${c.hairLight}" stroke-width=".65" stroke-linecap="round"`);
+        else {
+            art = path('M43.5 32.6Q45.2 36.1 48.6 37.7Q52.2 40.5 56.6 38.8Q59.9 37 61 33.6L61.3 38.5Q60.2 42.1 57.5 44L51.6 44.6Q46.2 42.2 44 37.7Z', c.hairDark) +
+                path('M45.5 36.3Q49.2 40.2 53.1 40.3Q57 40.8 59.5 37.9Q58.7 41.4 56 43.1L52 43.6L48.4 41Z', c.hair) + moustache;
+            if (style === 'short') art += path('M47.1 38.9L49.3 41M51.1 40.8L52.2 42.7M55.3 41.3L56 40.7', 'none', `stroke="${c.hairLight}" stroke-width=".65" stroke-linecap="round"`);
+            if (style === 'long') art +=
+                path('M46.1 38.9Q50.9 43.2 59.8 38.1Q59.1 44.9 57.5 48.8L54.8 53.4L52.8 52.1L51.1 53Q47.5 49.3 46.1 38.9Z', c.hairDark) +
+                path('M48 41.5Q52 44 57.8 40.9Q57.2 47 54.5 50.9L53.3 49.8L51.8 51.1Q49.6 48 48 41.5Z', c.hair) +
+                path('M49.2 43L51.2 47.7M52.1 44L53.8 48.9M55.6 43.1L55 46.6', 'none', `stroke="${c.hairLight}" stroke-width=".7" stroke-linecap="round"`);
+            if (style === 'braided') art +=
+                path('M47.8 40.5Q52.1 43.1 58.4 40.2L57.3 44L55.7 46.1L57.1 48.4L55.7 50.9L56.6 53.1L54 57L51.3 54.5L51.7 51.9L50.2 49.7L51.2 47.4L49.2 45Z', c.hairDark) +
+                path('M49.9 42.9L55.7 43L53.6 45.7L55.2 48L53.4 50.4L55 52.6L53.7 54.7L52.8 53.8L53.4 51.8L51.8 49.5L53.2 47.3L51 45.7Z', c.hairLight) +
+                path('M50.6 43.8L54.1 45.5M52 47.7L54.6 49.2M52.5 51.7L54.6 53.2', 'none', `stroke="${c.hair}" stroke-width="1"`) +
+                path('M51.7 53.4L55.8 52.9L56.2 55L52.1 55.4Z', GOLD) + path('M52.3 53.6L55.2 53.3L55.2 54L52.4 54.3Z', LIGHT);
+        }
+        return `<g class="char-beard" data-beard="${style}" shape-rendering="geometricPrecision">${art}</g>`;
+    }
+
     function head(c, role, a) {
         let content = face(c, role, a) + crownHair(c, a);
         if (a.headwear !== 'none') content += `<g class="char-headwear" data-headwear="${a.headwear}">${
             a.headwear === 'default' ? classHeadwear(c, role) : purchasedHeadwear(c, a.headwear)}</g>`;
-        if (role === 'mage' && a.body === 'male') content += hairLayer('char-beard',
-            path('M43.5 33Q45.5 36 49 38Q53 40 56 38.5Q59 37 61 34.5Q60.4 40 57 43L54 45.5L52 44.5L50 45Q45 41 44 36Z', c.hairDark) +
-            path('M46 37Q49 40 53 40Q57 40.5 59 37.5Q58 41.5 54 44L51.5 43.4L48 40.5Z', c.hair) +
-            path('M51.5 34.9Q53.1 34.2 54.3 34.7Q55.7 34.1 57.4 34.7L58 35.7L55.2 35.2L54.3 35.5L53.3 35.2L51 35.7Z', c.hair) +
-            path('M48 39Q49.5 41 51 41.9M52.5 40.8L53.3 43.4M55.4 41.1L56.5 40', 'none', `stroke="${c.hairLight}" stroke-width=".7" stroke-linecap="round"`));
+        content += beard(c, role, a);
         // Circlets stay in inventory while a helmet covers them; no doubled brow bands.
         if (a.accessory === 'acc_circlet' && a.headwear === 'none') content +=
             poly('41,22 48,22 53,23 58,21 62,21 62,23 58,23 53,25 48,24 41,24', c.goldDark) +
@@ -661,116 +685,220 @@
         return shell(cape(c, role, a) + leg(c, false, armored) + leg(c, true, armored) + group('char-upper-body', upper), options, role);
     }
 
-    function monsterLeg(x, front, c, skeleton) {
-        const upper = poly(`${x},72 ${x + 12},72 ${x + 11},94 ${x + 1},94`, INK) +
-            rect(x + 3, 76, skeleton ? 5 : 7, 15, front ? c.mid : c.dark) + rect(x + 3, 77, 2, 12, c.high);
-        const lower = poly(`${x + 1},90 ${x + 11},90 ${x + 11},101 ${x + 17},103 ${x + 17},108 ${x - 1},108 ${x - 1},102`, INK) +
-            rect(x + 3, 92, 6, 13, skeleton ? c.mid : '#574235') + rect(x + 3, 103, 11, 3, skeleton ? c.high : '#7c6041') +
-            (skeleton ? rect(x + 3, 93, 2, 10, c.high) + rect(x + 13, 103, 1, 3, INK) : rect(x + 2, 93, 8, 2, '#c7a264'));
-        return group(`char-leg char-leg-${front ? 'front' : 'back'}`, upper + group('char-shin', lower));
+    // The creatures share animation anchors, but each has its own silhouette and materials.
+    const contour = (d, fill, width = 1.8) => path(d, fill, `stroke="${INK}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"`);
+    const stroke = (d, color, width = 1) => path(d, 'none', `stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"`);
+
+    function creatureLeg(front, orc) {
+        const x = front ? 53 : 35;
+        const w = orc ? 12 : 9;
+        const thigh = contour(`M${x} 73 L${x+w} 73 L${x+w-1} 91 Q${x+4} 96 ${x-1} 91 Z`, front ? '#64533e' : '#403b37') +
+            path(`M${x+2} 77 L${x+6} 78 L${x+5} 87 L${x+2} 90 Z`, '#88704b') +
+            contour(`M${x-1} 86 L${x+7} 84 L${x+w} 88 L${x+w-2} 94 L${x+1} 93 Z`, orc ? '#68757c' : '#87734f', 1.2) +
+            path(`M${x} 87 L${x+6} 86 L${x+4} 90 L${x} 91 Z`, orc ? '#adb6ad' : '#b29a69');
+        const foot = contour(`M${x+1} 93 L${x+w-2} 93 L${x+w-2} 99 Q${x+w+7} 100 ${x+w+6} 106 L${x-2} 106 Q${x-3} 102 ${x+1} 93 Z`, '#4b3933') +
+            path(`M${x+2} 94 L${x+5} 94 L${x+3} 102 L${x+w+2} 102 L${x+w+4} 104 L${x} 104 Z`, '#9d7a50') +
+            stroke(`M${x} 97 L${x+w-2} 98 M${x+2} 94 L${x+w-1} 95`, '#c5a46a', 1.1) +
+            stroke(`M${x-1} 105 L${x+w+4} 105`, '#2c2a2d', 1.4);
+        return group(`char-leg char-leg-${front ? 'front' : 'back'}`, thigh + group('char-shin', foot));
     }
 
-    function monsterArm(front, c, skeleton, orc) {
-        const x = front ? 61 : 26;
-        let content = poly(`${x},44 ${x + 10},45 ${x + 15},59 ${x + 13},73 ${x + 3},75 ${x},65 ${x - 3},56`, INK) +
-            poly(`${x + 1},48 ${x + 8},48 ${x + 11},60 ${x + 10},69 ${x + 4},69 ${x + 2},60`, front ? c.mid : c.dark) +
-            rect(x + 2, 49, skeleton ? 3 : 5, 9, c.high) + rect(x + 7, 61, 3, 8, c.high) +
-            rect(x + 3, 64, 11, 5, '#523d3a') + rect(x + 4, 64, 9, 2, '#ae8b61') +
-            rect(x + 4, 70, 9, 5, c.mid) + rect(x + 5, 70, 4, 2, c.high);
-        if (skeleton) content += rect(x + 6, 55, 4, 7, INK) + rect(x + 4, 72, 1, 3, INK) + rect(x + 7, 72, 1, 3, INK);
-        if (orc) content += poly(`${x - 2},46 ${x + 2},41 ${x + 10},42 ${x + 15},49 ${x + 12},56 ${x + 1},54`, INK) +
-            poly(`${x},47 ${x + 3},44 ${x + 9},45 ${x + 12},50 ${x + 10},53 ${x + 2},51`, '#657083') +
-            rect(x + 2, 46, 6, 2, '#a3abb6') + poly(`${x + 3},43 ${x + 5},35 ${x + 8},44`, '#e4d9b4');
-        if (front) content += group('char-weapon',
-            rect(71, 44, 5, 35, INK) + rect(72, 45, 3, 31, '#876044') +
-            (orc ? poly('65,30 79,29 86,34 85,47 78,51 76,43 64,44 61,38', INK) +
-                poly('66,32 78,31 83,35 82,45 79,47 77,41 66,42 63,38', '#82909b') + rect(65, 34, 4, 6, '#c0ccd0') +
-                rect(77, 33, 3, 11, '#596174') : poly('73,27 77,32 77,57 71,57 71,32', INK) +
-                poly('74,31 75,33 75,55 73,55 73,34', '#c9dad5') + rect(68, 57, 12, 3, '#aa895d')) +
-            rect(68, 68, 8, 6, c.mid) + rect(69, 68, 3, 2, c.high));
-        return group(`char-arm char-arm-${front ? 'front' : 'back'}`, content);
+    function creatureArm(front, orc) {
+        const x = front ? 63 : 26;
+        const skin = orc ? (front ? '#8b9658' : '#566448') : (front ? '#6e9f65' : '#466d52');
+        let art = contour(`M${x+1} 46 Q${x+7} 42 ${x+11} 49 L${x+14} 59 L${x+12} 72 Q${x+7} 77 ${x+2} 70 L${x+3} 61 Q${x-4} 54 ${x+1} 46 Z`, skin) +
+            path(`M${x+2} 48 Q${x+7} 46 ${x+9} 52 L${x+9} 57 Q${x+4} 59 ${x+2} 54 Z`, orc ? '#b2b475' : '#a5c17d') +
+            stroke(`M${x+4} 60 Q${x+7} 62 ${x+10} 59`, orc ? '#667041' : '#4f7b4f', 1.3) +
+            contour(`M${x+2} 63 L${x+13} 63 L${x+12} 70 L${x+3} 71 Z`, '#4b3934', 1.2) +
+            stroke(`M${x+3} 64 L${x+12} 65 M${x+3} 68 L${x+11} 69`, '#af8c58', 1.3);
+        if (orc && !front) art +=
+            contour('M24 44 L30 39 L38 41 L42 49 L39 56 L25 55 L21 50 Z', '#586574') +
+            poly('24,46 30,41 35,43 34,48 24,49', '#adb8b8') +
+            poly('25,50 38,47 40,50 37,53 27,53', '#343d50') +
+            contour('M26 44 L26 35 L30 41 M34 42 L38 35 L38 45', '#e6d3aa', 1.1) +
+            ellipse(26, 51, 1, 1, GOLD) + ellipse(36, 51, 1, 1, GOLD);
+        if (front) art += group('char-weapon', orc ?
+            contour('M77 30 L81 30 L78 83 L74 83 Z', '#79513a', 1.4) + stroke('M78 36 L76 77', '#bb9460', 1.1) +
+            contour('M75 31 L68 32 L63 26 Q59 34 64 43 L75 45 L80 42 Q90 46 91 35 L88 26 Q86 31 80 29 Z', '#7f929a') +
+            path('M65 29 Q63 35 66 41 L76 42 L75 36 L68 35 Z', '#bbced0') +
+            path('M89 29 Q92 39 83 42 L81 36 Q86 36 89 29 Z', '#d6ddcf') +
+            poly('76,31 80,31 80,42 76,43', '#404c61') + ellipse(78, 35, 1.1, 1.1, GOLD) +
+            stroke('M76 75 L79 74 M76 78 L78 77', '#d8b781', 1.4) :
+            contour('M73 68 Q78 52 86 49 Q82 58 82 65 L77 73 Z', '#93adb0', 1.4) +
+            path('M75 67 Q80 54 84 52 Q79 63 78 68 Z', '#e7edce') +
+            contour('M69 68 L80 72 L79 75 L69 71 Z', '#b89657', 1) +
+            contour('M71 72 L75 73 L73 81 L69 79 Z', '#66473b', 1.2));
+        art += contour(`M${x+4} 70 Q${x+7} 68 ${x+10} 71 L${x+12} 74 L${x+10} 78 L${x+4} 77 L${x+2} 74 Z`, skin, 1.2) +
+            stroke(`M${x+6} 74 L${x+10} 74 M${x+6} 76 L${x+9} 76`, orc ? '#556041' : '#3f6548', .7);
+        return group(`char-arm char-arm-${front ? 'front' : 'back'}`, art);
     }
 
-    function humanoidMonster(sprite) {
-        const skeleton = sprite === 'skeleton';
-        const orc = sprite === 'orc';
-        const c = skeleton ? { mid: '#c7c6a9', high: '#f0ead0', dark: '#777c76' } :
-            orc ? { mid: '#78915b', high: '#a8b776', dark: '#4e6948' } : { mid: '#66a88d', high: '#a1d3a2', dark: '#397265' };
-        let torsoArt = poly('35,44 46,40 59,43 65,51 63,72 59,81 35,80 31,71', INK) +
-            poly('37,47 46,44 57,46 61,53 60,72 56,77 38,76 35,69', c.dark) +
-            rect(38, 49, 9, 18, c.mid) + rect(39, 49, 4, 11, c.high) + rect(50, 50, 9, 14, c.mid);
-        if (skeleton) torsoArt += rect(45, 45, 6, 27, c.high) + rect(47, 47, 2, 20, c.dark) +
-            [49, 55, 61].map(y => rect(37, y, 23, 3, c.mid) + rect(38, y, 8, 1, c.high)).join('') +
-            rect(35, 67, 27, 8, INK) + rect(38, 69, 21, 4, c.mid) + rect(45, 69, 5, 4, c.dark);
-        else torsoArt += poly('36,44 42,43 59,67 55,72 49,63', '#78523c') +
-            poly('38,45 41,45 57,68 55,69', '#b08654') + rect(47, 56, 5, 5, '#d5bc75') + rect(48, 57, 3, 3, INK);
-        torsoArt += rect(34, 71, 28, 6, '#3e3031') + rect(35, 72, 26, 2, '#896248') +
-            rect(46, 71, 7, 7, '#baa16c') + rect(48, 73, 3, 3, INK) +
-            poly('36,77 46,78 44,88 34,87', '#6c4640') + poly('52,78 62,77 65,86 54,88', '#50353b');
-        let face = poly('36,22 40,17 54,15 63,20 67,27 66,36 61,43 48,46 38,41 34,31', INK) +
-            poly('39,24 42,20 53,18 61,22 64,28 63,35 59,40 49,42 41,38 37,31', c.mid) +
-            poly('40,25 44,21 53,20 56,23 49,25 44,29 39,30', c.high) +
-            poly('38,32 44,35 51,39 59,37 58,41 48,43 41,39', c.dark);
-        if (skeleton) face += rect(42, 27, 8, 7, INK) + rect(55, 25, 7, 7, INK) +
-            rect(46, 29, 3, 2, '#d47478') + rect(58, 27, 3, 2, '#d47478') +
-            poly('53,31 55,36 51,36', INK) + rect(46, 39, 13, 5, c.high) +
-            rect(48, 40, 1, 3, INK) + rect(52, 40, 1, 3, INK) + rect(56, 40, 1, 3, INK) + rect(43, 35, 4, 2, c.dark);
-        else face +=
-            poly('36,26 24,21 27,31 37,35 41,32', INK) + poly('36,28 28,25 30,30 37,32', c.mid) +
-            poly('64,24 72,18 72,27 65,31', INK) + poly('65,25 70,22 69,26 65,28', c.high) +
-            poly('42,27 50,27 51,31 44,31', INK) + rect(46, 28, 3, 2, '#e7d474') + rect(48, 28, 1, 2, '#bc614b') +
-            poly('56,25 62,24 63,28 57,29', INK) + rect(58, 26, 3, 2, '#e7d474') + rect(60, 26, 1, 2, '#bc614b') +
-            rect(55, 30, 8, 5, c.dark) + rect(57, 30, 6, 3, c.mid) + rect(53, 37, 9, 3, INK) +
-            poly('52,34 55,38 53,39', '#ece6bb') + poly('61,34 62,39 59,39', '#ece6bb') +
-            rect(35, 30, 3, 5, '#d5b569') +
-            poly('38,21 40,16 45,17 47,12 52,16 56,13 59,19 55,22 47,21 42,25', '#363845') +
-            rect(43, 18, 5, 2, '#616056');
-        return monsterLeg(35, false, c, skeleton) + monsterLeg(51, true, c, skeleton) +
-            group('char-upper-body', monsterArm(false, c, skeleton, orc) + group('char-torso', torsoArt) + group('char-head', face) + monsterArm(true, c, skeleton, orc) + effects());
+    function goblin() {
+        const torso = contour('M34 49 Q42 42 53 45 L63 50 L61 64 L63 76 L56 81 L47 78 L36 81 L32 72 Z', '#604d38') +
+            path('M36 51 L42 48 L46 56 L43 69 L37 74 L35 68 Z', '#9a7b4c') +
+            path('M52 48 L59 52 L57 68 L61 74 L54 77 L48 73 L50 60 Z', '#3f3b32') +
+            contour('M42 47 L49 44 L55 47 L49 54 Z', '#60875a', 1) +
+            contour('M34 49 L38 47 L59 70 L56 74 Z', '#b19864', 1) +
+            rect(45, 59, 6, 5, '#e2bd71') + rect(47, 60, 2, 3, '#5d503a') +
+            contour('M33 71 Q46 75 62 70 L63 76 Q49 82 34 77 Z', '#44352f', 1.2) +
+            contour('M48 73 L54 73 L54 78 L48 78 Z', '#d1aa60', .7) + rect(50, 74, 2, 3, '#504431') +
+            contour('M34 75 L42 75 L44 82 L39 87 L33 83 Z', '#927448', 1.2) +
+            path('M34 76 L41 76 L40 79 L35 80 Z', '#c3a26a') + ellipse(38, 79, 1, 1, GOLD) +
+            stroke('M56 57 L60 59 M56 61 L59 63', '#b79f76', .8);
+        const headArt =
+            contour('M38 29 Q30 25 21 22 Q23 36 37 39 L43 35 Z', '#729d61') +
+            path('M25 26 L36 32 L37 36 Q29 33 25 26 Z', '#a1b97b') +
+            contour('M62 27 Q69 26 77 20 Q75 33 64 36 Z', '#577b50') +
+            path('M66 30 L73 25 L69 32 L65 33 Z', '#9ab377') +
+            contour('M36 28 Q37 17 52 18 Q64 19 67 30 L65 39 Q61 47 49 47 Q38 45 35 37 Z', '#7fa66a') +
+            path('M38 28 Q40 22 49 22 L56 23 L50 28 L42 30 L39 34 Z', '#b2c987') +
+            path('M38 35 Q42 42 51 42 L60 39 L64 39 Q60 45 49 45 L40 42 Z', '#54774d') +
+            contour('M38 26 L37 20 L42 21 L44 15 L49 19 L55 16 L62 21 L61 25 Q51 21 44 27 Z', '#3d4137', 1.3) +
+            path('M43 21 L45 19 L48 21 L55 20 L52 23 L45 23 Z', '#737350') +
+            path('M41 30 Q46 28 51 32 L50 35 L43 35 Z', '#29362f') +
+            path('M56 31 L63 28 L64 32 L58 34 Z', '#29362f') +
+            path('M43 32 L49 32 L48 34 L44 34 Z', '#efd479') +
+            path('M58 31 L62 30 L62 32 L58 33 Z', '#efd479') +
+            ellipse(47.6, 32.8, .85, 1.2, INK) + ellipse(61, 31.5, .7, 1.1, INK) +
+            contour('M53 30 Q55 34 62 35 L59 38 L52 37 L51 35', '#a1b777', .8) +
+            stroke('M49 41 Q56 43 61 39', '#303e30', 1.2) +
+            poly('52,42 54,42 53,39', '#f5e1b2') +
+            ellipse(33, 37, 1.8, 2.3, GOLD) + ellipse(33, 36.5, .9, 1.4, '#56764e');
+        return creatureLeg(false, false) + creatureLeg(true, false) + group('char-upper-body',
+            creatureArm(false, false) + group('char-torso', torso) + group('char-head', headArt) + creatureArm(true, false) + effects());
+    }
+
+    function orc() {
+        const torso = contour('M31 46 L42 41 L58 41 L69 48 L65 62 L65 76 L56 83 L46 79 L34 82 L30 73 Z', '#7e8850') +
+            path('M35 48 L45 45 L47 53 L43 60 L35 57 Z', '#b2b778') +
+            path('M50 45 L59 46 L64 50 L60 57 L51 57 Z', '#9ea468') +
+            stroke('M38 60 L44 61 M53 60 L58 59 M44 65 L56 65', '#596742', 1.3) +
+            contour('M33 44 L38 43 L63 68 L60 73 Z', '#553a30', 1.3) +
+            stroke('M35 46 L61 71', '#b18d53', 1.4) +
+            contour('M47 55 L53 58 L50 63 L45 59 Z', '#c7ac69', .8) +
+            contour('M32 70 Q48 73 65 69 L65 77 Q47 82 32 77 Z', '#43342e') +
+            stroke('M34 73 Q45 76 63 72', '#96724d', 1.5) +
+            contour('M45 73 L53 72 L55 78 L50 83 L44 79 Z', '#afac91', 1) +
+            poly('46,75 49,75 49,78 46,78', '#3b3935') + poly('51,74 53,75 53,77 51,77', '#3b3935') +
+            contour('M35 79 L43 80 L44 89 L38 87 L33 89 Z M55 80 L63 78 L66 88 L59 91 Z', '#775044', 1.2);
+        const headArt =
+            contour('M36 25 L27 23 L29 33 L37 36 M64 23 L72 19 L71 29 L65 32', '#79854f', 1.7) +
+            contour('M35 22 Q39 15 52 15 L63 20 L67 30 L66 39 Q62 46 48 47 L37 43 L33 33 Z', '#8c9758') +
+            path('M37 24 L41 20 L51 19 L56 22 L50 27 L39 29 Z', '#bbc07c') +
+            path('M36 32 L41 35 L42 40 L54 43 L63 38 L64 41 L57 45 L45 44 L37 40 Z', '#63733f') +
+            contour('M44 19 L44 12 L48 14 L50 9 L54 13 L57 11 L59 20 L54 23 Z', '#47302f', 1.5) +
+            poly('47,17 50,13 51,18 56,16 56,20 50,21', '#986342') +
+            path('M39 28 L49 29 L50 33 L41 33 Z M55 28 L63 25 L64 30 L57 32 Z', '#3d4932') +
+            path('M42 30 L48 31 L48 33 L42 32 Z M57 29 L62 28 L62 30 L57 31 Z', '#efbc61') +
+            rect(46, 31, 1.2, 2, INK) + rect(60, 28.8, 1, 2, INK) +
+            contour('M51 28 L56 30 L58 35 L51 37 L48 34 Z', '#a3ac69', .8) +
+            ellipse(51, 34, 1, .6, '#657343') + ellipse(55.5, 34, .9, .6, '#657343') +
+            path('M42 37 Q52 40 63 35 L62 40 Q51 45 43 41 Z', '#3e3b30') +
+            contour('M44 41 Q39 38 41 33 Q43 37 47 38 Z M58 40 Q64 36 63 31 Q60 36 57 37 Z', '#e6d8ae', .7) +
+            path('M42 34 L44 39 L45 40 L44 37 Z M62 33 L60 38 L59 38 Z', '#fff1c9') +
+            stroke('M38 26 L41 24 M39 28 L42 26', '#6c7945', .8) +
+            ellipse(31, 33, 1.7, 2, GOLD) + ellipse(31, 32.5, .8, 1.1, '#79854f');
+        return creatureLeg(false, true) + creatureLeg(true, true) + group('char-upper-body',
+            creatureArm(false, true) + group('char-torso', torso) + group('char-head', headArt) + creatureArm(true, true) + effects());
+    }
+
+    function skeleton() {
+        const bone = '#d4cbb0', high = '#f5e9cc', dark = '#8d8c7d';
+        const limb = (d, front) => stroke(d, INK, 5.8) + stroke(d, front ? bone : dark, 3.2) + stroke(d, front ? high : bone, .85);
+        const legs = [false, true].map(front => {
+            const x = front ? 56 : 38;
+            return group(`char-leg char-leg-${front ? 'front' : 'back'}`, limb(`M${x} 77 Q${x+1} 84 ${x+2} 91`, front) +
+                ellipse(x+2, 91, 3.3, 2.5, INK) + ellipse(x+2, 90.7, 2.1, 1.5, bone) +
+                group('char-shin', limb(`M${x+1} 94 L${x} 101 M${x+4} 94 L${x+3} 101`, front) +
+                    contour(`M${x-1} 101 L${x+4} 100 L${x+12} 104 L${x+11} 106 L${x-2} 106 Z`, bone, 1.4) +
+                    stroke(`M${x+5} 102 L${x+4} 105 M${x+8} 103 L${x+7} 105`, dark, .8)));
+        }).join('');
+        const arm = front => {
+            const x = front ? 63 : 30;
+            let art = limb(`M${x} 47 Q${x-1} 53 ${x+3} 58 M${x+2} 61 L${x+4} 69 M${x+5} 60 L${x+7} 69`, front) +
+                contour(`M${x+1} 56 Q${x+6} 54 ${x+6} 59 L${x+2} 61 Z`, bone, 1.1);
+            if (front) art += group('char-weapon',
+                contour('M73 32 L77 37 L77 63 L73 66 L70 63 L71 38 Z', '#798f99', 1.5) +
+                poly('73,36 74,39 74,62 72,62 72,40', '#dce0c8') +
+                poly('75,44 77,44 77,48 75,50', '#4c6276') +
+                contour('M67 65 Q73 67 80 64 L81 67 L76 70 L76 79 L71 79 L71 70 L67 68 Z', '#8c704e', 1.3) +
+                stroke('M73 71 L75 72 M73 74 L75 75', '#d9ba83', 1));
+            art += contour(`M${x+2} 69 L${x+8} 69 L${x+10} 73 L${x+8} 77 L${x+3} 76 Z`, bone, 1.2) +
+                stroke(`M${x+4} 72 L${x+8} 72 M${x+4} 74 L${x+8} 74`, dark, .8);
+            return group(`char-arm char-arm-${front ? 'front' : 'back'}`, art);
+        };
+        let ribs = limb('M49 43 L49 68', true) + contour('M47 44 Q37 42 32 48 L36 51 L46 48 L51 48 L61 49 L64 46 Q57 42 51 44 Z', bone, 1.2);
+        for (let y = 51; y <= 63; y += 5) ribs +=
+            contour(`M46 ${y} Q37 ${y-3} 35 ${y} Q36 ${y+5} 46 ${y+4} L46 ${y+2} Q39 ${y+2} 38 ${y} Z M51 ${y} Q59 ${y-3} 61 ${y} Q60 ${y+4} 51 ${y+4} L51 ${y+2} Q57 ${y+2} 58 ${y} Z`, bone, .7) +
+            stroke(`M38 ${y} Q41 ${y-1} 44 ${y} M53 ${y} L57 ${y-1}`, high, .8);
+        ribs += contour('M36 68 L42 67 L47 70 L51 70 L57 67 L62 69 L60 76 L53 80 L49 76 L44 81 L36 76 Z', bone, 1.5) +
+            path('M39 70 L43 71 L44 75 L39 74 Z M54 72 L59 70 L58 74 L54 76 Z', '#32333c') +
+            contour('M35 77 L43 78 L41 86 L35 90 L36 85 L32 85 Z M53 80 L59 77 L64 84 L60 90 L59 86 L56 90 Z', '#6b4750', 1) +
+            stroke('M35 80 L39 81 M57 81 L60 84', '#a27670', 1);
+        const skull = contour('M35 28 Q34 17 47 15 Q60 12 66 23 L66 31 L62 37 L61 44 Q52 48 44 44 L42 38 L36 35 Z', bone) +
+            path('M37 27 Q39 19 48 18 Q58 16 61 22 L52 22 L45 25 L40 30 Z', high) +
+            path('M37 31 L43 34 L47 38 L45 42 L43 37 L38 35 Z M61 34 L65 29 L63 36 L59 40 L59 44 L55 45 L56 38 Z', dark) +
+            contour('M41 28 Q46 26 50 29 L50 34 Q45 38 41 33 Z M55 28 L62 25 L63 30 Q61 34 56 33 Z', '#30323e', .8) +
+            ellipse(47, 31.5, 1.4, 1.1, '#d99468') + ellipse(60, 29.7, 1.1, 1, '#d99468') +
+            poly('53,32 56,37 51,37', '#4a4944') +
+            path('M46 39 Q54 41 61 37 L60 42 Q54 45 47 42 Z', '#6a695e') +
+            [47, 50, 53, 56, 59].map((x, i) => path(`M${x} ${i>2?39:40} L${x+1.8} ${i>2?38.5:40} L${x+1.5} 43 L${x} 43 Z`, high)).join('') +
+            stroke('M51 16 L49 21 L52 24 L50 27 M38 24 L41 24', '#9e9c86', .8);
+        return legs + group('char-upper-body', arm(false) + group('char-torso', ribs) + group('char-head', skull) + arm(true) + effects());
     }
 
     function slime() {
         return group('char-slime',
-            poly('21,93 24,76 31,64 39,57 51,54 64,58 73,68 78,84 84,94 81,104 70,108 28,108 17,104 15,98', INK) +
-            poly('23,94 27,78 34,67 41,61 51,58 62,62 69,71 74,86 80,95 78,101 68,105 29,105 20,102 19,98', '#459e91') +
-            poly('27,90 31,77 38,67 48,62 57,64 57,71 45,72 39,84 36,94', '#75ccb0') +
-            poly('33,76 38,69 45,66 51,65 51,69 43,71 39,77', '#b7efc6') +
-            poly('67,74 73,91 77,96 73,101 60,104 34,104 28,99 46,99 62,96 67,87', '#27776f') +
-            rect(32, 83, 3, 7, '#a6e7c1') + rect(39, 66, 5, 3, '#e0f9d7') +
-            rect(45, 80, 7, 10, INK) + rect(62, 77, 6, 10, INK) +
-            rect(46, 81, 2, 3, '#e9ffd9') + rect(63, 78, 2, 3, '#e9ffd9') +
-            rect(54, 92, 7, 2, INK) + rect(39, 90, 5, 3, '#4eada0') +
-            rect(67, 88, 4, 3, '#61b5a3') + rect(27, 98, 4, 2, '#75ccb0') + rect(72, 95, 3, 2, '#75ccb0'));
+            contour('M17 98 Q18 90 24 83 Q28 57 47 54 Q68 51 74 77 Q76 89 83 95 Q89 105 71 107 L30 107 Q13 107 17 98 Z', '#479d6c', 2.2) +
+            path('M23 95 Q29 85 31 74 Q36 60 49 59 Q61 57 67 70 Q54 62 43 76 Q36 87 39 98 Z', '#85c88c') +
+            path('M69 72 Q72 90 80 97 Q84 103 68 104 L33 104 Q27 104 23 101 Q49 106 61 94 Q67 86 69 72 Z', '#286650') +
+            path('M35 91 Q39 76 51 76 Q63 75 67 89 L62 99 Q46 105 35 96 Z', '#58955e') +
+            path('M40 88 Q45 82 54 83 L59 89 L55 98 L43 96 Z', '#8bba6d', 'opacity=".65"') +
+            stroke('M31 78 Q36 64 47 63', '#d8f6be', 3.1) +
+            stroke('M28 86 L27 90 M52 62 L56 63', '#c5edab', 1.9) +
+            ellipse(35, 72, 1.5, 2, '#f1fbd2') + ellipse(72, 97, 2.7, 1.2, '#8ed49a') +
+            ellipse(32, 97, 1.7, 1.1, '#b4e5a4') + ellipse(63, 71, 1.4, 1.8, '#a2d794') +
+            ellipse(41, 88, 3.7, 5.6, '#213e35') + ellipse(61, 85, 3.3, 5.2, '#213e35') +
+            ellipse(40.1, 86.1, 1.1, 1.7, '#f2fbd9') + ellipse(60.3, 83.3, 1, 1.5, '#f2fbd9') +
+            path('M48 94 Q52 97 57 92 Q55 99 50 98 Z', '#244737') +
+            ellipse(35, 92, 3, 1.3, '#6bb784') + ellipse(66, 89, 2.4, 1.1, '#6bb784'));
     }
 
     function ghost() {
-        return group('char-ghost',
-            group('char-cape', poly('33,64 64,63 67,79 75,95 68,102 61,99 56,107 49,101 40,108 37,99 26,102 29,89', INK) +
-                poly('36,66 60,66 63,80 70,95 65,98 59,94 55,101 49,96 42,102 40,94 31,97 34,85', '#6c639e') +
-                poly('38,68 45,68 42,88 40,94 35,95', '#b2a7d3') +
-                poly('55,70 59,73 60,87 65,93 59,91 54,95 53,84', '#8d84bb')) +
-            group('char-arm char-arm-back', poly('36,46 29,47 23,59 17,61 17,67 25,68 33,61 39,51', INK) +
-                poly('35,49 30,50 25,61 20,62 20,65 25,64 31,59 36,52', '#827ab0')) +
-            group('char-upper-body',
-                poly('34,24 40,17 52,15 64,19 68,29 66,48 60,70 41,74 30,64 31,45', INK) +
-                poly('37,25 42,20 52,18 62,22 65,30 63,46 57,66 42,70 34,62 34,45', '#9d93c7') +
-                poly('39,26 44,22 53,21 58,23 50,27 43,34 40,48 36,58 37,38', '#d4c7e8') +
-                poly('59,27 63,30 61,46 55,63 48,67 52,53 56,42', '#6c6198') +
-                group('char-head',
-                    poly('42,31 50,29 60,30 61,41 56,51 45,50 40,41', '#37334f') +
-                    rect(44, 35, 6, 4, '#9be0d8') + rect(56, 33, 4, 4, '#9be0d8') +
-                    rect(46, 35, 3, 2, '#e2fff1') + rect(57, 33, 2, 2, '#e2fff1') +
-                    poly('50,43 54,42 55,48 52,51 49,48', '#141a2b')) +
-                group('char-arm char-arm-front', poly('61,47 68,49 71,61 80,63 81,69 73,72 65,68 61,57', INK) +
-                    poly('64,50 67,52 68,63 77,65 77,68 73,69 66,65 64,58', '#bdb0db') +
-                    rect(65, 52, 2, 9, '#e0d4ed')) + effects()));
+        const arm = front => group(`char-arm char-arm-${front ? 'front' : 'back'}`, front ?
+            contour('M61 46 Q71 45 73 60 L81 60 L86 57 L85 63 L89 65 L85 68 L80 67 L81 72 L76 70 L68 68 Q63 60 61 46 Z', '#aba6d1', 1.5) +
+            path('M66 49 Q70 52 71 63 L78 65 L76 67 L70 66 L67 60 Z', '#eeE3f1') + stroke('M80 64 L84 63', '#605c88', .7) :
+            contour('M36 45 Q26 48 25 61 L19 62 L14 58 L14 63 L11 66 L15 68 L19 67 L18 72 L23 69 L31 67 L40 49 Z', '#7d80ad', 1.5) +
+            path('M33 48 L29 60 L25 65 L20 65 L26 67 L32 63 L37 50 Z', '#b5b5d6'));
+        const tail = group('char-cape',
+            contour('M34 59 L64 58 Q62 79 72 88 Q80 93 86 85 Q84 100 70 98 L65 96 Q62 104 53 106 L54 99 Q48 104 41 103 L44 97 Q33 103 22 96 Q34 96 31 85 Q28 74 34 59 Z', '#767cac', 1.8) +
+            path('M37 64 L46 66 Q38 87 46 94 Q38 99 28 96 Q38 93 34 83 Z', '#c1bfdc') +
+            path('M52 64 L60 62 Q55 83 65 92 Q69 98 80 93 Q73 100 63 93 L59 99 L60 91 Q52 94 49 98 Q57 84 52 64 Z', '#525b8b') +
+            stroke('M38 71 Q34 83 40 89 M66 91 Q75 97 81 91', '#ece0ef', 1.1));
+        const torso = contour('M33 44 L64 43 L65 59 L59 75 L48 83 L35 77 L29 65 Z', '#8f94c1', 1.7) +
+            path('M34 47 L43 53 Q37 65 39 74 L34 72 L32 63 Z', '#d7d0e7') +
+            path('M55 53 L63 48 L61 62 L53 77 L47 79 Q55 65 55 53 Z', '#606b9d') +
+            stroke('M35 48 L46 59 L58 47', '#d8cca4', 1.2) +
+            contour('M46 57 L51 59 L51 65 L47 69 L43 65 L43 60 Z', '#555b83', 1) +
+            poly('46,60 49,61 49,64 47,66 45,64 45,62', '#b6ecbd') +
+            poly('46,60 47,61 46,64 45,63', '#f4ffe1');
+        const hood = contour('M32 34 Q32 21 46 16 L55 12 Q53 17 60 20 Q68 25 66 36 L62 47 L53 54 L41 51 L32 45 Z', '#aeb0d2') +
+            path('M35 34 Q35 23 46 20 L51 18 L49 23 Q39 27 40 40 L37 45 L34 42 Z', '#ede3ef') +
+            path('M53 21 Q63 25 63 34 L59 44 L52 49 L45 47 L55 39 L56 30 Z', '#6b749f') +
+            contour('M42 29 Q48 24 56 28 Q61 31 58 40 L53 47 L44 45 L39 39 Z', '#2e374f', 1.1) +
+            path('M43 30 L46 29 L43 39 L46 44 L42 41 L40 37 Z', '#464e72') +
+            path('M42 34 Q46 32 49 35 L47 39 L43 38 Z M53 34 L59 31 L58 36 L53 38 Z', '#72c49e') +
+            path('M43 34 L47 35 L46 37 L43 36 Z M54 34 L57 33 L57 35 L54 36 Z', '#e3ffce') +
+            path('M49 41 Q52 38 53 42 L51 45 L49 44 Z', '#151c32');
+        return group('char-ghost', tail + group('char-upper-body', arm(false) + group('char-torso', torso) + group('char-head', hood) + arm(true) + effects()));
     }
 
     function renderMonster(sprite = 'goblin', options = {}) {
-        const kind = ['goblin', 'skeleton', 'slime', 'orc', 'ghost'].includes(sprite) ? sprite : 'goblin';
-        const content = kind === 'slime' ? slime() : kind === 'ghost' ? ghost() : humanoidMonster(kind);
-        return shell(content, options, kind, `character-monster character-${kind}`);
+        const creatures = { goblin, skeleton, slime, orc, ghost };
+        const kind = Object.hasOwn(creatures, sprite) ? sprite : 'goblin';
+        return shell(hairLayer('creature-detail', creatures[kind]()), options, kind, `character-monster character-${kind}`);
     }
+
 
     window.CharacterArt = Object.freeze({ render, renderMonster, normalizeAppearance, DEFAULT_APPEARANCE, PALETTES });
 })();

@@ -31,6 +31,8 @@ Si ya instalaste la versión 3.5.0 o 3.5.1, ejecuta sólo [`supabase_habit_rewar
 
 ## Personajes y guardarropa
 
+- En **Personaje → Barba** puedes elegir **Sin barba**, corta, perilla, larga o trenzada. Son gratis y usan el color del cabello. **Original** conserva la barba del mago y la cara afeitada de las demás clases. Pulsa **Guardar apariencia** para conservar tu elección.
+- Si ya tienes el guardarropa instalado, ejecuta [`supabase_beards.sql`](supabase_beards.sql) para sincronizar las barbas con tu cuenta. Consulta la [guía de barbas](docs/beard-customization.md). La versión 3.6.0 también recupera el verde brillante en los hábitos y redibuja goblin, orco, esqueleto, slime y fantasma, con siluetas, materiales y equipo propios.
 - **Personaje** permite elegir mujer u hombre para cualquiera de las cuatro clases, tono de piel, peinado, cabello y color del atuendo. Cambiar la apariencia conserva la clase y las habilidades.
 - Las vistas de inicio, creación de cuenta y arena usan los mismos personajes articulados. Las armas y escudos equipados se ven en el personaje.
 - Los personajes recuperan detalles de los diseños originales: casco abierto del aventurero, capucha bordada del mago, armadura del caballero y equipo del elfo, con sombras y volumen.

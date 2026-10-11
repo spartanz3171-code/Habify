@@ -47,6 +47,7 @@ const Atelier = {
                     <fieldset><legend>${t('Personaje', 'Character')}</legend><div class="choice-row">${option('body', 'female', t('Mujer', 'Woman'))}${option('body', 'male', t('Hombre', 'Man'))}</div></fieldset>
                     <fieldset><legend>${t('Tono de piel', 'Skin tone')}</legend><div class="swatch-row">${swatches('skin', [['#f3c6a0', t('Claro', 'Fair')], ['#dca078', t('Cálido', 'Warm')], ['#b87854', t('Bronce', 'Bronze')], ['#8c543b', t('Moreno', 'Brown')], ['#59382e', t('Oscuro', 'Deep')]])}</div></fieldset>
                     <fieldset><legend>${t('Peinado', 'Hairstyle')}</legend><div class="choice-row">${option('hairStyle', 'short', t('Corto', 'Short'))}${option('hairStyle', 'long', t('Largo', 'Long'))}${option('hairStyle', 'ponytail', t('Coleta', 'Ponytail'))}${option('hairStyle', 'braids', t('Trenzas', 'Braids'))}</div></fieldset>
+                    <fieldset class="beard-options"><legend>${t('Barba', 'Beard')}</legend><div class="choice-row">${option('beardStyle', 'default', t('Original', 'Original'))}${option('beardStyle', 'none', t('Sin barba', 'No beard'))}${option('beardStyle', 'short', t('Corta', 'Short beard'))}${option('beardStyle', 'goatee', t('Perilla', 'Goatee'))}${option('beardStyle', 'long', t('Larga', 'Long beard'))}${option('beardStyle', 'braided', t('Trenzada', 'Braided beard'))}</div><p class="character-note">${t('Usa el mismo color del cabello. Puedes probarla antes de guardar.', 'Uses your hair color. Try it before saving.')}</p></fieldset>
                     <fieldset><legend>${t('Color de cabello', 'Hair color')}</legend><div class="swatch-row">${swatches('hairColor', [['#332c42', t('Negro', 'Black')], ['#684333', t('Castaño', 'Brown')], ['#c99044', t('Dorado', 'Golden')], ['#b84c41', t('Cobrizo', 'Copper')], ['#ded6e4', t('Plata', 'Silver')], ['#8251b5', t('Violeta', 'Violet')]])}</div></fieldset>
                     <fieldset><legend>${t('Casco', 'Headwear')}</legend><div class="choice-row">${option('headwear', 'default', t('De clase', 'Class default'))}${option('headwear', 'none', t('Sin casco', 'No headwear'))}</div></fieldset>
                     <fieldset><legend>${t('Color de atuendo', 'Outfit color')}</legend><div class="swatch-row">${swatches('outfitColor', [['#29adff', t('Azul', 'Blue')], ['#a855f7', t('Violeta', 'Violet')], ['#00a878', t('Verde', 'Green')], ['#d84969', t('Carmesí', 'Crimson')], ['#d99a36', t('Ámbar', 'Amber')], ['#8996b0', t('Acero', 'Steel')]])}</div></fieldset>
@@ -90,7 +91,7 @@ const Atelier = {
         App.updateHeader();
     },
     choose(field, value) {
-        if (this.busy || !['body', 'skin', 'hairStyle', 'hairColor', 'outfitColor', 'headwear'].includes(field)) return;
+        if (this.busy || !['body', 'skin', 'hairStyle', 'hairColor', 'outfitColor', 'headwear', 'beardStyle'].includes(field)) return;
         if (field === 'headwear' && !['default', 'none'].includes(value)) return;
         this.draft = CharacterArt.normalizeAppearance({ ...this.draft, [field]: value });
         this.savedMessage = this.text('Cambios sin guardar', 'Unsaved changes');

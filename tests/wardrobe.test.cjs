@@ -71,6 +71,70 @@ function harness({ migration = true, inventory = [], storageBlocked = false, cat
     return { context, game, state, storage, calls, wardrobe: context.window.Wardrobe };
 }
 
+test('all free beard choices round-trip through the account without changing class, headwear or gold', async () => {
+    const h = harness();
+    h.game.avatar.avatarClass = 'mage';
+    await h.wardrobe.hydrate({ appearance: { headwear: 'none', hairColor: '#c6c4d9' } });
+    for (const beardStyle of ['none', 'short', 'goatee', 'long', 'braided', 'default']) {
+        const saved = await h.wardrobe.saveAppearance({ ...h.game.avatar.appearance, beardStyle });
+        assert.equal(saved.status, 'cloud');
+        const cloud = JSON.parse(JSON.stringify(h.calls.at(-1).args.p_appearance));
+        h.wardrobe.reset();
+        await h.wardrobe.hydrate({ appearance: cloud });
+        assert.equal(h.game.avatar.appearance.beardStyle, beardStyle);
+        assert.equal(h.game.avatar.appearance.headwear, 'none');
+        assert.equal(h.game.avatar.appearance.hairColor, '#c6c4d9');
+        assert.equal(h.game.avatar.avatarClass, 'mage');
+        assert.equal(h.game.avatar.gold, 100);
+    }
+});
+
+test('legacy beard saves keep validated fields and stay pending only for their owner until synced', async () => {
+    const h = harness();
+    await h.wardrobe.hydrate({});
+    h.state.rpc = async (_name, args) => {
+        const appearance = { ...args.p_appearance, skin: '#754d3b' };
+        delete appearance.beardStyle;
+        return { data: { status: 'saved', appearance } };
+    };
+    assert.equal((await h.wardrobe.saveAppearance({ beardStyle: 'none' })).code, 'beard_sync_pending');
+    const pending = JSON.parse(h.storage.get('habify_appearance_v1_user-a'));
+    assert.equal(pending.pending, true);
+    assert.equal(pending.appearance.skin, '#754d3b');
+    h.wardrobe.reset();
+    await h.wardrobe.hydrate({ appearance: { body: 'male' } });
+    assert.equal(h.game.avatar.appearance.beardStyle, 'none');
+    h.game.user = { id: 'user-b' }; h.game.avatarId = 'avatar-b';
+    await h.wardrobe.hydrate({});
+    assert.equal(h.game.avatar.appearance.beardStyle, 'default');
+    h.game.user = { id: 'user-a' }; h.game.avatarId = 'avatar-a';
+    await h.wardrobe.hydrate({ appearance: { body: 'male' } });
+    h.state.rpc = null;
+    assert.equal((await h.wardrobe.saveAppearance(h.game.avatar.appearance)).status, 'cloud');
+    assert.equal(h.game.avatar.appearance.beardStyle, 'none');
+    assert.equal(JSON.parse(h.storage.get('habify_appearance_v1_user-a')).pending, false);
+});
+
+test('beard fallback cannot conceal blocked storage, mismatched confirmations or paid headwear rejection', async () => {
+    for (const scenario of ['storage', 'different', 'denied', 'paid']) {
+        const h = harness({ storageBlocked: scenario === 'storage', inventory: ['headwear_guardian'] });
+        await h.wardrobe.hydrate({ appearance: { beardStyle: 'short' } });
+        h.state.rpc = async (_name, args) => {
+            if (scenario === 'denied') return { error: { code: '42501' } };
+            const appearance = { ...args.p_appearance };
+            delete appearance.beardStyle;
+            if (scenario === 'different') appearance.beardStyle = 'long';
+            if (scenario === 'paid') delete appearance.headwear;
+            return { data: { status: 'saved', appearance } };
+        };
+        const saved = await h.wardrobe.saveAppearance({ beardStyle: 'none', headwear: scenario === 'paid' ? 'headwear_guardian' : 'default' });
+        assert.equal(saved.ok, false, scenario);
+        assert.equal(h.game.avatar.appearance.beardStyle, 'short');
+        assert.equal(h.storage.size, 0);
+        assert.equal(h.game.avatar.gold, 100);
+    }
+});
+
 test('free edits fall back locally before migration, preserve class, and reload only for their account', async () => {
     const h = harness({ migration: false });
     h.game.avatar.avatarClass = 'mage';

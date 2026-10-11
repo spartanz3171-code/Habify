@@ -242,50 +242,50 @@ button:disabled { cursor: default; opacity: .45; }
 /* Habit cards: one clear action, with explanations and settings close by. */
 .habit-list:has(.habit-progress-card) { grid-template-columns: repeat(auto-fit,minmax(min(100%,350px),1fr)); gap: 18px; align-items: start; }
 .habit-progress-card { min-width: 0; padding: 22px; border-radius: 18px; background: linear-gradient(145deg,#252642,#1f203b); }
-.habit-progress-card.completed { border-color: #66dba36b; }
+.habit-progress-card.completed { border-color: #00e43670; }
 .habit-progress-card p, .habit-config, .habit-history p, .habit-measure p { font: 14px/1.6 var(--font-ui); overflow-wrap: anywhere; margin: 8px 0; }
 .habit-progress-heading { display: flex; align-items: start; gap: 12px; flex-wrap: wrap; }
-.habit-symbol { display: grid; place-items: center; width: 46px; height: 46px; background: #92cbff14; border-radius: 14px; font-size: 28px; flex-shrink: 0; }
+.habit-symbol { display: grid; place-items: center; width: 46px; height: 46px; background: #00e43614; border-radius: 14px; font-size: 28px; flex-shrink: 0; }
 .habit-heading-copy { flex: 1; min-width: 140px; }
 .habit-progress-heading h3 { font: 700 18px/1.35 var(--font-ui); margin: 0; overflow-wrap: anywhere; }
 .habit-progress-heading .habit-schedule { font-size: 12px; margin: 5px 0 0; color: #bdc0da; }
-.habit-kind { padding: 4px 9px; background: #91b8ff14; color: #bed6ff; border: 1px solid #91b8ff30; border-radius: 99px; font: 650 11px/1.5 var(--font-ui); white-space: nowrap; }
+.habit-kind { padding: 4px 9px; background: #00e43612; color: #88ef9b; border: 1px solid #00e43640; border-radius: 99px; font: 650 11px/1.5 var(--font-ui); white-space: nowrap; }
 .habit-description { color: var(--text-secondary); }
 .habit-progress-card .habit-instruction { margin: 16px 0 12px; color: #d4d5e8; }
 .habit-progress-meter { display: grid; gap: 8px; padding: 14px; margin: 4px 0 14px; background: #12162b80; border-radius: 12px; font: 14px/1.5 var(--font-ui); }
 .habit-meter-label { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .habit-meter-label label { font-weight: 650; }
-.habit-meter-label strong { flex-shrink: 0; color: #8ee8bb; }
+.habit-meter-label strong { flex-shrink: 0; color: #00e436; }
 .habit-progress-meter p { margin: 0; color: #bdc0da; font-size: 13px; }
-.habit-progress-meter progress { appearance: none; display: block; border: 0; border-radius: 99px; overflow: hidden; width: 100%; height: 12px; background: #3a3d59; accent-color: #71deb0; }
+.habit-progress-meter progress { appearance: none; display: block; border: 0; border-radius: 99px; overflow: hidden; width: 100%; height: 12px; background: #3a3d59; accent-color: #00e436; }
 .habit-progress-meter progress::-webkit-progress-bar { background: #3a3d59; border-radius: 99px; }
-.habit-progress-meter progress::-webkit-progress-value { background: linear-gradient(90deg,#63ccca,#86e3ae); border-radius: 99px; }
-.habit-progress-meter progress::-moz-progress-bar { background: #71deb0; border-radius: 99px; }
+.habit-progress-meter progress::-webkit-progress-value { background: linear-gradient(90deg,#00b92c,#00e436); border-radius: 99px; }
+.habit-progress-meter progress::-moz-progress-bar { background: #00e436; border-radius: 99px; }
 .habit-reward-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .habit-reward-row .habit-reward { font: 650 13px/1.5 var(--font-ui); color: #f2d998; background: #eed1850b; border-radius: 8px; padding: 5px 8px; }
 .habit-streak { color: #c5c6df; font: 12px/1.5 var(--font-ui); }
-.habit-progress-card .habit-availability { font-size: 13px; color: #b5d9c9; }
+.habit-progress-card .habit-availability { font-size: 13px; color: #a5e4b4; }
 .habit-progress-card .btn { min-height: 46px; font: 650 14px/1.5 var(--font-ui); border-radius: 10px; white-space: normal; }
-.habit-progress-card .habit-complete-button { width: 100%; background: #88e5b4; border-color: #4da97b; color: #102d21; }
-.habit-progress-card .habit-complete-button:disabled { opacity: 1; background: #253e39; color: #b2dfca; border-color: #476c5e; cursor: default; }
+.habit-progress-card .habit-complete-button { width: 100%; background: #00e436; border-color: #00992a; color: #052016; }
+.habit-progress-card .habit-complete-button:disabled { opacity: 1; background: #173820; color: #a0edb0; border-color: #306a3d; cursor: default; }
 .habit-progress-card.negative .habit-complete-button { background: #30324c; color: #e3d7e1; border-color: #54526e; }
 .habit-options { margin-top: 14px; border-top: 1px solid var(--line); }
 .habit-options summary, .habit-management-notice summary { cursor: pointer; padding: 12px 0; color: #bec7e4; font: 600 13px/1.5 var(--font-ui); min-height: 44px; }
 .habit-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; margin-top: 8px; }
 .habit-actions .btn { font-size: 13px; }
 .habit-actions .btn-danger { background: transparent; color: #ffb4c5; border: 1px solid #ffb4c54d; }
-.habit-quick-guide { padding: 20px; margin: 8px 0 12px; border: 1px solid #71deb034; border-radius: 16px; background: linear-gradient(120deg,#71deb010,#80b9ed08); }
+.habit-quick-guide { padding: 20px; margin: 8px 0 12px; border: 1px solid #00e43634; border-radius: 16px; background: linear-gradient(120deg,#00e43610,#00e43608); }
 .habit-quick-guide > p { font: 700 20px/1.4 var(--font-ui); margin: 0 0 14px; }
 .habit-quick-guide ol { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 12px 24px; }
 .habit-quick-guide li { display: flex; align-items: center; gap: 9px; font: 600 14px/1.5 var(--font-ui); }
-.habit-quick-guide li span { display: grid; place-items: center; background: #7fdfb227; color: #a2efc8; width: 27px; height: 27px; border-radius: 50%; }
+.habit-quick-guide li span { display: grid; place-items: center; background: #00e43620; color: #71f38c; width: 27px; height: 27px; border-radius: 50%; }
 .habit-quick-guide small { color: #c1c5db; font-size: 13px; }
 .habit-management-notice { margin-bottom: 20px; padding: 0 4px; color: #bdc0da; font: 13px/1.6 var(--font-ui); }
 .habit-management-notice p { margin: 0 0 10px; }
 .habit-page-actions { flex-wrap: wrap; }
 .habit-page-actions > button { max-width: 100%; white-space: normal; }
 .habit-config { margin: 14px 0; border: 1px solid #a2b6eb35; border-radius: 12px; padding: 0 12px; background: #13172e55; }
-.habit-config summary { cursor: pointer; color: #b3d6ff; padding: 12px 0; min-height: 46px; font-weight: 650; }
+.habit-config summary { cursor: pointer; color: #7eed94; padding: 12px 0; min-height: 46px; font-weight: 650; }
 html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
 .habit-config summary, .habit-options summary, .habit-actions button { scroll-margin-block: 100px; }
 .habit-config summary:focus-visible, .habit-options summary:focus-visible, .habit-management-notice summary:focus-visible, .habit-config input:focus-visible, .habit-progress-card button:focus-visible { outline: 3px solid #a0d5ff; outline-offset: 3px; }
@@ -295,12 +295,12 @@ html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
 .habit-config label { display: block; font-weight: 600; }
 .habit-config .habit-level-toggle { display: flex; align-items: center; gap: 10px; margin: 2px 0 18px; min-height: 44px; cursor: pointer; }
 .habit-config .habit-level-toggle[hidden] { display: none; }
-.habit-level-toggle input { width: 22px; height: 22px; accent-color: #88e5b4; flex-shrink: 0; }
+.habit-level-toggle input { width: 22px; height: 22px; accent-color: #00e436; flex-shrink: 0; }
 .habit-input-unit { display: flex; align-items: center; margin-top: 6px; border: 1px solid #8d94b85c; border-radius: 9px; overflow: hidden; background: #15172d; }
 .habit-config input[type=number] { width: 100%; min-width: 0; font: 16px var(--font-ui); min-height: 46px; border: 0; margin: 0; background: transparent; box-shadow: none; }
 .habit-input-unit > span { flex: none; white-space: nowrap; padding: 0 12px 0 4px; color: #c5cbe4; font-weight: 400; font-size: 14px; }
 .habit-config label small { display: block; font-size: 12px; font-weight: 400; color: #bdc0da; margin-top: 3px; }
-.habit-config .habit-config-example { margin: 16px 0 10px; padding: 12px; border-radius: 9px; background: #8adbb910; border-left: 3px solid #7cdbb0; color: #d9eddf; font-size: 14px; }
+.habit-config .habit-config-example { margin: 16px 0 10px; padding: 12px; border-radius: 9px; background: #00e4360d; border-left: 3px solid #00e436; color: #dbefde; font-size: 14px; }
 .habit-config .habit-config-help { color: #bdc0da; font-size: 12px; margin-bottom: 14px; }
 .catalog-card { border-radius: 16px; }
 .catalog-card-title { font-size: 17px; line-height: 1.4; }
