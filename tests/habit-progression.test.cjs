@@ -60,10 +60,10 @@ test('habit transactions preserve history, schedule, ownership and reward eligib
   const cid=r.habit_id;
   assert.equal(r.habits.find(h=>h.id===cid).progression.required,7);
   assert.equal((await call('complete',cid,{},10,'2026-10-06')).status,'not_due');
-  const dates=[];for(let d=new Date('2026-10-05T12:00Z');dates.length<15;d.setUTCDate(d.getUTCDate()+1)){if([1,3,5].includes(d.getUTCDay()))dates.push(d.toISOString().slice(0,10));}
-  let result;for(let i=0;i<14;i++){result=await call('complete',cid,{},i<7?10:13,dates[i]);assert.equal(result.advanced,i===6||i===13);}
-  const h=result.habits.find(x=>x.id===cid);assert.equal(h.current_target,15);assert.equal(h.difficulty_level,3);
-  const final=await call('complete',cid,{},15,dates[14]);assert.equal(final.advanced,false);assert.equal(final.xp,20);
+  const dates=[];for(let d=new Date('2026-10-05T12:00Z');dates.length<22;d.setUTCDate(d.getUTCDate()+1)){if([1,3,5].includes(d.getUTCDay()))dates.push(d.toISOString().slice(0,10));}
+  let result;for(let i=0;i<21;i++){result=await call('complete',cid,{},10+10*Math.floor(i/7),dates[i]);assert.equal(result.advanced,i===6||i===13||i===20);}
+  const h=result.habits.find(x=>x.id===cid);assert.equal(h.current_target,40);assert.equal(h.difficulty_level,4);
+  const final=await call('complete',cid,{},40,dates[21]);assert.equal(final.advanced,false);assert.equal(final.xp,25);
  });
  await t.test('weekly habits pay once per week and midnight rejects a stale period',async()=>{
   const wid=(await call('create',null,{catalog_id:'hab_teeth',frequency:'weekly',timezone:'UTC'},null,'2026-11-02')).habit_id;
@@ -74,6 +74,8 @@ test('habit transactions preserve history, schedule, ownership and reward eligib
  });
  await t.test('adding progression preserves an existing completion and cannot be edited to farm rewards',async()=>{
   const cid=(await call('create',null,{catalog_id:'hab_code',frequency:'daily',timezone:'UTC'},null,'2026-11-10')).habit_id;
+  // Simulate a pre-upgrade binary habit for the legacy configure endpoint.
+  await db.query('UPDATE public.habits SET progression=NULL WHERE id=$1',[cid]);
   await call('complete',cid,{},null,'2026-11-10');
   const r=await call('configure',cid,{progression:config.progression},null,'2026-11-10');
   assert.equal(r.habits.find(h=>h.id===cid).difficulty_level,1);
@@ -90,7 +92,7 @@ test('habit transactions preserve history, schedule, ownership and reward eligib
    date.setUTCDate(date.getUTCDate()-2);next=await call('complete',cid,{},5,day,date.toISOString().slice(0,10));assert.equal(next.advanced,i===6);
   }
   const h=next.habits.find(x=>x.id===cid);
-  assert.equal(next.bonus_xp,25);assert.equal(h.difficulty_level,2);assert.equal(h.current_target,6);assert.equal(h.current_streak,7);
+  assert.equal(next.bonus_xp,25);assert.equal(h.difficulty_level,2);assert.equal(h.current_target,10);assert.equal(h.current_streak,7);
  });
  await t.test('seven scheduled completions advance without penalizing rest days',async()=>{
   const cid=(await call('create',null,{...config,catalog_id:'hab_read',frequency:'3x_week'},null,'2026-10-05')).habit_id;
@@ -108,13 +110,13 @@ test('habit transactions preserve history, schedule, ownership and reward eligib
  await t.test('a failed transaction rolls back progress and currency together',async()=>{
   const before=(await db.query("SELECT gold,current_xp FROM public.avatars WHERE id='a'")).rows[0];
   await db.exec("CREATE FUNCTION reject_activity() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated storage failure'; END $$; CREATE TRIGGER reject_activity BEFORE INSERT ON public.habit_activity FOR EACH ROW EXECUTE FUNCTION reject_activity();");
-  await assert.rejects(call('complete',second,{},null,'2026-10-22'));
+  await assert.rejects(call('complete',second,{},2,'2026-10-22'));
   assert.deepEqual((await db.query("SELECT gold,current_xp FROM public.avatars WHERE id='a'")).rows[0],before);
   await db.exec('DROP TRIGGER reject_activity ON public.habit_activity');
  });
  await t.test('checklist migration repairs water and rolling waits without reopening completed days or losing rewards',async()=>{
-  await call('complete',second,{},null,'2026-10-22');
-  await db.query("UPDATE public.habits SET progression=$1::jsonb,available_after='2026-10-23T18:00:00Z' WHERE id=$2",[JSON.stringify({initial:5,max:20,step:5,required:7,unit:'units'}),second]);
+  await call('complete',second,{},2,'2026-10-22');
+  await db.query("UPDATE public.habits SET progression=$1::jsonb,progress_count=0,available_after='2026-10-23T18:00:00Z' WHERE id=$2",[JSON.stringify({initial:5,max:20,step:5,required:7,unit:'units'}),second]);
   const before=(await db.query("SELECT gold,current_xp FROM public.avatars WHERE id='a'")).rows[0];
   const count=(await db.query('SELECT count(*)::int n FROM public.habit_activity WHERE habit_id=$1',[second])).rows[0].n;
   const patch=fs.readFileSync(path.join(__dirname,'../supabase_habit_checklist.sql'),'utf8');

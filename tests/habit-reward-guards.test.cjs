@@ -15,7 +15,7 @@ test('account reward guards survive reactivation, duplicates and upgrades',async
    const created=await call('create',null,config);id=created.habit_id;
    assert.equal(created.habits.find(h=>h.id===id).progression.required,7);
    paid=await call('complete',id,{},10);assert.equal(paid.advanced,false);
-   assert.equal((await db.query('SELECT title FROM public.habit_activity WHERE habit_id=$1',[id])).rows[0].title,'Leer 10 páginas de un libro');
+   assert.equal((await db.query('SELECT title FROM public.habit_activity WHERE habit_id=$1',[id])).rows[0].title,'Leer 5 páginas de un libro');
   });
   await t.test('delete and reactivate retain the reward; a second deletion is blocked for the whole account',async()=>{
    const deleted=await call('archive',id);assert.equal(deleted.status,'saved');assert.equal(Date.parse(deleted.delete_available_at),Date.parse('2026-10-10T18:00:00Z'));

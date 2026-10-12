@@ -193,6 +193,20 @@ BEGIN
  RETURN cfg;
 END $$;
 
+-- Progression belongs to the mission, never to client-supplied quantities.
+CREATE OR REPLACE FUNCTION public.habit_fixed_progression(p_catalog text,p_type text)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path='' AS $$
+ SELECT CASE WHEN p_type='positive' THEN CASE p_catalog
+  WHEN 'hab_water' THEN '{"initial":2,"max":3,"step":1,"required":7,"unit":"liters"}'::jsonb
+  WHEN 'hab_sleep' THEN '{"initial":5,"max":8,"step":1,"required":7,"unit":"hours"}'::jsonb
+  WHEN 'hab_read' THEN '{"initial":5,"max":30,"step":5,"required":7,"unit":"pages"}'::jsonb
+  WHEN 'hab_cardio' THEN '{"initial":10,"max":40,"step":10,"required":7,"unit":"minutes"}'::jsonb
+  WHEN 'hab_meditate' THEN '{"initial":5,"max":20,"step":5,"required":7,"unit":"minutes"}'::jsonb
+  WHEN 'hab_code' THEN '{"initial":15,"max":60,"step":15,"required":7,"unit":"minutes"}'::jsonb
+ END END
+$$;
+REVOKE ALL ON FUNCTION public.habit_fixed_progression(text,text) FROM PUBLIC,anon,authenticated;
+
 CREATE OR REPLACE FUNCTION public.habit_action_at(p_action text,p_id text,p_config jsonb,p_value numeric,p_expected_period date,p_now timestamptz)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 #variable_conflict use_variable
@@ -222,8 +236,7 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_timezone_names WHERE name=tz) THEN RAISE EXCEPTION 'Invalid timezone' USING ERRCODE='22023'; END IF;
   freq:=coalesce(p_config->>'frequency',def->>'defaultFrequency','daily');
   IF freq NOT IN ('daily','workdays','3x_week','2x_week','weekly') THEN RAISE EXCEPTION 'Invalid frequency' USING ERRCODE='22023'; END IF;
-  cfg:=nullif(p_config->'progression','null'::jsonb);
-  cfg:=public.habit_validate_progression(cfg,def->>'type');
+  cfg:=public.habit_fixed_progression(v_catalog,def->>'type');
   IF existed THEN
    status:='reactivated';
    -- A reactivation preserves schedule, difficulty and eligibility. Reconfiguration has its own action.
@@ -260,7 +273,7 @@ BEGIN
    END IF;
   ELSIF p_action='configure' THEN
    IF h.progression IS NOT NULL THEN RAISE EXCEPTION 'Progression already configured' USING ERRCODE='22023'; END IF;
-   cfg:=public.habit_validate_progression(nullif(p_config->'progression','null'::jsonb),h.type);
+   cfg:=public.habit_fixed_progression(h.catalog_id,h.type);
    IF cfg IS NULL THEN RAISE EXCEPTION 'Progression required' USING ERRCODE='22023'; END IF;
    UPDATE public.habits SET progression=cfg,difficulty_level=1,progress_count=0 WHERE id=h.id;
    INSERT INTO public.habit_events(user_id,habit_id,kind) VALUES(auth.uid(),p_id,'configured');
@@ -321,7 +334,7 @@ BEGIN
  SELECT * INTO a FROM public.avatars WHERE id=a.id;
  RETURN jsonb_build_object('status',status,'avatar',to_jsonb(a),'habits',public.habit_snapshot(a.id::text,p_now),
  'xp',xp,'gold',gold,'bonus_xp',bx,'bonus_gold',bg,'advanced',advanced,'habit_id',h.id,
- 'rules_version',2,'server_now',p_now,'delete_available_at',delete_after);
+ 'rules_version',3,'server_now',p_now,'delete_available_at',delete_after);
 END $$;
 
 CREATE OR REPLACE FUNCTION public.habit_action(p_action text,p_id text DEFAULT NULL,p_config jsonb DEFAULT '{}',p_value numeric DEFAULT NULL,p_expected_period date DEFAULT NULL)
@@ -388,4 +401,16 @@ INSERT INTO public.habit_reward_guard(user_id,habit_key,last_period,next_reward_
 INSERT INTO public.habit_account_rules(user_id,delete_available_at)
  SELECT user_id,max(created_at)+interval '24 hours' FROM public.habit_events WHERE kind='archived' GROUP BY user_id
  ON CONFLICT(user_id) DO UPDATE SET delete_available_at=greatest(habit_account_rules.delete_available_at,excluded.delete_available_at);
+-- Apply fixed stages to active and archived habits. Preserve history, streaks,
+-- paid periods and bonus eligibility; no currency or retroactive bonuses are issued.
+UPDATE public.habits h SET catalog_id=c.id FROM public.habit_catalog c
+ WHERE h.catalog_id IS NULL AND h.title=c.definition->>'title';
+WITH fixed AS (
+ SELECT id,public.habit_fixed_progression(catalog_id,type) AS cfg FROM public.habits
+)
+UPDATE public.habits h SET progression=f.cfg,
+ difficulty_level=CASE WHEN f.cfg IS NULL THEN 1 ELSE greatest(1,least(h.difficulty_level,
+  1+ceil(((f.cfg->>'max')::numeric-(f.cfg->>'initial')::numeric)/(f.cfg->>'step')::numeric)::int)) END,
+ progress_count=CASE WHEN f.cfg IS NULL THEN 0 ELSE least(h.progress_count,6) END
+ FROM fixed f WHERE h.id=f.id AND h.progression IS DISTINCT FROM f.cfg;
 COMMIT;

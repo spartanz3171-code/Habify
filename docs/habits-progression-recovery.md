@@ -1,5 +1,26 @@
 # Hábitos, progresión y recuperación de contraseña
 
+## Actualización 3.6.1: etapas fijas para todos
+
+Esta versión reemplaza la personalización y la activación opcional de niveles descritas en las versiones anteriores. Los seis hábitos progresivos siempre usan metas definidas por el servidor; las solicitudes del cliente no pueden cambiar el inicio, aumento, máximo, unidad ni los siete cumplimientos necesarios. Los hábitos restantes conservan sus metas binarias.
+
+| Hábito | Etapas |
+| --- | --- |
+| Sueño | 5 → 6 → 7 → 8 horas |
+| Lectura | 5 → 10 → 15 → 20 → 25 → 30 páginas |
+| Agua | 2 → 3 litros |
+| Cardio | 10 → 20 → 30 → 40 minutos |
+| Meditación | 5 → 10 → 15 → 20 minutos |
+| Programación | 15 → 30 → 45 → 60 minutos |
+
+Alcanzar o superar la meta cuenta una vez por período programado. Por ejemplo, dormir seis horas cumple el mínimo inicial de cinco; después de siete cumplimientos seguidos, el mínimo sube a seis. Una cantidad mayor no salta niveles ni multiplica recompensas. La interfaz mantiene el botón de confirmar cumplimiento, sin solicitar medidas exactas.
+
+**Instalación:** para una base con las reglas 3.5.2 o posteriores, ejecutar completo [`supabase_habit_fixed_progression.sql`](../supabase_habit_fixed_progression.sql) en SQL Editor. Para una base nueva o anterior, ejecutar la migración completa actualizada [`supabase_habit_progression.sql`](../supabase_habit_progression.sql). Publicar los archivos web 3.6.1 y recargar. No ejecutar los parches antiguos después del nuevo: reemplazan funciones del servidor. La interfaz requiere `rules_version=3` para habilitar acciones de hábitos.
+
+La migración incluye hábitos activos y archivados, identifica los antiguos por su título de catálogo y convierte también los progresivos que antes tenían niveles apagados. Conserva el nivel existente hasta el máximo de la nueva escala, el contador (hasta seis), las rachas, el historial, saldo y las guardas de pago. Las progresiones personalizadas fuera de estos seis hábitos pasan a binarias. No reparte ascensos retroactivos, no retira premios ni habilita bonificaciones ya cobradas. Puede ejecutarse varias veces.
+
+El SQL se valida localmente con PGlite; no se ha aplicado al proyecto remoto desde este entorno. Las pruebas de navegador comprueban metas fijas, ausencia de campos editables, ascensos, reinicio, archivo y presentación en español e inglés a tamaño escritorio y móvil.
+
 ## Actualización 3.5.3: tarjetas y configuración más claras
 
 Esta actualización cambia la interfaz; **no requiere ejecutar otro SQL** si ya instalaste las reglas 3.5.2.
