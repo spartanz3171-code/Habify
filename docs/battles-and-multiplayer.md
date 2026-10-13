@@ -1,6 +1,14 @@
 # Arena horizontal y próximos pasos de multijugador
 
-## Disponible en 3.7.0
+## Ajustes de Safari y controles en 3.7.1
+
+- Si el aviso **Gira tu celular** no desaparece en Safari, pulsa **Girar arena** y sostén el celular de lado. La página gira sólo la arena; no exige instalar la PWA, pantalla completa ni permitir sensores. El combate empieza después de esa pulsación. Si el navegador finalmente gira su ventana, se retira el giro adicional.
+- Al terminar, retirarse, volver al inicio o cerrar sesión, el giro visual desaparece inmediatamente y vuelve la navegación. El guardado del resultado puede continuar. Se sueltan los controles y se libera cualquier bloqueo horizontal solicitado por Habify.
+- Se solicita orientación vertical cuando existe la API. Su rechazo no impide salir ni ver el resultado. Safari y otros navegadores pueden impedir forzar la orientación del sistema: cuando la ventana permanece horizontal, el resultado invita a enderezar el teléfono. [Límites de ScreenOrientation.lock](https://developer.mozilla.org/en-US/docs/Web/API/ScreenOrientation/lock).
+- La arena usa las dimensiones de `visualViewport` para responder a las barras del navegador. Los botones tienen iconos SVG, superficies de al menos 44 px, un golpe principal mayor y estados pulsados; conservan controles simultáneos y teclado.
+- Pruebas en `tests/browser/mobile-arena.spec.cjs`: Chrome y WebKit, giro visual y físico emulado, barras mediante cambio de viewport, victoria con guardado pendiente, derrota, retirada, navegación, cierre de sesión y respuesta tardía de la API. WebKit ejecutado en Windows no equivale a Safari en un iPhone físico.
+
+## Base de la arena (3.7.0)
 
 - Al pulsar **Entrar a la arena** desde un dispositivo táctil, la pelea ocupa el espacio disponible y oculta la cabecera y la navegación general. Los controles se reparten a izquierda y derecha; la vida queda arriba, sobre el escenario.
 - En vertical se muestra **Gira tu celular**. Es una espera real por orientación, sin porcentaje de carga inventado: la simulación y los controles están pausados, no se pierde vida ni se pagan premios.

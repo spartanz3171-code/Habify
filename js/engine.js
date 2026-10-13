@@ -918,6 +918,7 @@ const Engine = {
         if (!expectedBattle || GameState.currentBattle !== expectedBattle || expectedBattle.isFinished) return null;
         const b = GameState.currentBattle;
         b.isFinished = true;
+        if (typeof BattleScreen !== 'undefined') BattleScreen.leave();
         
         // Stop the real-time loop
         this.stopGameLoop();

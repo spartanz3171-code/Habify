@@ -41,15 +41,15 @@ button:disabled { cursor: default; opacity: .45; }
 .section-title { font-family: var(--font-pixel); font-size: 10px; letter-spacing: .5px; line-height: 1.8; }
 .section-badge { font-family: var(--font-pixel); font-size: 9px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg-card); }
 .avatar-section { display: grid; grid-template-columns: 43% 57%; padding: 0; border: 1px solid rgba(41,173,255,.25); border-radius: 9px; overflow: hidden; background-color: var(--bg-mid); box-shadow: 0 16px 48px rgba(0,0,0,.18); text-align: left; min-height: 310px; }
-.hero-profile-art { display: flex; justify-content: center; align-items: center; position: relative; min-height: 300px; background-image: radial-gradient(ellipse at 50% 60%, rgba(41,173,255,.12), transparent 65%); border-right: 1px solid var(--line); }
-.hero-profile-art .character-art { --character-size: 210px; position: relative; z-index: 3; margin-top: -20px; }
-.hero-plinth { position: absolute; bottom: 45px; left: 17%; width: 66%; height: 29px; background: #2a2a55; border: 1px solid #414166; border-bottom: 8px solid #17172c; border-radius: 50%; box-shadow: 0 10px 14px rgba(0,0,0,.3), inset 0 2px 0 rgba(41,173,255,.12); }
+.hero-profile-art { --hero-floor: 36px; display: flex; justify-content: center; align-items: center; position: relative; min-height: 310px; overflow: hidden; isolation: isolate; background-size: cover; background-position: center; background-image: radial-gradient(ellipse at 50% 60%, rgba(41,173,255,.12), transparent 65%); border-right: 1px solid var(--line); }
+.hero-profile-art .character-art { --character-size: 210px; position: absolute; bottom: var(--hero-floor); left: 50%; transform: translateX(-50%); z-index: 3; margin: 0; }
+.hero-plinth { position: absolute; bottom: calc(var(--hero-floor) - 9px); left: 17%; width: 66%; height: 22px; background: #2a2a55; border: 1px solid #414166; border-bottom: 8px solid #17172c; border-radius: 50%; box-shadow: 0 10px 14px rgba(0,0,0,.3), inset 0 2px 0 rgba(41,173,255,.12); }
 .scene-star { position: absolute; color: var(--pixel-gold); opacity: .7; }
 .star-one { left: 17%; top: 20%; font-size: 17px; }
 .star-two { right: 14%; top: 38%; font-size: 11px; color: var(--pixel-cyan); }
 .companion-sprite { --pet-size: 98px; position: absolute; z-index: 4; display: flex; align-items: flex-end; justify-content: center; width: 98px; height: 92px; right: 7%; bottom: 48px; filter: drop-shadow(3px 4px 0 rgba(0,0,0,.3)); }
 .preview-companion { --pet-size: 80px; position: absolute; right: 6%; bottom: 31px; z-index: 3; line-height: 0; }
-.hero-profile-info { padding: 30px; background: rgba(26,26,53,.68); }
+.hero-profile-info { min-width: 0; padding: 30px; background: var(--bg-mid); }
 .avatar-name { margin-top: 12px; margin-bottom: 8px; color: var(--pixel-white); font-size: 19px; text-shadow: 2px 2px 0 var(--bg-dark); overflow-wrap: anywhere; }
 .avatar-level { font-family: var(--font-ui); font-size: 13px; color: var(--text-secondary); margin-bottom: 22px; text-shadow: none; }
 .avatar-stats { justify-content: flex-start; gap: 34px; margin-bottom: 24px; }
@@ -407,9 +407,9 @@ html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
     .page-heading p { font-size: 12px; max-width: 250px; }
     .page-heading > .btn { font-family: var(--font-ui); font-size: 9px; font-weight: 650; padding: 9px; }
     .avatar-section { grid-template-columns: 1fr; }
-    .hero-profile-art { min-height: 223px; border-right: 0; border-bottom: 1px solid var(--line); }
-    .hero-profile-art .character-art { --character-size: 175px; margin-top: -8px; }
-    .hero-plinth { left: 28%; width: 44%; bottom: 29px; height: 22px; }
+    .hero-profile-art { --hero-floor: 24px; min-height: 248px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .hero-profile-art .character-art { --character-size: 175px; }
+    .hero-plinth { left: 22%; width: 56%; }
     .companion-sprite { --pet-size: 77px; width: 77px; right: 12%; bottom: 28px; }
     .preview-companion { --pet-size: 72px; right: 10%; }
     .hero-profile-info { padding: 24px; }
@@ -485,3 +485,14 @@ html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
     .hero-profile-art .character-art *, .atelier-preview .character-art *, .cosmetic-art .character-art *, .auth-party .character-art * { animation: none !important; }
     .shop-spell-art i { animation: none !important; }
 }
+
+/* The scene and its actors share one floor regardless of the chosen background. */
+.hero-profile-art .companion-sprite { bottom: var(--hero-floor); }
+.hero-profile-art:has(.companion-sprite) > .character-art { left: 43%; }
+/* Keep the header below the iPhone status bar in standalone mode. */
+.app-header { padding-top: calc(12px + env(safe-area-inset-top)); padding-left: max(12px, env(safe-area-inset-left), calc((100vw - 1040px) / 2)); padding-right: max(12px, env(safe-area-inset-right), calc((100vw - 1040px) / 2)); }
+.hero-profile-art.bg_space { background-image: url('../assets/backgrounds/bg_space.png'); }
+.hero-profile-art.bg_forest { background-image: url('../assets/backgrounds/bg_forest.png'); }
+.hero-profile-art.bg_tokyo { background-image: url('../assets/backgrounds/bg_tokyo.png'); }
+.hero-profile-art.bg_paris { background-image: url('../assets/backgrounds/bg_paris.png'); }
+.hero-profile-art.bg_japan { background-image: url('../assets/backgrounds/bg_japan.png'); }

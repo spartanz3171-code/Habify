@@ -2,6 +2,14 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
 
+## Actualización 3.7.1
+
+- **Girar arena** permite jugar de lado cuando Safari u otro navegador conserva la ventana vertical. El giro se aplica sólo a la pelea y se retira al terminar, retirarse, volver o cerrar sesión, incluso mientras se guarda el resultado.
+- El modo de combate usa el espacio visible del navegador, incluidos cambios de tamaño de sus barras. Se intenta recuperar orientación vertical donde la API lo permite; si el teléfono sigue físicamente horizontal y el navegador rechaza el giro, se indica que lo endereces.
+- Controles con iconos vectoriales, golpe principal destacado, colores por acción y respuesta visual al mantenerlos pulsados.
+- Los fondos de inicio se limitan al escenario del personaje. Sus pies y la mascota comparten la base; los datos conservan un panel legible. La cabecera respeta la zona del reloj del iPhone.
+- Sin migraciones SQL. Verificación de interfaz con Chrome y WebKit; no sustituye una prueba en un iPhone físico.
+
 ## Actualización 3.7.0
 
 - Arena horizontal en dispositivos táctiles, con aviso **Gira tu celular**, pausa sin daño, controles a los lados y navegación oculta durante la pelea. **Continuar** reanuda después de girar; **Volver** conserva la pelea y **Retirarse** la termina.
