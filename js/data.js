@@ -514,10 +514,9 @@ async function loadGameFromDB() {
         if (typeof HabitProgress !== 'undefined') HabitProgress.installed = avatar.game_revision !== undefined;
         rememberAvatarBalance(avatar);
 
-        // Check Admin privileges
-        GameState.isAdmin = !!avatar.is_admin || 
-            (GameState.user.email && GameState.user.email.toLowerCase().includes('admin')) ||
-            (GameState.user.user_metadata && GameState.user.user_metadata.is_admin === true);
+        // UI roles are confirmed by a server function, never email or editable metadata.
+        await refreshAdminAccess();
+        if (!isCurrentUser()) return false;
 
         // Load habits with frequency support
         const { data: habits } = await supabase
@@ -766,155 +765,62 @@ function generateId() {
 // Admin Database Helpers
 // ==========================================
 
-async function loadAllUsersForAdmin() {
+async function refreshAdminAccess() {
+    const uid = GameState.user?.id;
+    GameState.isAdmin = false;
+    if (!uid) return false;
     try {
-        const { data, error } = await supabase
-            .from('avatars')
-            .select('*')
-            .order('updated_at', { ascending: false });
+        const { data, error } = await supabase.rpc('habify_is_admin');
+        if (GameState.user?.id !== uid) return false;
+        GameState.isAdmin = !error && data === true;
+    } catch (_) { /* Missing authorization service denies access. */ }
+    return GameState.user?.id === uid && GameState.isAdmin === true;
+}
 
-        if (error || !data || data.length === 0) {
-            // Provide current user + mock active/inactive players for testing
-            const current = GameState.avatar;
-            GameState.adminUsersList = [
-                {
-                    id: GameState.avatarId || 'curr_1',
-                    name: current.name,
-                    level: current.level,
-                    hp: current.hp,
-                    max_hp: current.maxHp,
-                    gold: current.gold,
-                    avatar_class: current.avatarClass || 'hero',
-                    updated_at: new Date().toISOString(),
-                    is_active: true
-                },
-                {
-                    id: 'usr_2',
-                    name: 'Kaelen el Sabio',
-                    level: 4,
-                    hp: 95,
-                    max_hp: 100,
-                    gold: 140,
-                    avatar_class: 'mage',
-                    updated_at: new Date(Date.now() - 4 * 3600000).toISOString(),
-                    is_active: true
-                },
-                {
-                    id: 'usr_3',
-                    name: 'Valeria Guardiana',
-                    level: 6,
-                    hp: 100,
-                    max_hp: 120,
-                    gold: 310,
-                    avatar_class: 'knight',
-                    updated_at: new Date(Date.now() - 12 * 3600000).toISOString(),
-                    is_active: true
-                },
-                {
-                    id: 'usr_4',
-                    name: 'Artemis Sombrío',
-                    level: 2,
-                    hp: 0,
-                    max_hp: 100,
-                    gold: 20,
-                    avatar_class: 'elf',
-                    updated_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-                    is_active: false
-                }
-            ];
-            return GameState.adminUsersList;
-        }
+async function authorizedAdminWrite(task) {
+    const uid = GameState.user?.id;
+    if (!await refreshAdminAccess()) throw new Error('Administrator authorization required');
+    if (GameState.user?.id !== uid) throw new Error('Session changed');
+    const response = await task();
+    if (GameState.user?.id !== uid) throw new Error('Session changed');
+    if (response.error) throw response.error;
+    if (!response.data) throw new Error('Server did not confirm this change');
+    return response.data;
+}
 
-        const now = Date.now();
-        GameState.adminUsersList = data.map(u => {
-            const lastActive = u.updated_at ? new Date(u.updated_at).getTime() : 0;
-            const isActive = (now - lastActive) < (48 * 3600000); // Active if within 48h
-            return {
-                id: u.id,
-                name: u.name,
-                level: u.level,
-                hp: u.hp,
-                max_hp: u.max_hp,
-                gold: u.gold,
-                avatar_class: u.avatar_class || 'hero',
-                updated_at: u.updated_at || new Date().toISOString(),
-                is_active: isActive
-            };
-        });
-        return GameState.adminUsersList;
-    } catch (err) {
-        console.error('loadAllUsersForAdmin error:', err);
-        return [];
-    }
+async function loadAllUsersForAdmin() {
+    GameState.adminUsersList = [];
+    const data = await authorizedAdminWrite(() => supabase.from('avatars')
+        .select('id,name,level,hp,max_hp,gold,current_xp,avatar_class,updated_at').order('updated_at', { ascending: false }));
+    GameState.adminUsersList = data.map(u => ({ ...u, is_active: Date.now() - Date.parse(u.updated_at || '') < 48 * 3600000 }));
+    return GameState.adminUsersList;
 }
 
 async function adminSaveShopItem(item) {
-    try {
-        await supabase.from('shop_items').upsert({
-            id: item.id,
-            name: item.name,
-            cost: parseInt(item.cost),
-            icon: item.icon,
-            type: item.type,
-            description: item.description
-        });
-    } catch (e) {
-        console.warn('adminSaveShopItem local update only:', e);
-    }
-    // Update local GameState
-    const idx = GameState.shopItems.findIndex(i => i.id === item.id);
-    if (idx >= 0) {
-        GameState.shopItems[idx] = { ...GameState.shopItems[idx], ...item };
-    } else {
-        GameState.shopItems.push({ ...item, purchased: false });
-    }
+    const saved = await authorizedAdminWrite(() => supabase.from('shop_items').upsert({
+        id: item.id, name: item.name, cost: Number(item.cost), icon: item.icon, type: item.type, description: item.description
+    }).select('*').single());
+    const index = GameState.shopItems.findIndex(i => i.id === saved.id);
+    if (index >= 0) GameState.shopItems[index] = { ...GameState.shopItems[index], ...saved };
+    else GameState.shopItems.push({ ...saved, purchased: false });
     return true;
 }
 
 async function adminSaveMonster(monster) {
-    try {
-        const payload = {
-            name: monster.name,
-            sprite: monster.sprite,
-            base_level: parseInt(monster.base_level),
-            base_hp: parseInt(monster.base_hp),
-            base_attack: parseInt(monster.base_attack),
-            xp_reward: parseInt(monster.xp_reward),
-            gold_reward: parseInt(monster.gold_reward)
-        };
-        if (monster.id) payload.id = monster.id;
-        await supabase.from('monsters').upsert(payload);
-    } catch (e) {
-        console.warn('adminSaveMonster local update only:', e);
-    }
-    // Update local GameState
-    const idx = GameState.monsters.findIndex(m => m.id === monster.id || m.name === monster.name);
-    if (idx >= 0) {
-        GameState.monsters[idx] = { ...GameState.monsters[idx], ...monster };
-    } else {
-        GameState.monsters.push({ ...monster, id: monster.id || Date.now() });
-    }
+    const payload = { name: monster.name, sprite: monster.sprite, base_level: Number(monster.base_level),
+        base_hp: Number(monster.base_hp), base_attack: Number(monster.base_attack), xp_reward: Number(monster.xp_reward), gold_reward: Number(monster.gold_reward) };
+    if (monster.id) payload.id = monster.id;
+    const saved = await authorizedAdminWrite(() => supabase.from('monsters').upsert(payload).select('*').single());
+    const index = GameState.monsters.findIndex(m => m.id === saved.id);
+    if (index >= 0) GameState.monsters[index] = saved;
+    else GameState.monsters.push(saved);
     return true;
 }
 
 async function adminUpdateUserAvatar(avatarId, updates) {
-    try {
-        await supabase.from('avatars').update(updates).eq('id', avatarId);
-    } catch (e) {
-        console.warn('adminUpdateUserAvatar DB warning:', e);
-    }
-    // Update local memory if matching current avatar
-    if (avatarId === GameState.avatarId) {
-        if (updates.hp !== undefined) GameState.avatar.hp = updates.hp;
-        if (updates.gold !== undefined) GameState.avatar.gold = updates.gold;
-        if (updates.current_xp !== undefined) GameState.avatar.currentXP = updates.current_xp;
-        if (updates.level !== undefined) GameState.avatar.level = updates.level;
-        if (updates.is_dead !== undefined) GameState.avatar.isDead = updates.is_dead;
-    }
-    // Update admin list
+    const saved = await authorizedAdminWrite(() => supabase.from('avatars').update(updates).eq('id', avatarId).select('*').single());
+    if (avatarId === GameState.avatarId) HabitProgress.syncAvatar(saved);
     const user = GameState.adminUsersList.find(u => u.id === avatarId);
-    if (user) {
-        Object.assign(user, updates);
-    }
+    if (user) Object.assign(user, saved);
     return true;
 }

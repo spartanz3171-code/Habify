@@ -163,7 +163,7 @@ const Wardrobe = (() => {
                 GameState.avatar.appearance = pendingAppearance;
                 GameState.appearanceSaveStatus = 'local';
                 const part = pendingBeard ? pendingHeadwear ? say('El casco y la barba se conservan', 'Headwear and beard are saved') : say('La barba se conserva', 'Your beard is saved') : say('El casco se conserva', 'Headwear is saved');
-                return result(true, 'local', part + say(' en este dispositivo. Su sincronización con tu cuenta está pendiente.', ' on this device. Account syncing is pending.'), pendingBeard ? 'beard_sync_pending' : 'headwear_sync_pending');
+                return result(true, 'local', part + say(' solo en este dispositivo. Todavía no se puede guardar en tu cuenta.', ' only on this device. It cannot be saved to your account yet.'), pendingBeard ? 'beard_sync_pending' : 'headwear_sync_pending');
             }
             GameState.avatar.appearance = savedAppearance;
             GameState.appearanceSaveStatus = 'cloud';
@@ -183,8 +183,8 @@ const Wardrobe = (() => {
         GameState.appearanceSaveStatus = 'local';
         const notReady = ['PGRST202', 'PGRST204', 'PGRST205', '42P01', '42703', '42883'].includes(response.error?.code);
         return result(true, 'local', notReady
-            ? say('Guardado en este dispositivo. La sincronización con tu cuenta aún no está disponible.', 'Saved on this device. Account syncing is not available yet.')
-            : say('Guardado en este dispositivo. Vuelve a guardar con conexión para sincronizar tu cuenta.', 'Saved on this device. Save again when connected to sync your account.'));
+            ? say('Guardado en este dispositivo. Tu cambio se conserva aquí, pero aún no puede guardarse en tu cuenta para verlo en otros celulares.', 'Saved on this device. Your change is kept here, but it cannot be saved to your account for other devices yet.')
+            : say('Guardado en este dispositivo. No pudimos conectar con tu cuenta. Cuando tengas conexión, pulsa Guardar apariencia otra vez.', 'Saved on this device. Could not connect to your account. Save your appearance again when connected.'));
     }
 
     function saveAppearance(draft) {

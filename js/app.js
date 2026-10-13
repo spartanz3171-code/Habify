@@ -78,6 +78,8 @@ const App = {
         HabitProgress.rulesReady = false;
         HabitProgress.deleteAvailableAt = null;
         GameState._avatarBalance = null;
+        GameState.isAdmin = false;
+        GameState.adminUsersList = [];
         GameState.habits = [];
         Engine.stopGameLoop();
         Wardrobe.reset();
@@ -614,91 +616,68 @@ const App = {
     // --- Admin & Developer Handlers ---
 
     async openAdminPanel() {
-        if (GameState.isAdmin) {
+        try {
+            if (!await refreshAdminAccess()) { this.closeAdminDashboard(); this.showToast(this.authText('Acceso restringido a cuentas administradoras.', 'Administrator account required.'), 'error'); return; }
             await loadAllUsersForAdmin();
             const root = document.getElementById('modal-root');
             if (root) root.innerHTML = Views.renderAdminDashboard();
-        } else {
-            const root = document.getElementById('modal-root');
-            if (root) root.innerHTML = Views.renderAdminLoginModal();
-        }
+        } catch (_) { this.closeAdminDashboard(); this.showToast(this.authText('No se pudo comprobar el acceso administrativo.', 'Could not verify administrator access.'), 'error'); }
     },
-
-    closeAdminLogin() {
-        const root = document.getElementById('modal-root');
-        if (root) root.innerHTML = '';
-    },
-
-    closeAdminDashboard() {
-        const root = document.getElementById('modal-root');
-        if (root) root.innerHTML = '';
-    },
-
-    async handleAdminLogin(e) {
-        e.preventDefault();
-        const user = document.getElementById('admin-login-user').value.trim();
-        const pass = document.getElementById('admin-login-pass').value;
-
-        if ((user.toLowerCase().includes('admin') || user === 'admin@habify.dev') && pass.length >= 4) {
-            GameState.isAdmin = true;
-            this.showToast('¡ACCESO ADMINISTRADOR CONCEDIDO!', 'gold');
-            this.closeAdminLogin();
-            await this.openAdminPanel();
-        } else {
-            this.showToast('Credenciales administrativas incorrectas', 'error');
-        }
-    },
-
-    async enterAdminDevMode() {
-        GameState.isAdmin = true;
-        this.showToast('⚡ MODO DESARROLLADOR ACTIVADO', 'gold');
-        this.closeAdminLogin();
+    closeAdminDashboard() { const root = document.getElementById('modal-root'); if (root) root.innerHTML = ''; },
+    async setAdminTab(tab) {
+        if (!['stats', 'users', 'store', 'arena', 'catalog'].includes(tab)) return;
+        GameState.adminTab = tab;
         await this.openAdminPanel();
     },
 
-    async setAdminTab(tab) {
-        GameState.adminTab = tab;
-        if (tab === 'users') {
-            await loadAllUsersForAdmin();
-        }
-        const root = document.getElementById('modal-root');
-        if (root) root.innerHTML = Views.renderAdminDashboard();
-    },
-
     async adminReviveUser(userId) {
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         await Engine.adminReviveUser(userId);
         this.showToast('¡USUARIO REVIVIDO CON 100 HP!', 'success');
         await this.setAdminTab('users');
         if (userId === GameState.avatarId) {
             this.updateHeader();
         }
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     async adminGrantGold(userId, amount) {
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         await Engine.adminGrantGold(userId, amount);
         this.showToast(`+${amount} ORO OTORGADO`, 'gold');
         await this.setAdminTab('users');
         this.updateHeader();
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     async adminGrantXP(userId, amount) {
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         await Engine.adminGrantXP(userId, amount);
         this.showToast(`+${amount} XP OTORGADA`, 'success');
         await this.setAdminTab('users');
         this.updateHeader();
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     async adminSaveShopPrice(itemId) {
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         const input = document.getElementById(`admin-cost-${itemId}`);
         if (!input) return;
         const newCost = parseInt(input.value);
         await Engine.adminUpdateShopItemPrice(itemId, newCost);
         this.showToast('¡PRECIO DE TIENDA ACTUALIZADO!', 'gold');
         await this.setAdminTab('store');
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     async adminCreateShopItem(e) {
         e.preventDefault();
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         const id = document.getElementById('new-item-id').value.trim();
         const name = document.getElementById('new-item-name').value.trim();
         const cost = parseInt(document.getElementById('new-item-cost').value);
@@ -709,9 +688,12 @@ const App = {
         await adminSaveShopItem({ id, name, cost, icon, type, description });
         this.showToast('¡NUEVO ÍTEM CREADO EN LA TIENDA!', 'success');
         await this.setAdminTab('store');
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     async adminSaveMonsterStats(monsterId) {
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         const lvl = parseInt(document.getElementById(`m-lvl-${monsterId}`).value);
         const hp = parseInt(document.getElementById(`m-hp-${monsterId}`).value);
         const atk = parseInt(document.getElementById(`m-atk-${monsterId}`).value);
@@ -723,10 +705,13 @@ const App = {
         });
         this.showToast('¡STATS DEL MONSTRUO ACTUALIZADOS!', 'success');
         await this.setAdminTab('arena');
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     async adminCreateMonster(e) {
         e.preventDefault();
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         const name = document.getElementById('new-m-name').value.trim();
         const sprite = document.getElementById('new-m-sprite').value;
         const base_level = parseInt(document.getElementById('new-m-lvl').value);
@@ -738,10 +723,13 @@ const App = {
         await adminSaveMonster({ name, sprite, base_level, base_hp, base_attack, xp_reward, gold_reward });
         this.showToast('¡NUEVO MONSTRUO EN LA ARENA!', 'success');
         await this.setAdminTab('arena');
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     async adminAddCatalogHabit(e) {
         e.preventDefault();
+        try {
+            if (!await refreshAdminAccess()) throw new Error('Administrator required');
         const title = document.getElementById('new-cat-title').value.trim();
         const icon = document.getElementById('new-cat-icon').value.trim();
         const category = document.getElementById('new-cat-category').value;
@@ -763,13 +751,14 @@ const App = {
             description
         };
 
-        if (HabitProgress.ready) {
+        {
             const { error } = await supabase.rpc('save_habit_catalog', { p_definition: newHabit });
             if (error) { this.showToast(this.authText('No se pudo guardar. Revisa los valores y tus permisos de administrador.', 'Could not save. Check the values and your administrator permissions.'), 'error'); return; }
         }
         GameState.presetCatalog.unshift(newHabit);
         this.showToast('¡HÁBITO AÑADIDO AL CATÁLOGO GLOBAL!', 'success');
         await this.setAdminTab('catalog');
+        } catch (_) { this.showToast(this.authText('No se guardó el cambio. Revisa tu conexión y tus permisos de administrador.', 'Change not saved. Check your connection and administrator permissions.'), 'error'); }
     },
 
     confirmReset() {

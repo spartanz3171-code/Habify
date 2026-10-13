@@ -73,12 +73,6 @@ const Views = {
                 ? `${t('¿No tienes cuenta?', 'No account yet?')} <button type="button" class="auth-text-button" onclick="App.showAuth('register')">${t('Regístrate', 'Register')}</button>`
                 : `${t('¿Ya tienes cuenta?', 'Already have an account?')} <button type="button" class="auth-text-button" onclick="App.showAuth('login')">${t('Inicia sesión', 'Sign in')}</button>`}
                 </div>
-
-                <div style="margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--pixel-dark-gray); text-align: center;">
-                    <a onclick="App.openAdminPanel()" style="font-size: 6px; color: var(--text-muted); opacity: 0.6; text-decoration: none; cursor: pointer; letter-spacing: 0.5px;">
-                        🛡️ ACCESO ADMINISTRATIVO / DEV
-                    </a>
-                </div>
             </div>
         `;
     },
@@ -286,7 +280,7 @@ const Views = {
                 </div>
             </div>
             
-            ${HabitProgress.ready ? `<section class="habit-quick-guide" aria-label="${t('Cómo funcionan los hábitos', 'How habits work')}"><p>${t('Un paso pequeño cada día', 'One small step each day')}</p><ol><li><span>1</span>${t('Elige un hábito', 'Choose a habit')}</li><li><span>2</span>${t('Cumple tu meta', 'Meet your goal')}</li><li><span>3</span>${t('Marca Completado', 'Mark completed')}</li></ol><small>${t('Ganas monedas y experiencia (XP) para tu personaje.', 'Earn coins and experience (XP) for your character.')}</small></section><details class="habit-management-notice" ${!HabitProgress.rulesReady ? 'open' : ''}><summary>${t('Sobre eliminar hábitos', 'About deleting habits')}</summary><p role="status">${this.escape(HabitProgress.managementNotice())}</p></details>` : ''}
+            ${HabitProgress.ready ? `${HabitProgress.showGuide() ? `<section class="habit-quick-guide" aria-label="${t('Cómo funcionan los hábitos', 'How habits work')}"><button type="button" class="habit-guide-close" aria-label="${t('Cerrar consejos de hábitos', 'Dismiss habit tips')}" onclick="HabitProgress.dismissGuide()">×</button><p>${t('Un paso pequeño cada día', 'One small step each day')}</p><ol><li><span>1</span>${t('Elige un hábito', 'Choose a habit')}</li><li><span>2</span>${t('Cumple tu meta', 'Meet your goal')}</li><li><span>3</span>${t('Marca Completado', 'Mark completed')}</li></ol><small>${t('Ganas monedas y experiencia (XP) para tu personaje.', 'Earn coins and experience (XP) for your character.')}</small></section>` : ''}<details class="habit-management-notice" ${!HabitProgress.rulesReady ? 'open' : ''}><summary>${t('Sobre eliminar hábitos', 'About deleting habits')}</summary><p role="status">${this.escape(HabitProgress.managementNotice())}</p></details>` : ''}
             ${editCooldown ? `
             <div class="card" style="border-color: var(--pixel-red); margin-bottom: 12px; text-align: center;">
                 <div style="font-size: 9px; color: var(--pixel-red); margin-bottom: 4px;">🔒 ELIMINACIÓN BLOQUEADA</div>
@@ -663,44 +657,11 @@ const Views = {
     },
 
     // ========================================
-    // ADMIN LOGIN MODAL
-    // ========================================
-    renderAdminLoginModal() {
-        return `
-            <div class="pixel-modal-backdrop" id="admin-login-modal">
-                <div class="pixel-modal" style="max-width: 400px;">
-                    <button class="pixel-modal-close" onclick="App.closeAdminLogin()">X</button>
-                    <div style="text-align:center; margin-bottom:14px;">
-                        <span style="font-size:32px;">🛡️</span>
-                        <h3 style="font-size:10px; color:var(--pixel-gold); margin-top:8px;">ACCESO ADMINISTRADOR</h3>
-                        <p style="font-size:7px; color:var(--text-muted); margin-top:4px;">Control del sistema y desarrollo</p>
-                    </div>
-
-                    <form onsubmit="App.handleAdminLogin(event)">
-                        <div class="form-group">
-                            <label class="form-label">USUARIO O EMAIL</label>
-                            <input type="text" id="admin-login-user" class="form-input" placeholder="admin@habify.dev" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">CONTRASEÑA</label>
-                            <input type="password" id="admin-login-pass" class="form-input" placeholder="Min 6 caracteres" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-block" style="margin-top:10px;">
-                            >> ENTRAR AL PANEL <<
-                        </button>
-                        <button type="button" class="btn btn-secondary btn-block" style="margin-top:8px; font-size:6px;" onclick="App.enterAdminDevMode()">
-                            ⚡ ACCESO RÁPIDO DESARROLLADOR
-                        </button>
-                    </form>
-                </div>
-            </div>
-        `;
-    },
-
-    // ========================================
     // ADMIN DASHBOARD VIEW
     // ========================================
     renderAdminDashboard() {
+        if (!GameState.isAdmin) return '';
+        const arg = value => this.escape(JSON.stringify(String(value)));
         const tab = GameState.adminTab || 'stats';
         const users = GameState.adminUsersList || [];
         const activeUsers = users.filter(u => u.is_active);
@@ -769,16 +730,16 @@ const Views = {
             users.forEach(u => {
                 contentHtml += `
                     <tr>
-                        <td><strong>${u.name}</strong></td>
-                        <td>${u.avatar_class}</td>
+                        <td><strong>${this.escape(u.name)}</strong></td>
+                        <td>${this.escape(u.avatar_class)}</td>
                         <td>LV${u.level}</td>
                         <td><span style="color:${u.hp > 0 ? 'var(--pixel-green)' : 'var(--pixel-red)'};">${u.hp}/${u.max_hp}</span></td>
                         <td><span style="color:var(--pixel-gold);">${u.gold}G</span></td>
                         <td><span class="admin-badge ${u.is_active ? 'active' : 'inactive'}">${u.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td>
                         <td>
-                            <button class="admin-action-btn" onclick="App.adminReviveUser('${u.id}')" title="Revivir">💖 REVIVIR</button>
-                            <button class="admin-action-btn" onclick="App.adminGrantGold('${u.id}', 100)" title="+100G">+100G</button>
-                            <button class="admin-action-btn" onclick="App.adminGrantXP('${u.id}', 50)" title="+50XP">+50XP</button>
+                            <button class="admin-action-btn" onclick="App.adminReviveUser(${arg(u.id)})" title="Revivir">💖 REVIVIR</button>
+                            <button class="admin-action-btn" onclick="App.adminGrantGold(${arg(u.id)}, 100)" title="+100G">+100G</button>
+                            <button class="admin-action-btn" onclick="App.adminGrantXP(${arg(u.id)}, 50)" title="+50XP">+50XP</button>
                         </td>
                     </tr>
                 `;
@@ -808,15 +769,15 @@ const Views = {
             GameState.shopItems.forEach(item => {
                 contentHtml += `
                     <tr>
-                        <td style="font-size:16px;">${item.icon}</td>
-                        <td><strong>${item.name}</strong><br><span style="font-size:6px; color:var(--text-muted);">${item.description}</span></td>
-                        <td>${item.type}</td>
+                        <td style="font-size:16px;">${this.escape(item.icon)}</td>
+                        <td><strong>${this.escape(item.name)}</strong><br><span style="font-size:6px; color:var(--text-muted);">${this.escape(item.description)}</span></td>
+                        <td>${this.escape(item.type)}</td>
                         <td style="color:var(--pixel-gold);">${item.cost} G</td>
                         <td>
-                            <input type="number" id="admin-cost-${item.id}" value="${item.cost}" min="0" max="9999" style="width:60px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;">
+                            <input type="number" id="admin-cost-${this.escape(item.id)}" value="${item.cost}" min="0" max="9999" style="width:60px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;">
                         </td>
                         <td>
-                            <button class="admin-action-btn" onclick="App.adminSaveShopPrice('${item.id}')">💾 GUARDAR</button>
+                            <button class="admin-action-btn" onclick="App.adminSaveShopPrice(${arg(item.id)})">💾 GUARDAR</button>
                         </td>
                     </tr>
                 `;
@@ -889,14 +850,14 @@ const Views = {
             GameState.monsters.forEach(m => {
                 contentHtml += `
                     <tr>
-                        <td><img src="assets/sprites/${m.sprite}.png" onerror="this.src='assets/sprites/goblin.png';" style="width:24px; height:24px; image-rendering:pixelated;"></td>
-                        <td><strong>${m.name}</strong></td>
-                        <td><input type="number" id="m-lvl-${m.id}" value="${m.base_level}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
-                        <td><input type="number" id="m-hp-${m.id}" value="${m.base_hp}" style="width:50px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
-                        <td><input type="number" id="m-atk-${m.id}" value="${m.base_attack}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
-                        <td><input type="number" id="m-xp-${m.id}" value="${m.xp_reward}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
-                        <td><input type="number" id="m-gold-${m.id}" value="${m.gold_reward}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
-                        <td><button class="admin-action-btn" onclick="App.adminSaveMonsterStats('${m.id}')">💾 GUARDAR</button></td>
+                        <td><img src="assets/sprites/${['goblin','skeleton','slime','orc','ghost'].includes(m.sprite) ? m.sprite : 'goblin'}.png" onerror="this.src='assets/sprites/goblin.png';" style="width:24px; height:24px; image-rendering:pixelated;"></td>
+                        <td><strong>${this.escape(m.name)}</strong></td>
+                        <td><input type="number" id="m-lvl-${this.escape(m.id)}" value="${m.base_level}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-hp-${this.escape(m.id)}" value="${m.base_hp}" style="width:50px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-atk-${this.escape(m.id)}" value="${m.base_attack}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-xp-${this.escape(m.id)}" value="${m.xp_reward}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><input type="number" id="m-gold-${this.escape(m.id)}" value="${m.gold_reward}" style="width:40px; padding:2px; font-size:7px; background:var(--bg-input); border:1px solid var(--pixel-dark-gray); color:#fff;"></td>
+                        <td><button class="admin-action-btn" onclick="App.adminSaveMonsterStats(${arg(m.id)})">💾 GUARDAR</button></td>
                     </tr>
                 `;
             });

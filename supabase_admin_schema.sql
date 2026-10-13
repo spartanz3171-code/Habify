@@ -1,68 +1,94 @@
--- ==========================================
--- HABIFY - Admin & Habit Frequency Schema
--- ==========================================
+-- Replaces the old development admin schema. See docs/security-review.md.
+-- Habify 3.6.2: real administrator authorization and account isolation.
+-- Run after the existing game/habit migrations. Does not grant admin to anyone.
+-- Preserves rows and balances. This is not server validation of combat rewards.
+BEGIN;
+ALTER TABLE public.avatars ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
 
--- 1. Agregar columna 'frequency' a la tabla habits si no existe
-ALTER TABLE "public"."habits" 
-ADD COLUMN IF NOT EXISTS "frequency" TEXT DEFAULT 'daily';
+-- Reads only the current authenticated user's server-managed flag; never email
+-- or editable user_metadata. SECURITY DEFINER avoids recursive avatar policies.
+CREATE OR REPLACE FUNCTION public.habify_is_admin()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ SELECT auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM public.avatars WHERE user_id=auth.uid() AND is_admin IS TRUE
+ )
+$$;
+REVOKE ALL ON FUNCTION public.habify_is_admin() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.habify_is_admin() TO authenticated;
 
--- 2. Agregar columna 'is_admin' a la tabla avatars si no existe
-ALTER TABLE "public"."avatars" 
-ADD COLUMN IF NOT EXISTS "is_admin" BOOLEAN DEFAULT false;
-
--- 3. Crear tabla opcional de configuración global / admin settings
-CREATE TABLE IF NOT EXISTS public.admin_settings (
-    key TEXT PRIMARY KEY,
-    value JSONB NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- Habilitar RLS en admin_settings
-ALTER TABLE public.admin_settings ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Admin settings readable by everyone" ON public.admin_settings
-    FOR SELECT USING (true);
-
--- 4. Políticas para permitir a administradores ver y gestionar datos globales
--- Nota: En Supabase, para que un usuario sea admin en base de datos:
--- UPDATE public.avatars SET is_admin = true WHERE user_id = '<TU_USER_ID>';
-
--- Política para que administradores puedan ver todos los avatars
-DO $$
+CREATE OR REPLACE FUNCTION public.habify_protect_avatar_identity()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE policyname = 'Admins can view all avatars'
-    ) THEN
-        CREATE POLICY "Admins can view all avatars" ON public.avatars
-            FOR SELECT USING (
-                auth.uid() = user_id OR 
-                EXISTS (SELECT 1 FROM public.avatars WHERE user_id = auth.uid() AND is_admin = true)
-            );
-    END IF;
+ IF auth.uid() IS NOT NULL THEN
+  IF TG_OP='INSERT' THEN
+   IF coalesce(NEW.is_admin,false) THEN RAISE EXCEPTION 'Admin is server managed' USING ERRCODE='42501'; END IF;
+  ELSIF NEW.is_admin IS DISTINCT FROM OLD.is_admin OR NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.id IS DISTINCT FROM OLD.id THEN
+   RAISE EXCEPTION 'Account identity and role are server managed' USING ERRCODE='42501';
+  END IF;
+ END IF;
+ RETURN NEW;
 END $$;
+REVOKE ALL ON FUNCTION public.habify_protect_avatar_identity() FROM PUBLIC,anon,authenticated;
+DROP TRIGGER IF EXISTS habify_protect_avatar_identity ON public.avatars;
+CREATE TRIGGER habify_protect_avatar_identity BEFORE INSERT OR UPDATE ON public.avatars
+ FOR EACH ROW EXECUTE FUNCTION public.habify_protect_avatar_identity();
 
--- Política para que administradores puedan modificar la tienda
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE policyname = 'Admins can insert or update shop items'
-    ) THEN
-        CREATE POLICY "Admins can insert or update shop items" ON public.shop_items
-            FOR ALL USING (
-                EXISTS (SELECT 1 FROM public.avatars WHERE user_id = auth.uid() AND is_admin = true)
-            );
-    END IF;
-END $$;
+ALTER TABLE public.avatars ENABLE ROW LEVEL SECURITY;
+-- This legacy policy queried avatars from its own policy, causing recursion.
+DROP POLICY IF EXISTS "Admins can view all avatars" ON public.avatars;
+REVOKE ALL ON public.avatars FROM PUBLIC,anon;
+REVOKE DELETE,TRUNCATE,REFERENCES,TRIGGER ON public.avatars FROM authenticated;
+GRANT SELECT,INSERT,UPDATE ON public.avatars TO authenticated;
+DROP POLICY IF EXISTS habify_avatar_access ON public.avatars;
+CREATE POLICY habify_avatar_access ON public.avatars FOR ALL TO authenticated
+ USING(user_id=auth.uid() OR public.habify_is_admin())
+ WITH CHECK(user_id=auth.uid() OR public.habify_is_admin());
+-- A restrictive boundary also constrains any older permissive policies.
+DROP POLICY IF EXISTS habify_avatar_boundary ON public.avatars;
+CREATE POLICY habify_avatar_boundary ON public.avatars AS RESTRICTIVE FOR ALL TO authenticated
+ USING(user_id=auth.uid() OR public.habify_is_admin())
+ WITH CHECK(user_id=auth.uid() OR public.habify_is_admin());
 
--- Política para que administradores puedan modificar la tabla monsters
 DO $$
+DECLARE tbl text;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE policyname = 'Admins can insert or update monsters'
-    ) THEN
-        CREATE POLICY "Admins can insert or update monsters" ON public.monsters
-            FOR ALL USING (
-                EXISTS (SELECT 1 FROM public.avatars WHERE user_id = auth.uid() AND is_admin = true)
-            );
-    END IF;
+ FOREACH tbl IN ARRAY ARRAY['shop_items','monsters'] LOOP
+  IF to_regclass('public.'||tbl) IS NULL THEN CONTINUE; END IF;
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',tbl);
+  EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC,anon,authenticated',tbl);
+  EXECUTE format('GRANT SELECT ON public.%I TO anon,authenticated',tbl);
+  EXECUTE format('GRANT INSERT,UPDATE,DELETE ON public.%I TO authenticated',tbl);
+  EXECUTE format('DROP POLICY IF EXISTS habify_catalog_read ON public.%I',tbl);
+  EXECUTE format('CREATE POLICY habify_catalog_read ON public.%I FOR SELECT TO anon,authenticated USING(true)',tbl);
+  EXECUTE format('DROP POLICY IF EXISTS habify_catalog_admin ON public.%I',tbl);
+  EXECUTE format('CREATE POLICY habify_catalog_admin ON public.%I FOR ALL TO authenticated USING(public.habify_is_admin()) WITH CHECK(public.habify_is_admin())',tbl);
+  EXECUTE format('DROP POLICY IF EXISTS habify_insert_boundary ON public.%I',tbl);
+  EXECUTE format('CREATE POLICY habify_insert_boundary ON public.%I AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK(public.habify_is_admin())',tbl);
+  EXECUTE format('DROP POLICY IF EXISTS habify_update_boundary ON public.%I',tbl);
+  EXECUTE format('CREATE POLICY habify_update_boundary ON public.%I AS RESTRICTIVE FOR UPDATE TO authenticated USING(public.habify_is_admin()) WITH CHECK(public.habify_is_admin())',tbl);
+  EXECUTE format('DROP POLICY IF EXISTS habify_delete_boundary ON public.%I',tbl);
+  EXECUTE format('CREATE POLICY habify_delete_boundary ON public.%I AS RESTRICTIVE FOR DELETE TO authenticated USING(public.habify_is_admin())',tbl);
+ END LOOP;
+ IF to_regclass('public.monsters_id_seq') IS NOT NULL THEN
+  GRANT USAGE ON SEQUENCE public.monsters_id_seq TO authenticated;
+ END IF;
+ FOREACH tbl IN ARRAY ARRAY['habits','inventory','battle_log'] LOOP
+  IF to_regclass('public.'||tbl) IS NULL THEN CONTINUE; END IF;
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',tbl);
+  EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC,anon',tbl);
+  EXECUTE format('DROP POLICY IF EXISTS habify_account_boundary ON public.%I',tbl);
+  EXECUTE format('CREATE POLICY habify_account_boundary ON public.%1$I AS RESTRICTIVE FOR ALL TO authenticated USING(EXISTS(SELECT 1 FROM public.avatars a WHERE a.id=%1$I.avatar_id AND a.user_id=auth.uid())) WITH CHECK(EXISTS(SELECT 1 FROM public.avatars a WHERE a.id=%1$I.avatar_id AND a.user_id=auth.uid()))',tbl);
+ END LOOP;
+ IF to_regclass('public.admin_settings') IS NOT NULL THEN
+  ALTER TABLE public.admin_settings ENABLE ROW LEVEL SECURITY;
+  REVOKE ALL ON public.admin_settings FROM PUBLIC,anon,authenticated;
+  GRANT SELECT,INSERT,UPDATE,DELETE ON public.admin_settings TO authenticated;
+  DROP POLICY IF EXISTS "Admin settings readable by everyone" ON public.admin_settings;
+  DROP POLICY IF EXISTS habify_settings_admin ON public.admin_settings;
+  CREATE POLICY habify_settings_admin ON public.admin_settings FOR ALL TO authenticated USING(public.habify_is_admin()) WITH CHECK(public.habify_is_admin());
+  DROP POLICY IF EXISTS habify_settings_boundary ON public.admin_settings;
+  CREATE POLICY habify_settings_boundary ON public.admin_settings AS RESTRICTIVE FOR ALL TO authenticated USING(public.habify_is_admin()) WITH CHECK(public.habify_is_admin());
+ END IF;
 END $$;
+NOTIFY pgrst,'reload schema';
+COMMIT;

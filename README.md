@@ -2,6 +2,14 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
 
+## Actualización 3.6.2
+
+- La tarjeta **Un paso pequeño cada día** se puede cerrar con la X; recuerda la preferencia por cuenta, con respaldo local.
+- **⚙ → Sonido y vibración** permite activar efectos suaves, probarlos y desactivarlos por dispositivo. Comienzan apagados.
+- Eliminado el acceso administrador de prueba. El panel exige la comprobación de Supabase; ya no acepta un nombre «admin», contraseñas inventadas ni metadatos editables. Ejecuta [`supabase_security_hardening.sql`](supabase_security_hardening.sql) para instalar las reglas del servidor. Lee la [revisión y sus límites](docs/security-review.md); la economía completa todavía requiere validación de servidor.
+- Si el aviso de apariencia indica guardado sólo en este dispositivo y falta la función de guardarropa, ejecuta [`supabase_customization.sql`](supabase_customization.sql), que incluye barbas y cascos, y vuelve a guardar.
+- [Instalar en el celular y preparar una futura APK](docs/mobile-installation.md). Los iconos del manifiesto tienen los tamaños correctos; esta entrega no genera una aplicación nativa.
+
 ## Desarrollo local
 
 Desde esta carpeta, que contiene `index.html`:

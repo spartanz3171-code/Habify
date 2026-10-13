@@ -7,6 +7,23 @@ const HabitProgress = {
     deleteAvailableAt: null,
     clockOffset: 0,
     text(es, en) { return I18N.current === 'en' ? en : es; },
+    dismissedGuides: new Set(),
+    showGuide() {
+        const user = GameState.user;
+        if (!user?.id || user.user_metadata?.habify_habit_guide_dismissed === true || this.dismissedGuides.has(user.id)) return false;
+        try { return localStorage.getItem('habify_habit_guide_' + user.id) !== 'hidden'; } catch (_) { return true; }
+    },
+    async dismissGuide() {
+        const user = GameState.user;
+        if (!user?.id) return;
+        this.dismissedGuides.add(user.id);
+        user.user_metadata = { ...user.user_metadata, habify_habit_guide_dismissed: true };
+        try { localStorage.setItem('habify_habit_guide_' + user.id, 'hidden'); } catch (_) { /* In-memory dismissal still works. */ }
+        document.querySelector('.habit-quick-guide')?.remove();
+        document.querySelector('.habit-page-actions button')?.focus({ preventScroll: true });
+        // This is a display preference, not a permission or security claim.
+        try { await supabase.auth.updateUser({ data: { habify_habit_guide_dismissed: true } }); } catch (_) { /* Offline: keep the device preference. */ }
+    },
     presets: {
         hab_water: { initial: 2, max: 3, step: 1, required: 7, unit: 'liters' },
         hab_sleep: { initial: 5, max: 8, step: 1, required: 7, unit: 'hours' },
@@ -189,6 +206,7 @@ const HabitProgress = {
         if(result.status==='completed' && h?.type==='negative') message=`${t('Incumplimiento registrado','Setback recorded')}: −${h.hpPenalty} HP`;
         if(result.advanced) message += ` · ${t('¡Nuevo nivel!', 'New level!')} ${h.difficulty_level}: ${h.current_target} ${this.unit(h.progression.unit)} · +${result.bonus_xp} XP / +${result.bonus_gold} G`;
         App.showToast(message, result.status === 'completed' ? 'success' : 'gold');
+        if (result.status === 'completed' && h?.type === 'positive') window.Feedback?.play(result.advanced ? 'level' : 'success');
         if(GameState.user) App.navigate(view);
     },
     async confirmReset(id) {

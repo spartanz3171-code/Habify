@@ -121,7 +121,7 @@ const Atelier = {
             const result = await Wardrobe.saveAppearance(this.draft);
             if (GameState.user?.id !== userId) return;
             this.savedMessage = result.message;
-            if (result.ok) this.draft = CharacterArt.normalizeAppearance(GameState.avatar.appearance);
+            if (result.ok) { this.draft = CharacterArt.normalizeAppearance(GameState.avatar.appearance); window.Feedback?.play('save'); }
         } catch { if (GameState.user?.id === userId) this.savedMessage = this.text('No se pudo guardar. Vuelve a intentarlo.', 'Could not save. Please try again.'); }
         finally { this.busy = false; if (GameState.user?.id === userId) this.refresh('save-appearance'); }
     },

@@ -796,6 +796,7 @@ const Engine = {
         const hpKey = target.isPlayer ? 'playerHp' : 'oppHp';
         battle[hpKey] = Math.max(0, battle[hpKey] - finalDamage);
         this._effect(blocked ? 'block' : 'impact', target.x - direction * 16, target.y - 55, '');
+        if (typeof window !== 'undefined') window.Feedback?.play('hit');
         this._effect(blocked ? 'blocked-number' : 'damage', target.x, target.y - 95, `${blocked ? '◇ ' : '−'}${finalDamage}`);
         const arena = document.getElementById('real-time-arena');
         if (arena && impact.heavy && !blocked && !this._prefersReducedMotion() && typeof arena.animate === 'function') {
@@ -1043,17 +1044,17 @@ const Engine = {
 
     async adminUpdateShopItemPrice(itemId, newCost) {
         const item = GameState.shopItems.find(i => i.id === itemId);
-        if (!item) return false;
-        item.cost = Math.max(0, parseInt(newCost) || item.cost);
-        await adminSaveShopItem(item);
+        if (!item) throw new Error('Shop item not found');
+        const cost = Number(newCost);
+        if (!Number.isInteger(cost) || cost < 0) throw new Error('Invalid price');
+        await adminSaveShopItem({ ...item, cost });
         return true;
     },
 
     async adminUpdateMonsterStats(monsterId, updates) {
-        const monster = GameState.monsters.find(m => m.id === monsterId);
-        if (!monster) return false;
-        Object.assign(monster, updates);
-        await adminSaveMonster(monster);
+        const monster = GameState.monsters.find(m => String(m.id) === String(monsterId));
+        if (!monster) throw new Error('Monster not found');
+        await adminSaveMonster({ ...monster, ...updates });
         return true;
     }
 };

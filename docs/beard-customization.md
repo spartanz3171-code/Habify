@@ -14,6 +14,8 @@ Si ya ejecutaste la migración del guardarropa:
 
 Si el guardarropa nunca se instaló, ejecuta la versión actual de [`supabase_customization.sql`](../supabase_customization.sql), que ya incluye barbas y cascos.
 
+El 12 de octubre la API del proyecto no encontró la función `save_avatar_appearance` (`PGRST202`). En ese caso hace falta el archivo completo `supabase_customization.sql`: ejecutar sólo el parche de barbas no crea el sistema de guardado. El mensaje de la app distingue ahora el cambio guardado en este dispositivo del guardado en la cuenta.
+
 El parche actualiza la validación de apariencia; no borra registros ni cambia saldos o inventarios. Se puede repetir. Conserva los cascos, valida la propiedad de prendas compradas y mantiene la barba si un cliente antiguo omite ese campo. Una elección desconocida se normaliza a Original.
 
 Hasta ejecutar el SQL, una barba nueva puede quedar **guardada sólo en este dispositivo**, por cuenta, con sincronización pendiente. No aparece automáticamente en otro celular. Tras instalar el parche, vuelve a guardar para sincronizarla. El despliegue de Vercel no ejecuta migraciones de Supabase.

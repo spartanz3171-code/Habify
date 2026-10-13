@@ -274,7 +274,16 @@ button:disabled { cursor: default; opacity: .45; }
 .habit-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; margin-top: 8px; }
 .habit-actions .btn { font-size: 13px; }
 .habit-actions .btn-danger { background: transparent; color: #ffb4c5; border: 1px solid #ffb4c54d; }
-.habit-quick-guide { padding: 20px; margin: 8px 0 12px; border: 1px solid #00e43634; border-radius: 16px; background: linear-gradient(120deg,#00e43610,#00e43608); }
+.habit-quick-guide { position: relative; padding: 20px; padding-right: 56px; margin: 8px 0 12px; border: 1px solid #00e43634; border-radius: 16px; background: linear-gradient(120deg,#00e43610,#00e43608); }
+.habit-guide-close { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border: 0; border-radius: 10px; color: #bed3c4; background: transparent; font: 25px var(--font-ui); cursor: pointer; }
+.habit-guide-close:hover { background: #00e43618; color: #00e436; }
+.habit-guide-close:focus-visible { outline: 2px solid #00e436; outline-offset: 2px; }
+.device-settings { width: min(440px, 100%); max-height: 85dvh; overflow-y: auto; }
+.device-settings h2 { font: 700 21px var(--font-ui); }
+.device-settings p, .device-settings label { font: 15px/1.6 var(--font-ui); }
+.device-settings label { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.device-settings input { width: 22px; height: 22px; accent-color: #00e436; }
+.device-settings .settings-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
 .habit-quick-guide > p { font: 700 20px/1.4 var(--font-ui); margin: 0 0 14px; }
 .habit-quick-guide ol { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 12px 24px; }
 .habit-quick-guide li { display: flex; align-items: center; gap: 9px; font: 600 14px/1.5 var(--font-ui); }
@@ -383,7 +392,7 @@ html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
 @media (max-width: 560px) {
     .app-header { padding: 12px; gap: 5px; }
     .app-logo { font-size: 12px; letter-spacing: 1px; }
-    .app-header-stats { gap: 7px; }
+    .app-header-stats { gap: 7px; flex: 1; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
     .header-stat { gap: 4px; }
     .header-stat .level-badge { font-size: 7px; padding: 6px; }
     .header-stat .gold-icon { width: 18px; height: 18px; font-size: 10px; }
