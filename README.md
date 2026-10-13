@@ -2,6 +2,13 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
 
+## Actualización 3.7.0
+
+- Arena horizontal en dispositivos táctiles, con aviso **Gira tu celular**, pausa sin daño, controles a los lados y navegación oculta durante la pelea. **Continuar** reanuda después de girar; **Volver** conserva la pelea y **Retirarse** la termina.
+- Pantalla completa opcional y bloqueo de orientación cuando el navegador lo permite; se liberan al salir. Sin nuevas migraciones SQL.
+- [Funcionamiento y propuesta para partidas entre usuarios](docs/battles-and-multiplayer.md). El combate actual es contra monstruos; se retiró el prototipo que sustituía al segundo usuario por un bot.
+- [Cómo preparar la versión para Google Play y App Store](docs/mobile-installation.md). La APK, el proyecto iOS y el servidor multijugador todavía no están creados.
+
 ## Actualización 3.6.2
 
 - La tarjeta **Un paso pequeño cada día** se puede cerrar con la X; recuerda la preferencia por cuenta, con respaldo local.

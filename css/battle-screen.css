@@ -1,0 +1,50 @@
+.battle-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.battle-tool { min-height: 44px; padding: 8px 12px; border: 1px solid #8093b343; border-radius: 9px; background: #171b30ed; color: #e9f1f3; font: 700 11px/1.2 var(--font-ui); cursor: pointer; }
+.battle-tool:hover { border-color: #00e436; color: #99f3ae; }
+.battle-tool:focus-visible, .battle-pause-screen button:focus-visible { outline: 3px solid #00e436; outline-offset: 3px; }
+.battle-screen-hint { flex: 1; min-width: 0; font: 12px/1.4 var(--font-ui); }
+.battle-pause-screen { position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; overflow: auto; padding: 24px max(20px, env(safe-area-inset-right)) 24px max(20px, env(safe-area-inset-left)); background: radial-gradient(ellipse at 50% 30%, #124132, #101625 65%); }
+.battle-pause-screen[hidden], .battle-tool[hidden], #battle-resume[hidden] { display: none; }
+.battle-pause-card { max-width: 440px; text-align: center; margin: auto; }
+.battle-pause-eyebrow { display: block; color: #86f39e; font: 700 11px var(--font-ui); letter-spacing: 3px; margin-bottom: 14px; }
+.battle-pause-card h2 { font: 750 clamp(26px, 5vw, 36px)/1.2 var(--font-ui); color: #f0f5ec; margin: 0 0 15px; }
+#battle-pause-title:focus { outline: none; }
+.battle-pause-card p { color: #c4d0ca; font: 16px/1.65 var(--font-ui); margin: 0 0 18px; }
+.battle-pause-card #battle-rotation-help { font-size: 13px; color: #91a69d; }
+.battle-pause-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.battle-pause-actions .btn { min-height: 46px; font: 750 13px var(--font-ui); border-radius: 9px; }
+.rotate-phone { position: relative; width: 54px; height: 91px; margin: 22px auto 42px; border: 3px solid #85f29f; border-radius: 11px; transform: rotate(-90deg); background: linear-gradient(145deg, #00e43630, transparent); box-shadow: 0 0 42px #00e43619; }
+.rotate-phone::after { content: ''; position: absolute; bottom: 5px; left: 19px; width: 9px; height: 3px; border-radius: 2px; background: #85f29f; }
+.rotate-phone span { position: absolute; top: 17px; left: 4px; color: #85f29f; font: 46px/1 system-ui, sans-serif; }
+.battle-pause-screen[data-rotate='true'] .rotate-phone { animation: turn-phone 2.8s ease-in-out infinite; }
+.battle-pause-screen[data-rotate='false'] .rotate-phone { display: none; }
+@keyframes turn-phone { 0%, 15% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+
+/* HUD and toolbar overlay the upper sky; controls sit below the fighting floor. */
+body.battle-immersive { overflow: hidden; overscroll-behavior: none; }
+.battle-immersive #app-header, .battle-immersive #bottom-nav { display: none !important; }
+.battle-immersive #app-content { position: fixed; inset: 0; z-index: 1200; width: 100%; max-width: none; height: 100vh; height: 100dvh; margin: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #101321; overflow: hidden; }
+.battle-immersive #app-content > .page-heading { display: none; }
+.battle-immersive .battle-session { height: 100%; position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 64px; }
+.battle-immersive .battle-toolbar { position: absolute; z-index: 20; top: 0; left: 8px; right: 8px; height: 44px; margin: 0; gap: 6px; }
+.battle-immersive .battle-tool { padding: 8px 10px; font-size: 10px; background: #141b28c9; border-color: #b4ddc12b; }
+.battle-immersive .battle-hud { position: absolute; z-index: 10; top: 48px; left: 20px; right: 20px; padding: 0; border: 0; gap: 18px; background: transparent; pointer-events: none; }
+.battle-immersive .hud-unit { min-width: 0; }
+.battle-immersive .hud-label { font: 700 12px/1.3 var(--font-ui); text-shadow: 0 1px 3px #080d17; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 0; margin-bottom: 3px; }
+.battle-immersive .hud-bar-container { height: 14px; }
+.battle-immersive .hud-bar-text { font-size: 10px; }
+.battle-immersive .hud-vs-badge { font-size: 10px; }
+.battle-immersive #real-time-arena { grid-row: 1; height: 100%; min-height: 0; border-radius: 0; border: 0; }
+.battle-immersive .rt-controls { grid-row: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 3px 14px; border: 0; border-top: 1px solid #70849b38; border-radius: 0; background: #12192b; }
+.battle-immersive .rt-cluster { gap: 7px; flex-wrap: nowrap; max-width: none; }
+.battle-immersive .rt-cluster-move { flex: 0 0 auto; }
+.battle-immersive .rt-cluster-move [data-action='up'] { order: 0; margin: 0 0 0 7px; }
+.battle-immersive .rt-btn { flex-shrink: 0; width: 54px; min-width: 54px; height: 56px; min-height: 56px; padding: 3px; border-radius: 10px; }
+.battle-immersive .rt-btn-icon { font-size: 23px; }
+.battle-immersive .rt-btn-label { font-size: 9px; }
+.battle-immersive .rt-btn kbd, .battle-immersive .combat-footer { display: none; }
+@media (max-height: 360px) and (orientation: landscape) {
+    .battle-immersive .battle-hud { top: 44px; }
+    .battle-immersive .hud-label { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) { .battle-pause-screen .rotate-phone { animation: none !important; } }

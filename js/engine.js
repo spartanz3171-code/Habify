@@ -383,7 +383,7 @@ const Engine = {
         const arena = document.getElementById('real-time-arena');
         if (!arena) return null;
         const width = Math.max(240, arena.clientWidth || 640);
-        const height = Math.max(240, arena.clientHeight || 320);
+        const height = Math.max(160, arena.clientHeight || 320);
         const oldWidth = this._combat.width;
         const oldFloor = this._combat.floor;
         this._combat = { ...this._combat, width, height, floor: height - 34 };
@@ -403,6 +403,7 @@ const Engine = {
     },
 
     startGameLoop() {
+        if (typeof BattleScreen !== 'undefined' && !BattleScreen.canPlay()) return;
         const battle = GameState.currentBattle;
         if (this._gameLoopRunning || !battle || battle.isFinished || !this._measureArena()) return;
         this._gameLoopRunning = true;

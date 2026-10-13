@@ -202,6 +202,7 @@ test('battle moves, jumps, attacks and releases controls after navigation', asyn
     await boot(page, true);
     await page.locator('.nav-item[data-view="arena"]').click();
     await page.screenshot({ path: testInfo.outputPath('arena.png'), fullPage: true });
+    if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 928, height: 440 });
     await page.locator('#battle-btn').click();
     await expect(page.locator('.combat-player .character-art')).toBeVisible();
     // Freeze only enemy decision-making so keyboard assertions have no random interruption.
@@ -216,6 +217,7 @@ test('battle moves, jumps, attacks and releases controls after navigation', asyn
     await page.keyboard.press('KeyV');
     await expect(page.locator('.combat-player .character-art')).toHaveAttribute('data-state', 'HEAVY_ATTACK');
     await page.screenshot({ path: testInfo.outputPath('battle.png'), fullPage: true });
+    if (testInfo.project.name === 'mobile') await page.locator('.battle-toolbar button').first().click();
     await page.locator('.nav-item[data-view="character"]').click();
     expect(await page.evaluate(() => Engine._gameLoopRunning)).toBe(false);
     expect(await page.evaluate(() => Object.values(Engine._rtInputs).some(Boolean))).toBe(false);
@@ -425,6 +427,7 @@ test('spell art follows direction, survives pause and expires after impact', asy
     page.on('pageerror', error => errors.push(error.message));
     await boot(page, true);
     await page.locator('.nav-item[data-view="arena"]').click();
+    if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 928, height: 440 });
     await page.locator('#battle-btn').click();
     await expect(page.locator('.combat-player .character-art')).toBeVisible();
     await page.evaluate(() => {
@@ -473,6 +476,7 @@ test('spell art follows direction, survives pause and expires after impact', asy
         for (let i = 0; i < 100; i++) Engine._spellBurst('heal', 100, 100);
     });
     expect(await page.locator('.combat-effect').count()).toBeLessThanOrEqual(32);
+    if (testInfo.project.name === 'mobile') await page.locator('.battle-toolbar button').first().click();
     await page.locator('.nav-item[data-view="dashboard"]').click();
     expect(await page.evaluate(() => Engine._rtEffects.length)).toBe(0);
     expect(errors).toEqual([]);

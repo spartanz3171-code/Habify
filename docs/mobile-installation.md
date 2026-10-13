@@ -15,6 +15,8 @@ Los nombres del menú cambian según navegador y versión. [Guía de instalació
 
 Habify tiene un archivo `capacitor.config.json`, pero todavía no tiene dependencias ni proyectos nativos Android/iOS. **No hay una APK generada.** Tener ese archivo no basta para compilar.
 
+Agregar a inicio instala la PWA. Para descargar desde Google Play o App Store, la propuesta para Habify es crear una **app híbrida con Capacitor**: reutiliza HTML, CSS y JavaScript dentro de un proyecto Android/iOS y permite integrar funciones nativas. La compilación lleva su propio paquete, firma y proceso de publicación. No exige reescribir la interfaz en otro lenguaje. [Cómo integrar Capacitor](https://capacitorjs.com/docs/getting-started).
+
 Para Android, la siguiente etapa sería:
 
 1. Preparar Node y Android Studio con los requisitos de la versión elegida de Capacitor.
@@ -33,6 +35,18 @@ npx cap open android
 5. Generar y firmar la APK para distribuirla directamente o el paquete Android App Bundle para la tienda. Publicar en Google Play o App Store es una etapa aparte, con las cuentas y requisitos de cada tienda.
 
 Para iPhone, Capacitor usa Xcode y macOS para la compilación local. Consulta los requisitos vigentes en [instalación de Capacitor](https://capacitorjs.com/docs/getting-started) y [entorno Android/iOS](https://capacitorjs.com/docs/getting-started/environment-setup).
+
+El camino concreto de publicación es:
+
+| Android / Google Play | iPhone / App Store |
+| --- | --- |
+| Proyecto Android en Android Studio; se puede trabajar desde Windows. | Proyecto iOS en Xcode sobre macOS, o una compilación remota sobre macOS. |
+| APK para pruebas o instalación directa; Android App Bundle firmado para Google Play. | Compilación firmada para App Store Connect; TestFlight permite distribuir las pruebas. |
+| Cuenta de desarrollador de Google Play, ficha, capturas, datos de privacidad y pruebas requeridas para esa cuenta. | Cuenta de Apple Developer, ficha, capturas, datos de privacidad y envío a revisión. |
+
+La aplicación deberá funcionar con login, recuperación y verificación por correo dentro del contenedor; agregar el paquete nativo no configura esos retornos automáticamente. Las tiendas revisan la entrega; crear el paquete no garantiza su aprobación. Fuentes: [preparar una app en Play Console](https://support.google.com/googleplay/android-developer/answer/9859152), [publicación y TestFlight de Apple](https://developer.apple.com/app-store/submitting/).
+
+En esta entrega se mejoró la arena web en horizontal. La versión nativa podrá integrar [`@capacitor/screen-orientation`](https://capacitorjs.com/docs/apis/screen-orientation) para solicitar orientación horizontal durante la pelea y liberarla al salir. Ese plugin todavía no está instalado. [Arena horizontal y propuesta multijugador](battles-and-multiplayer.md).
 
 ## Sonido y vibración disponibles en la web
 

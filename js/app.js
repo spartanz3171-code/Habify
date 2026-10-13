@@ -72,6 +72,7 @@ const App = {
     },
 
     clearAccountView() {
+        BattleScreen.leave();
         clearTimeout(this._tutorialTimer);
         HabitProgress.ready = false;
         HabitProgress.installed = false;
@@ -98,7 +99,7 @@ const App = {
         const sources = new Map();
         const pointers = new Map();
         const keys = new Map();
-        const active = () => GameState.currentView === 'arena' && GameState.currentBattle && !GameState.currentBattle.isFinished && !document.querySelector('[role="dialog"]');
+        const active = () => BattleScreen.canPlay();
         const input = (action, source, pressed) => {
             const held = sources.get(action) || new Set();
             const wasPressed = held.size > 0;
@@ -147,8 +148,9 @@ const App = {
             Engine.resetInputs();
             document.querySelectorAll('[data-action].active').forEach(b => b.classList.remove('active'));
         };
-        const pause = () => { this.releaseBattleInputs(); Engine.stopGameLoop(); };
-        const resume = () => { if (!document.hidden && active()) Engine.startGameLoop(); };
+        BattleScreen.init();
+        const pause = () => BattleScreen.blur();
+        const resume = () => BattleScreen.focus();
         window.addEventListener('blur', pause);
         window.addEventListener('focus', resume);
         document.addEventListener('visibilitychange', () => document.hidden ? pause() : resume());
@@ -331,6 +333,7 @@ const App = {
     },
 
     showAuth(mode) {
+        BattleScreen.leave();
         clearInterval(this._verificationTimer);
         this.authMode = mode;
         GameState.currentView = 'auth';
@@ -482,7 +485,7 @@ const App = {
             if (selected) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
         });
         this.updateHeader();
-        if (viewName === 'arena' && GameState.currentBattle && !GameState.currentBattle.isFinished && !document.hidden) Engine.startGameLoop();
+        BattleScreen.sync();
         if (previous !== viewName) window.scrollTo({ top: 0, behavior: 'instant' });
     },
 
@@ -918,32 +921,7 @@ const App = {
     },
 
     async startPvP() {
-        this.showToast('Buscando oponente...', 'gold');
-        const channel = supabase.channel('matchmaking', {
-            config: { presence: { key: GameState.avatar.name } }
-        });
-
-        channel.on('presence', { event: 'sync' }, () => {
-            const state = channel.presenceState();
-            const keys = Object.keys(state);
-            if (keys.length > 1) {
-                const opponentName = keys.find(k => k !== GameState.avatar.name);
-                this.showToast('Oponente encontrado: ' + opponentName, 'success');
-                const opponent = {
-                    name: opponentName, sprite: 'skeleton', level: GameState.avatar.level,
-                    hp: 150, maxHp: 150, attack: 15, xp: 50, goldRaw: 30
-                };
-                Engine.startPvEBattle(opponent); // Reuse local logic for demo
-                this.navigate('arena');
-                channel.unsubscribe();
-            }
-        });
-
-        channel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                await channel.track({ name: GameState.avatar.name, ready: true });
-            }
-        });
+        this.showToast(this.authText('Las batallas entre jugadores todavía están en desarrollo.', 'Player battles are still in development.'), 'gold');
     },
 
     newOpponent() {
