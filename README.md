@@ -2,6 +2,13 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
 
+## Actualización 3.8.0
+
+- La pelea bloquea el desplazamiento de la página. Barra de herramientas, vida, escenario y controles ocupan filas independientes; los cambios de tamaño del navegador no siguen los desplazamientos tardíos de Safari. El tamaño de los luchadores se adapta al espacio restante.
+- Más detalle en prendas y armaduras del avatar, equipo propio para cada monstruo y slime de cristal. Los rivales ganan detalles de veterano (nivel 6), élite (15) y campeón (30).
+- Rivales del mismo nivel o ligeramente superiores. Su resistencia y daño aumentan respecto al crecimiento del héroe; también suben su velocidad, frecuencia de ataque y defensa. Se conservan avisos de ataque y oportunidades para bloquear.
+- Caché actualizada a 3.8.0 para navegador y PWA. Sin migraciones SQL.
+
 ## Actualización 3.7.1
 
 - **Girar arena** permite jugar de lado cuando Safari u otro navegador conserva la ventana vertical. El giro se aplica sólo a la pelea y se retira al terminar, retirarse, volver o cerrar sesión, incluso mientras se guarda el resultado.

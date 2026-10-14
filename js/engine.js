@@ -274,26 +274,21 @@ const Engine = {
 
     // --- Battle System ---
 
-    generateOpponent() {
-        if (GameState.monsters && GameState.monsters.length > 0) {
-            const m = GameState.monsters[Math.floor(Math.random() * GameState.monsters.length)];
-            const levelVar = Math.floor(Math.random() * 3) - 1;
-            const oppLevel = Math.max(1, GameState.avatar.level + levelVar);
-            
-            // scale monster
-            const scale = oppLevel / m.base_level;
-            return {
-                name: m.name,
-                sprite: m.sprite,
-                level: oppLevel,
-                xp: Math.floor(m.xp_reward * scale),
-                hp: Math.floor(m.base_hp * scale),
-                maxHp: Math.floor(m.base_hp * scale),
-                attack: Math.floor(m.base_attack * scale),
-                goldRaw: Math.floor(m.gold_reward * scale)
-            };
-        }
+    combatDifficulty(level = 1, sprite = 'goblin') {
+        const n = Math.max(1, Math.floor(Number(level) || 1));
+        const pressure = (n - 1) / (n + 14);
+        const speed = { goblin: 1.08, skeleton: 1, slime: .86, orc: .94, ghost: 1.04 }[sprite] || 1;
+        return {
+            pressure, moveSpeed: (132 + 54 * pressure) * speed,
+            attackInterval: .85 - .38 * pressure,
+            lightWindup: .34 - .07 * pressure, heavyWindup: .5 - .10 * pressure,
+            guardEvery: pressure >= .55 ? 2 : pressure >= .25 ? 3 : 5,
+            guardReaction: .18 - .07 * pressure, guardCooldown: 1.6 - .5 * pressure,
+            heavyEvery: pressure >= .35 ? 2 : 3
+        };
+    },
 
+    generateOpponent() {
         const enemies = [
             { name: 'Goblin Oscuro', sprite: 'goblin' },
             { name: 'Esqueleto Guerrero', sprite: 'skeleton' },
@@ -301,19 +296,27 @@ const Engine = {
             { name: 'Orco Salvaje', sprite: 'orc' },
             { name: 'Espectro', sprite: 'ghost' }
         ];
-        const e = enemies[Math.floor(Math.random() * enemies.length)];
-        const levelVar = Math.floor(Math.random() * 3) - 1;
-        const oppLevel = Math.max(1, GameState.avatar.level + levelVar);
-
+        const catalog = GameState.monsters?.length ? GameState.monsters : enemies;
+        const e = catalog[Math.floor(Math.random() * catalog.length)];
+        const playerLevel = Math.max(1, Math.floor(Number(GameState.avatar.level) || 1));
+        const oppLevel = playerLevel + Math.floor(Math.random() * (playerLevel >= 10 ? 3 : 2));
+        const difficulty = this.combatDifficulty(oppLevel, e.sprite);
+        const baseLevel = Math.max(1, Number(e.base_level) || 1);
+        const clamp = value => Math.max(.85, Math.min(1.2, value));
+        const endurance = { goblin: .95, skeleton: 1, slime: 1.1, orc: 1.16, ghost: .9 }[e.sprite] || 1;
+        const power = { goblin: .94, skeleton: 1.04, slime: .88, orc: 1.12, ghost: 1 }[e.sprite] || 1;
+        // One curve for the database catalog and offline fallback, relative to hero growth.
+        const hpFactor = e.base_hp > 0 ? clamp(e.base_hp / (100 + baseLevel * 10)) : 1;
+        const attackFactor = e.base_attack > 0 ? clamp(e.base_attack / (10 + baseLevel * 2)) : 1;
+        const hp = Math.round((5 + oppLevel * 2) * (12 + 10 * difficulty.pressure) * endurance * hpFactor);
+        const attack = Math.round((14 + oppLevel * 1.8) * (1 + .3 * difficulty.pressure) * power * attackFactor);
         return {
             name: e.name,
             sprite: e.sprite,
             level: oppLevel,
-            xp: 15 + oppLevel * 10,
-            hp: 70 + oppLevel * 10,
-            maxHp: 70 + oppLevel * 10,
-            attack: 10 + oppLevel * 2,
-            goldRaw: 10 + oppLevel * 5
+            difficulty, hp, maxHp: hp, attack,
+            xp: e.xp_reward != null ? Math.floor(e.xp_reward * oppLevel / baseLevel) : 15 + oppLevel * 10,
+            goldRaw: e.gold_reward != null ? Math.floor(e.gold_reward * oppLevel / baseLevel) : 10 + oppLevel * 5
         };
     },
 
@@ -372,7 +375,8 @@ const Engine = {
             grounded: true, state: 'IDLE', facing: isPlayer ? 'right' : 'left',
             attack: null, combo: 0, comboWindow: 0, queuedCombo: false,
             hitStunTimer: 0, castTimer: 0, magicCooldown: 0,
-            aiTimer: 0.65, aiCount: 0, aiRetreat: 0,
+            aiTimer: 0.65, aiCount: 0, aiRetreat: 0, aiReadTime: 0,
+            difficulty: this.combatDifficulty(stats.level || GameState.avatar.level, stats.sprite),
             aiGuardTimer: 0, aiGuardCooldown: 0,
             staggerHits: 0, staggerWindow: 0, recoveryPending: false, recoveryTimer: 0,
             dom: null, shadow: null, art: null
@@ -383,10 +387,11 @@ const Engine = {
         const arena = document.getElementById('real-time-arena');
         if (!arena) return null;
         const width = Math.max(240, arena.clientWidth || 640);
-        const height = Math.max(160, arena.clientHeight || 320);
+        const height = arena.clientHeight || 320;
         const oldWidth = this._combat.width;
         const oldFloor = this._combat.floor;
-        this._combat = { ...this._combat, width, height, floor: height - 34 };
+        const artSize = Math.max(40, Math.min(144, height - 44));
+        this._combat = { ...this._combat, width, height, floor: height - 28, artSize };
         for (const ent of this._rtEntities) {
             ent.x = this._freshBattle ? width * (ent.isPlayer ? 0.24 : 0.76) : ent.x * width / oldWidth;
             ent.x = Math.max(30, Math.min(width - 30, ent.x));
@@ -398,7 +403,8 @@ const Engine = {
             projectile.y += this._combat.floor - oldFloor;
         }
         this._freshBattle = false;
-        arena.style.setProperty('--combat-floor', '34px');
+        arena.style.setProperty('--combat-floor', '28px');
+        arena.style.setProperty('--fighter-size', `${artSize}px`);
         return arena;
     },
 
@@ -552,12 +558,14 @@ const Engine = {
 
     _controlEnemy(enemy, player, dt) {
         if (enemy.aiDisabled || enemy.state === 'DEAD' || enemy.hitStunTimer > 0 || enemy.attack) return;
+        const difficulty = enemy.difficulty;
         const distance = player.x - enemy.x;
         const direction = Math.sign(distance) || 1;
         enemy.facing = direction > 0 ? 'right' : 'left';
-        if (!enemy.recoveryTimer && player.attack && Math.abs(distance) < 100 && enemy.aiCount % 3 === 2 && player.grounded && !enemy.aiGuardCooldown) {
+        enemy.aiReadTime = player.attack ? enemy.aiReadTime + dt : 0;
+        if (!enemy.recoveryTimer && player.attack && enemy.aiReadTime >= difficulty.guardReaction && Math.abs(distance) < 100 && enemy.aiCount % difficulty.guardEvery === difficulty.guardEvery - 1 && player.grounded && !enemy.aiGuardCooldown) {
             enemy.aiGuardTimer = 0.28;
-            enemy.aiGuardCooldown = 1.15;
+            enemy.aiGuardCooldown = difficulty.guardCooldown;
         }
         if (enemy.aiRetreat > 0 && !player.attack && !enemy.recoveryTimer) {
             enemy.vx = this._approach(enemy.vx, -direction * 85, 1200 * dt);
@@ -567,14 +575,14 @@ const Engine = {
             enemy.vx = this._approach(enemy.vx, 0, 1800 * dt);
         } else if (Math.abs(distance) > 72) {
             enemy.state = 'RUNNING';
-            enemy.vx = this._approach(enemy.vx, direction * 128, 1150 * dt);
+            enemy.vx = this._approach(enemy.vx, direction * difficulty.moveSpeed, 1150 * dt);
         } else {
             enemy.state = 'IDLE';
             enemy.vx = this._approach(enemy.vx, 0, 1900 * dt);
             if (enemy.aiTimer <= 0 && Math.abs(player.y - enemy.y) < 60) {
                 enemy.aiCount++;
-                this._startAttack(enemy, enemy.aiCount % 3 === 0 ? 'heavy' : 'light');
-                enemy.aiTimer = 0.8;
+                this._startAttack(enemy, enemy.aiCount % difficulty.heavyEvery === 0 ? 'heavy' : 'light');
+                enemy.aiTimer = difficulty.attackInterval;
             }
         }
     },
@@ -585,7 +593,7 @@ const Engine = {
         ent.combo = combo;
         const heavy = kind === 'heavy';
         ent.attack = {
-            kind, elapsed: 0, startup: ent.isPlayer ? (heavy ? 0.23 : 0.075) : (heavy ? 0.5 : 0.34),
+            kind, elapsed: 0, startup: ent.isPlayer ? (heavy ? 0.23 : 0.075) : (heavy ? ent.difficulty.heavyWindup : ent.difficulty.lightWindup),
             active: heavy ? 0.14 : 0.1, recovery: heavy ? 0.36 : 0.19,
             range: heavy ? 91 : (combo === 3 ? 84 : 76),
             multiplier: heavy ? 1.85 : [1, 1, 1.15, 1.4][combo || 1],
@@ -868,7 +876,7 @@ const Engine = {
                 ent.dom.className = `combat-fighter ${ent.isPlayer ? 'combat-player' : 'combat-enemy'}`;
                 ent.dom.innerHTML = ent.isPlayer
                     ? CharacterArt.render(GameState.avatar, { state: ent.state, facing: ent.facing })
-                    : CharacterArt.renderMonster(ent.stats.sprite, { state: ent.state, facing: ent.facing });
+                    : CharacterArt.renderMonster(ent.stats.sprite, { state: ent.state, facing: ent.facing, level: ent.stats.level });
                 ent.art = ent.dom.querySelector('.character-art');
                 const tell = document.createElement('span');
                 tell.className = 'combat-tell';
@@ -877,7 +885,8 @@ const Engine = {
                 ent.dom.appendChild(tell);
                 arena.appendChild(ent.dom);
             }
-            ent.dom.style.transform = `translate3d(${ent.x - 64}px, ${ent.y - 128}px, 0)`;
+            const size = this._combat.artSize || 128;
+            ent.dom.style.transform = `translate3d(${ent.x - size / 2}px, ${ent.y - size}px, 0)`;
             ent.dom.dataset.state = ent.state;
             ent.dom.dataset.phase = ent.attack ? ent.attack.phase : '';
             ent.dom.dataset.heavy = ent.attack && ent.attack.kind === 'heavy' ? 'true' : 'false';

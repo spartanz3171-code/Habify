@@ -29,8 +29,8 @@
 
 .combat-fighter {
     position: absolute;
-    width: 128px;
-    height: 128px;
+    width: var(--fighter-size, 128px);
+    height: var(--fighter-size, 128px);
     top: 0;
     left: 0;
     z-index: 5;
@@ -39,10 +39,10 @@
 }
 
 .combat-fighter > .character-art {
-    --character-size: 128px;
+    --character-size: var(--fighter-size, 128px);
     display: block;
-    width: 128px;
-    height: 128px;
+    width: var(--fighter-size, 128px);
+    height: var(--fighter-size, 128px);
     overflow: visible;
     filter: drop-shadow(0 2px 1px #0c0b21b3);
 }

@@ -1,5 +1,15 @@
 # Arena horizontal y próximos pasos de multijugador
 
+## Estabilidad y dificultad en 3.8.0
+
+La raíz de la página se fija durante el combate; los arrastres táctiles sobre la pelea no desplazan el documento. El aviso de pausa conserva su desplazamiento accesible. La pantalla usa el ancho y alto visibles, sin sumar `visualViewport.offsetTop/offsetLeft`: esas coordenadas no deben desplazar otra vez un contenedor fijo. Herramientas, vida, escenario y botones ocupan cuatro filas. Sólo el escenario recibe la sacudida de un impacto fuerte. Al salir se libera el bloqueo del documento.
+
+Cada rival se genera entre el nivel del avatar y uno más; desde nivel 10, hasta dos más. La curva de presión `(nivel - 1) / (nivel + 14)` aumenta gradualmente y limita la velocidad de reacción. La vida crece con el daño base del héroe y con la presión; el daño crece respecto a su salud. Goblins rápidos, orcos resistentes, slimes lentos y espectros ligeros conservan diferencias de especie. La misma curva funciona con el catálogo de Supabase y el catálogo de respaldo. Los premios y las penalizaciones conservan sus reglas anteriores.
+
+Las criaturas tienen equipo y materiales más definidos. Los niveles 6, 15 y 30 añaden insignias, protecciones y crestas, sin cambiar sus articulaciones ni sus controles. La galería `tools/art-preview.html` permite comparar los cuatro rangos.
+
+Las pruebas de regresión cubren combate activo, saltos, impactos, cambios de tamaño y desplazamientos simulados del viewport en Chrome y WebKit, con y sin la señal de modo independiente. Esta emulación no sustituye una prueba en Safari/PWA en un iPhone físico.
+
 ## Ajustes de Safari y controles en 3.7.1
 
 - Si el aviso **Gira tu celular** no desaparece en Safari, pulsa **Girar arena** y sostén el celular de lado. La página gira sólo la arena; no exige instalar la PWA, pantalla completa ni permitir sensores. El combate empieza después de esa pulsación. Si el navegador finalmente gira su ventana, se retira el giro adicional.

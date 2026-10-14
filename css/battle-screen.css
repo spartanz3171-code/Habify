@@ -21,24 +21,26 @@
 .battle-pause-screen[data-rotate='false'] .rotate-phone { display: none; }
 @keyframes turn-phone { 0%, 15% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
 
-/* HUD and toolbar overlay the upper sky; controls sit below the fighting floor. */
-body.battle-immersive { overflow: hidden; overscroll-behavior: none; }
+/* Keep iOS from scrolling the entire battle when thumbs drag across its controls. */
+html.battle-immersive { height: 100%; overflow: hidden; overscroll-behavior: none; }
+body.battle-immersive { position: fixed; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; overflow: hidden; overscroll-behavior: none; }
 .battle-immersive #app-header, .battle-immersive #bottom-nav { display: none !important; }
-.battle-immersive #app-content { position: fixed; inset: auto; top: var(--battle-top, 0px); left: var(--battle-left, 0px); z-index: 1200; width: var(--battle-width, 100vw); max-width: none; height: var(--battle-height, 100dvh); margin: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #101321; overflow: hidden; }
+.battle-immersive #app-content { position: fixed; inset: auto; top: 0; left: 0; z-index: 1200; width: var(--battle-width, 100vw); max-width: none; min-height: 0; height: var(--battle-height, 100dvh); margin: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #101321; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Safari fallback: rotate just this battle, with dimensions from its visible viewport. */
 .battle-rotated #app-content { width: var(--battle-height, 100dvh); height: var(--battle-width, 100vw); transform-origin: top left; transform: translateX(var(--battle-width, 100vw)) rotate(90deg); padding: env(safe-area-inset-left) env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom); }
 .battle-immersive #app-content > .page-heading { display: none; }
-.battle-immersive .battle-session { height: 100%; position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 84px; container-type: inline-size; }
-.battle-immersive .battle-toolbar { position: absolute; z-index: 20; top: 0; left: 8px; right: 8px; height: 44px; margin: 0; gap: 6px; }
+.battle-immersive #app-content { container-type: size; }
+.battle-immersive .battle-session { height: 100%; min-height: 0; position: relative; display: grid; grid-template-rows: 44px 36px minmax(0, 1fr) 80px; grid-template-columns: minmax(0, 1fr); container-type: inline-size; touch-action: none; overflow: hidden; }
+.battle-immersive .battle-toolbar { position: relative; grid-row: 1; z-index: 20; min-width: 0; height: 44px; padding: 0 8px; margin: 0; gap: 6px; }
 .battle-immersive .battle-tool { padding: 8px 10px; font-size: 10px; background: #141b28c9; border-color: #b4ddc12b; }
-.battle-immersive .battle-hud { position: absolute; z-index: 10; top: 48px; left: 20px; right: 20px; padding: 0; border: 0; gap: 18px; background: transparent; pointer-events: none; }
+.battle-immersive .battle-hud { position: relative; grid-row: 2; z-index: 10; min-width: 0; min-height: 0; padding: 0 16px 4px; margin: 0; border: 0; gap: 18px; background: #101321; pointer-events: none; }
 .battle-immersive .hud-unit { min-width: 0; }
 .battle-immersive .hud-label { font: 700 12px/1.3 var(--font-ui); text-shadow: 0 1px 3px #080d17; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 0; margin-bottom: 3px; }
 .battle-immersive .hud-bar-container { height: 14px; }
 .battle-immersive .hud-bar-text { font-size: 10px; }
 .battle-immersive .hud-vs-badge { font-size: 10px; }
-.battle-immersive #real-time-arena { grid-row: 1; height: 100%; min-height: 0; border-radius: 0; border: 0; }
-.battle-immersive .rt-controls { grid-row: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0; padding: 4px 16px; border: 0; border-top: 1px solid #70849b38; border-radius: 0; background: linear-gradient(#1e293b, #101827); }
+.battle-immersive #real-time-arena { grid-row: 3; height: 100%; min-height: 0; border-radius: 0; border: 0; }
+.battle-immersive .rt-controls { grid-row: 4; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0; padding: 4px 16px; border: 0; border-top: 1px solid #70849b38; border-radius: 0; background: linear-gradient(#1e293b, #101827); }
 .battle-immersive .rt-cluster { gap: 8px; flex-wrap: nowrap; max-width: none; align-items: center; }
 .battle-immersive .rt-cluster-move { flex: 0 0 auto; }
 .battle-immersive .rt-cluster-move [data-action='up'] { order: 0; margin: 0 0 0 7px; }
@@ -73,12 +75,18 @@ body.battle-immersive { overflow: hidden; overscroll-behavior: none; }
     .battle-immersive .rt-btn { width: 44px; min-width: 44px; }
     .battle-immersive .rt-btn-attack { width: 48px; min-width: 48px; }
     .battle-immersive .rt-cluster-move [data-action='up'] { margin-left: 0; }
-    .battle-immersive .battle-screen-hint { position: absolute; top: 84px; right: 0; max-width: 65%; }
+    .battle-immersive .battle-screen-hint { position: absolute; top: 80px; right: 8px; max-width: 65%; }
     .battle-immersive .battle-toolbar { justify-content: space-between; gap: 2px; }
     .battle-immersive .battle-tool { padding-inline: 5px; font-size: 9px; }
 }
 @media (max-height: 360px) and (orientation: landscape) {
-    .battle-immersive .battle-hud { top: 44px; }
     .battle-immersive .hud-label { font-size: 11px; }
+}
+/* Expanded browser bars can leave much less room than the phone's screen height. */
+@container (max-height: 300px) {
+    .battle-immersive .battle-session { grid-template-rows: 44px 32px minmax(0, 1fr) 64px; }
+    .battle-immersive .rt-btn { height: 52px; min-height: 52px; }
+    .battle-immersive .rt-btn-attack { height: 56px; min-height: 56px; }
+    .battle-immersive .hud-label { font-size: 11px; margin-bottom: 2px; }
 }
 @media (prefers-reduced-motion: reduce) { .battle-pause-screen .rotate-phone { animation: none !important; } }

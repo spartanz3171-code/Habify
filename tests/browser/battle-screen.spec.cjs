@@ -59,6 +59,8 @@ test('landscape fits small phones, multitouch releases, pause keeps focus, and r
     await expect.poll(() => page.evaluate(() => Engine._gameLoopRunning)).toBe(true);
     for (const size of [{ width: 568, height: 320 }, { width: 667, height: 375 }, { width: 844, height: 390 }]) {
         await page.setViewportSize(size);
+        await expect.poll(() => page.evaluate(() => document.getElementById('app-content').style.getPropertyValue('--battle-width'))).toBe(`${size.width}px`);
+        await expect.poll(() => page.evaluate(() => document.getElementById('app-content').style.getPropertyValue('--battle-height'))).toBe(`${size.height}px`);
         await expect.poll(() => page.evaluate(() => Math.abs(Engine._combat.height - document.getElementById('real-time-arena').clientHeight))).toBeLessThan(1);
         const layout = await page.evaluate(() => {
             const rects = [...document.querySelectorAll('.rt-btn, .battle-tool:not([hidden]), .hud-bar-container')].map(el => {

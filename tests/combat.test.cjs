@@ -36,6 +36,73 @@ function setup() {
     return { engine, state, player, enemy, advance, press, context, callbacks };
 }
 
+test('catalog and fallback rivals keep up with hero level and become harder relative to hero growth', () => {
+    const { engine, state, context } = setup();
+    vm.runInContext('Math.random = () => 0', context);
+    for (const catalog of [false, true]) {
+        for (const sprite of ['goblin', 'skeleton', 'slime', 'orc', 'ghost']) {
+            state.monsters = catalog ? [{ sprite, name: sprite, base_level: 5, base_hp: 180, base_attack: 24, xp_reward: 30, gold_reward: 20 }] : undefined;
+            let previous = null;
+            for (const level of [1, 5, 15, 30, 60, 100]) {
+                state.avatar.level = level;
+                const pick = ['goblin', 'skeleton', 'slime', 'orc', 'ghost'].indexOf(sprite) / 5 + .01;
+                vm.runInContext(`globalThis.randomPick = ${pick}; Math.random = () => { const pick = globalThis.randomPick; globalThis.randomPick = 0; return pick; };`, context);
+                const rival = engine.generateOpponent();
+                assert.equal(rival.sprite, sprite);
+                assert.equal(rival.level, level);
+                assert.equal(rival.maxHp, rival.hp);
+                const hits = rival.hp / (5 + 2 * level);
+                const danger = rival.attack / (100 + 10 * level);
+                if (previous) {
+                    assert.ok(hits > previous.hits, 'more levels should require more hits even with growing hero damage');
+                    assert.ok(danger > previous.danger, 'each hit should remain threatening as hero HP grows');
+                    assert.ok(rival.difficulty.moveSpeed > previous.speed);
+                    assert.ok(rival.difficulty.attackInterval < previous.interval);
+                }
+                assert.ok(rival.difficulty.lightWindup >= .27, 'every strike must retain a readable warning');
+                assert.ok(rival.difficulty.heavyWindup >= .4);
+                assert.ok(rival.xp > 0 && rival.goldRaw > 0);
+                previous = { hits, danger, speed: rival.difficulty.moveSpeed, interval: rival.difficulty.attackInterval };
+            }
+        }
+    }
+});
+
+test('random level bonuses stay close to the hero, including the catalog path', () => {
+    const { engine, state, context } = setup();
+    for (const random of [0, .45, .999999]) {
+        vm.runInContext(`Math.random = () => ${random}`, context);
+        for (const level of [1, 5, 10, 30]) {
+            state.avatar.level = level;
+            const rival = engine.generateOpponent();
+            assert.ok(rival.level >= level && rival.level <= level + (level >= 10 ? 2 : 1));
+            assert.ok(Number.isFinite(rival.hp) && Number.isFinite(rival.attack));
+        }
+    }
+});
+
+test('a high-level enemy closes distance faster but still telegraphs and can be blocked', () => {
+    const novice = setup(), veteran = setup();
+    for (const [scene, level] of [[novice, 1], [veteran, 30]]) {
+        scene.enemy.aiDisabled = false;
+        scene.enemy.difficulty = scene.engine.combatDifficulty(level, 'goblin');
+        scene.advance(.6);
+    }
+    assert.ok(veteran.enemy.x < novice.enemy.x - 12);
+    for (const scene of [novice, veteran]) {
+        scene.enemy.x = scene.player.x + 60;
+        scene.enemy.aiTimer = 0;
+        scene.engine.handleInput('guard', true);
+        scene.advance(.02);
+        assert.equal(scene.enemy.attack.phase, 'startup');
+        scene.advance(.2);
+        assert.equal(scene.state.currentBattle.playerHp, 110, 'the warning cannot damage the player');
+        scene.advance(.2);
+        assert.equal(scene.state.currentBattle.playerHp, 106, 'correctly held guard should still absorb most damage');
+    }
+    assert.ok(veteran.enemy.attack.startup < novice.enemy.attack.startup);
+});
+
 test('movement accelerates, brakes and gives the same result at 30 and 120 fps', () => {
     const slow = setup(), fast = setup();
     for (const scene of [slow, fast]) scene.engine.handleInput('right', true);

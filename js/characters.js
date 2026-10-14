@@ -224,6 +224,24 @@
         if (a.outfit === 'outfit_ranger') art +=
             poly('56,46 59,47 42,67 38,67', c.leatherDark) +
             poly('56,48 57,48 41,65 40,65', c.leatherLight) + rect(51, 53, 3, 4, GOLD);
+        // Class-specific materials remain part of the torso rig in every animation.
+        if (robe) art += hairLayer('char-garment-detail',
+            path('M36 50 L41 54 L40 64 M59 51 L57 57 L58 64', 'none', `stroke="${LIGHT}" stroke-width=".8"`) +
+            poly('35,82 39,78 42,82 39,88', c.goldDark) + poly('36,82 39,80 40,82 39,86', '#8ee4d9') +
+            poly('56,80 59,83 58,90 55,86', GOLD) + poly('57,83 58,84 57,87', '#d7fff1') +
+            path('M36 91 L38 89 M43 92 L46 90 M54 92 L56 90 M59 92 L61 90', 'none', `stroke="${LIGHT}" stroke-width=".8"`) +
+            poly('45,59 49,61 52,59 50,65 47,65', c.goldDark) + poly('48,61 50,61 49,64', '#b3efe0'));
+        else if (ranger) art += hairLayer('char-garment-detail',
+            poly('35,47 39,42 43,45 45,50 41,49 39,52 37,49 35,51', '#bfc6a1') +
+            poly('54,46 57,42 61,45 63,49 60,48 59,51 56,49', '#899c78') +
+            path('M37 47 L39 45 L42 48 M57 47 L58 45 L60 47 M43 60 L45 63 L52 63 L55 60', 'none', 'stroke="#e3ddaf" stroke-width=".8"') +
+            poly('48,78 52,82 50,87 46,85', '#355c49') + path('M48 85 L50 80 M48 83 L47 81 M49 83 L51 83', 'none', 'stroke="#d2e6a9" stroke-width=".8"'));
+        else art += hairLayer('char-garment-detail',
+            path('M39 48 L43 45 L47 47 M53 47 L57 46 L60 49 M40 59 L43 62 M55 62 L58 58', 'none', `stroke="${LIGHT}" stroke-width=".85"`) +
+            poly('43,76 47,75 51,76 55,88 49,96 42,89', INK) +
+            poly('45,77 49,77 52,87 49,93 44,88', c.cloth) +
+            path('M46 78 L45 87 L49 91 L51 87 L49 79', 'none', `stroke="${GOLD}" stroke-width=".85"`) +
+            poly('47,81 49,83 51,83 49,86 49,89 47,87 45,87 47,85', LIGHT));
         // A fitted waist and smaller shoulder plates give the female rig its own silhouette.
         if (feminine) art += poly('39,60 42,63 44,67 41,69 39,66', c.clothDeep) +
             poly('56,60 58,59 56,66 58,69 54,68 53,65', c.clothDeep);
@@ -689,6 +707,56 @@
     const contour = (d, fill, width = 1.8) => path(d, fill, `stroke="${INK}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"`);
     const stroke = (d, color, width = 1) => path(d, 'none', `stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"`);
 
+    function creatureEquipment(kind, tier) {
+        const metal = tier >= 2 ? '#566b87' : '#56616b';
+        const trim = tier >= 2 ? '#eac577' : '#a9c2c6';
+        let art = '';
+        if (kind === 'goblin') art =
+            contour('M32 45 L37 41 L45 46 L43 54 L34 57 L27 53 Z', metal, 1.4) +
+            path('M31 47 L37 44 L41 47 L38 49 L30 51 Z', '#a8bcb9') +
+            stroke('M30 53 L36 55 L42 51', trim, 1.1) +
+            contour('M39 44 L48 47 L57 44 L61 48 L54 54 L44 53 L38 49 Z', '#984b51', 1.1) +
+            path('M41 46 L47 49 L56 47 L53 51 L45 51 Z', '#dc8672') +
+            contour('M53 51 L58 52 L62 65 L55 62 Z', '#793c46', 1);
+        if (kind === 'orc') art =
+            contour('M39 48 L44 46 L56 50 L62 48 L62 59 L56 65 L44 62 L38 55 Z', metal, 1.2) +
+            path('M40 49 L44 48 L49 51 L46 55 L41 54 Z M52 53 L59 51 L59 57 L55 60 L51 59 Z', '#91a4a8') +
+            stroke('M41 56 L46 59 L55 62 L60 58', trim, 1.1) +
+            contour('M46 50 L50 52 L55 51 L53 57 L49 60 L46 56 Z', '#ba745c', .8) +
+            poly('48,52 50,54 53,53 51,56 49,57', '#f3c38a');
+        if (kind === 'skeleton') art =
+            contour('M31 45 L37 41 L45 44 L43 50 L35 53 L29 50 Z', metal, 1.2) +
+            path('M32 46 L37 43 L42 45 L38 47 L32 49 Z', '#b1c2bf') +
+            contour('M41 43 L49 47 L59 43 L62 46 L56 51 L47 51 L41 48 Z', '#743f59', 1.2) +
+            contour('M43 49 L47 51 L42 66 L37 70 L39 64 L36 65 Z', '#9e5267', 1) +
+            stroke('M43 52 L40 64 M46 47 L51 49 L58 46', '#e79b89', .9);
+        if (tier >= 1) art +=
+            contour('M56 48 L60 46 L65 49 L64 55 L59 57 L55 53 Z', metal, 1) +
+            stroke('M57 49 L60 48 L63 50 L62 54 L59 55', trim, .9) +
+            ellipse(60, 51.5, 1.2, 1.5, tier >= 2 ? '#f1b866' : '#9be1d3');
+        if (tier >= 2) art +=
+            contour('M31 46 L28 37 L35 43 M36 43 L38 34 L41 44', '#d4ceb0', .9) +
+            stroke('M37 73 L41 74 M56 74 L60 72', trim, 1.6);
+        return hairLayer('creature-equipment', art);
+    }
+
+    function creatureCrest(kind, tier) {
+        if (kind === 'ghost') return hairLayer('creature-crest',
+            stroke('M34 28 L31 21 L36 15 M61 19 L66 22 L68 30', '#7abbaa', 1.2) +
+            poly('47,18 51,13 54,19 51,24', '#253d50') + poly('49,18 51,16 52,19 51,22', '#aef9d7') +
+            (tier >= 1 ? contour('M34 26 L29 16 L40 20 L48 8 L54 18 L65 14 L65 27 L59 23 L53 28 L46 23 L39 29 Z', '#485779', 1.2) +
+                stroke('M32 20 L39 24 L48 12 L54 22 L62 18', tier >= 2 ? '#f3ca82' : '#9ad8c4', 1.1) : '') +
+            (tier >= 2 ? poly('48,3 50,6 48,9 46,6', '#c2ffe2') + ellipse(29, 12, 1, 1, '#9deccf') + ellipse(66, 10, 1, 1, '#9deccf') : ''));
+        let art = kind === 'orc' ? stroke('M39 25 L44 28 M38 28 L43 31 M60 34 L63 37', '#b54745', 1.6) :
+            kind === 'goblin' ? stroke('M39 36 L43 39 M40 34 L45 38', '#ddc58d', .85) : '';
+        if (tier >= 1) art += contour('M37 24 L38 18 L46 16 L54 17 L62 20 L64 25 L57 23 L49 21 L41 25 Z', '#485565', 1) +
+            stroke('M39 21 L46 18 L54 19 L61 22', tier >= 2 ? GOLD : '#b0c6bd', 1.1) +
+            poly('47,17 50,15 53,18 50,23', tier >= 2 ? '#d38167' : '#83cabb');
+        if (tier >= 3) art += contour('M39 18 L36 10 L44 16 L49 6 L55 16 L62 11 L61 21 L54 18 L50 22 L44 18 Z', '#b19a65', 1.1) +
+            poly('47,15 49,10 52,16 50,19', '#fff0b3');
+        return hairLayer('creature-crest', art);
+    }
+
     function creatureLeg(front, orc) {
         const x = front ? 53 : 35;
         const w = orc ? 12 : 9;
@@ -733,7 +801,7 @@
         return group(`char-arm char-arm-${front ? 'front' : 'back'}`, art);
     }
 
-    function goblin() {
+    function goblin(tier = 0) {
         const torso = contour('M34 49 Q42 42 53 45 L63 50 L61 64 L63 76 L56 81 L47 78 L36 81 L32 72 Z', '#604d38') +
             path('M36 51 L42 48 L46 56 L43 69 L37 74 L35 68 Z', '#9a7b4c') +
             path('M52 48 L59 52 L57 68 L61 74 L54 77 L48 73 L50 60 Z', '#3f3b32') +
@@ -765,10 +833,10 @@
             poly('52,42 54,42 53,39', '#f5e1b2') +
             ellipse(33, 37, 1.8, 2.3, GOLD) + ellipse(33, 36.5, .9, 1.4, '#56764e');
         return creatureLeg(false, false) + creatureLeg(true, false) + group('char-upper-body',
-            creatureArm(false, false) + group('char-torso', torso) + group('char-head', headArt) + creatureArm(true, false) + effects());
+            creatureArm(false, false) + group('char-torso', torso + creatureEquipment('goblin', tier)) + group('char-head', headArt + creatureCrest('goblin', tier)) + creatureArm(true, false) + effects());
     }
 
-    function orc() {
+    function orc(tier = 0) {
         const torso = contour('M31 46 L42 41 L58 41 L69 48 L65 62 L65 76 L56 83 L46 79 L34 82 L30 73 Z', '#7e8850') +
             path('M35 48 L45 45 L47 53 L43 60 L35 57 Z', '#b2b778') +
             path('M50 45 L59 46 L64 50 L60 57 L51 57 Z', '#9ea468') +
@@ -799,10 +867,10 @@
             stroke('M38 26 L41 24 M39 28 L42 26', '#6c7945', .8) +
             ellipse(31, 33, 1.7, 2, GOLD) + ellipse(31, 32.5, .8, 1.1, '#79854f');
         return creatureLeg(false, true) + creatureLeg(true, true) + group('char-upper-body',
-            creatureArm(false, true) + group('char-torso', torso) + group('char-head', headArt) + creatureArm(true, true) + effects());
+            creatureArm(false, true) + group('char-torso', torso + creatureEquipment('orc', tier)) + group('char-head', headArt + creatureCrest('orc', tier)) + creatureArm(true, true) + effects());
     }
 
-    function skeleton() {
+    function skeleton(tier = 0) {
         const bone = '#d4cbb0', high = '#f5e9cc', dark = '#8d8c7d';
         const limb = (d, front) => stroke(d, INK, 5.8) + stroke(d, front ? bone : dark, 3.2) + stroke(d, front ? high : bone, .85);
         const legs = [false, true].map(front => {
@@ -844,11 +912,17 @@
             path('M46 39 Q54 41 61 37 L60 42 Q54 45 47 42 Z', '#6a695e') +
             [47, 50, 53, 56, 59].map((x, i) => path(`M${x} ${i>2?39:40} L${x+1.8} ${i>2?38.5:40} L${x+1.5} 43 L${x} 43 Z`, high)).join('') +
             stroke('M51 16 L49 21 L52 24 L50 27 M38 24 L41 24', '#9e9c86', .8);
-        return legs + group('char-upper-body', arm(false) + group('char-torso', ribs) + group('char-head', skull) + arm(true) + effects());
+        return legs + group('char-upper-body', arm(false) + group('char-torso', ribs + creatureEquipment('skeleton', tier)) + group('char-head', skull + creatureCrest('skeleton', tier)) + arm(true) + effects());
     }
 
-    function slime() {
+    function slime(tier = 0) {
         return group('char-slime',
+            hairLayer('creature-crystals',
+                contour('M28 76 L25 58 L34 49 L40 65 L37 77 Z M56 64 L62 45 L70 51 L72 77 Z', '#348678', 1.4) +
+                poly('27,58 33,52 34,68 30,72', '#b1efd0') + poly('63,49 66,53 63,68 60,69', '#8fe6c2') +
+                (tier >= 1 ? contour('M38 64 L38 45 L47 33 L54 45 L53 63 Z', '#459d87', 1.4) + poly('40,46 47,37 46,56 41,60', '#c1f7d3') : '') +
+                (tier >= 2 ? contour('M19 84 L15 72 L21 64 L29 79 M71 80 L78 62 L83 71 L81 90', '#69c4a3', 1.2) : '') +
+                (tier >= 3 ? poly('45,26 49,21 52,27 48,32', '#d6ffe6') : '')) +
             contour('M17 98 Q18 90 24 83 Q28 57 47 54 Q68 51 74 77 Q76 89 83 95 Q89 105 71 107 L30 107 Q13 107 17 98 Z', '#479d6c', 2.2) +
             path('M23 95 Q29 85 31 74 Q36 60 49 59 Q61 57 67 70 Q54 62 43 76 Q36 87 39 98 Z', '#85c88c') +
             path('M69 72 Q72 90 80 97 Q84 103 68 104 L33 104 Q27 104 23 101 Q49 106 61 94 Q67 86 69 72 Z', '#286650') +
@@ -861,10 +935,12 @@
             ellipse(41, 88, 3.7, 5.6, '#213e35') + ellipse(61, 85, 3.3, 5.2, '#213e35') +
             ellipse(40.1, 86.1, 1.1, 1.7, '#f2fbd9') + ellipse(60.3, 83.3, 1, 1.5, '#f2fbd9') +
             path('M48 94 Q52 97 57 92 Q55 99 50 98 Z', '#244737') +
-            ellipse(35, 92, 3, 1.3, '#6bb784') + ellipse(66, 89, 2.4, 1.1, '#6bb784'));
+            ellipse(35, 92, 3, 1.3, '#6bb784') + ellipse(66, 89, 2.4, 1.1, '#6bb784') +
+            poly('48,69 53,73 51,80 46,78 45,73', '#2f7462') + poly('48,70 51,73 49,77 47,74', '#c9f5b2') +
+            stroke('M37 82 L44 85 M57 81 L65 78', '#285745', 1.4));
     }
 
-    function ghost() {
+    function ghost(tier = 0) {
         const arm = front => group(`char-arm char-arm-${front ? 'front' : 'back'}`, front ?
             contour('M61 46 Q71 45 73 60 L81 60 L86 57 L85 63 L89 65 L85 68 L80 67 L81 72 L76 70 L68 68 Q63 60 61 46 Z', '#aba6d1', 1.5) +
             path('M66 49 Q70 52 71 63 L78 65 L76 67 L70 66 L67 60 Z', '#eeE3f1') + stroke('M80 64 L84 63', '#605c88', .7) :
@@ -890,13 +966,17 @@
             path('M42 34 Q46 32 49 35 L47 39 L43 38 Z M53 34 L59 31 L58 36 L53 38 Z', '#72c49e') +
             path('M43 34 L47 35 L46 37 L43 36 Z M54 34 L57 33 L57 35 L54 36 Z', '#e3ffce') +
             path('M49 41 Q52 38 53 42 L51 45 L49 44 Z', '#151c32');
-        return group('char-ghost', tail + group('char-upper-body', arm(false) + group('char-torso', torso) + group('char-head', hood) + arm(true) + effects()));
+        const sigils = hairLayer('creature-sigils', stroke('M37 56 L39 61 L37 66 M57 56 L59 60 L56 66 M43 71 L46 74 L49 70', '#c6efd4', 1) +
+            (tier >= 2 ? stroke('M33 69 L35 75 L41 79 M60 69 L56 75 L52 80', GOLD, 1) : ''));
+        return group('char-ghost', tail + group('char-upper-body', arm(false) + group('char-torso', torso + sigils) + group('char-head', hood + creatureCrest('ghost', tier)) + arm(true) + effects()));
     }
 
     function renderMonster(sprite = 'goblin', options = {}) {
         const creatures = { goblin, skeleton, slime, orc, ghost };
         const kind = Object.hasOwn(creatures, sprite) ? sprite : 'goblin';
-        return shell(hairLayer('creature-detail', creatures[kind]()), options, kind, `character-monster character-${kind}`);
+        const level = Math.max(1, Number(options.level) || 1);
+        const tier = level >= 30 ? 3 : level >= 15 ? 2 : level >= 6 ? 1 : 0;
+        return shell(hairLayer('creature-detail', creatures[kind](tier)), options, kind, `character-monster character-${kind} monster-rank-${tier}`);
     }
 
 

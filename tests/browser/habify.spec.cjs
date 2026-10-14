@@ -123,6 +123,10 @@ test('creature gallery renders all enemies in either direction and supports each
     page.on('pageerror', e => errors.push(e.message));
     await page.goto('/tools/art-preview.html');
     await expect(page.locator('#monsters .character-art')).toHaveCount(5);
+    for (const [level, rank] of [[1, 0], [6, 1], [15, 2], [30, 3]]) {
+        await page.locator('#monster-level').selectOption(String(level));
+        await expect(page.locator(`#monsters .monster-rank-${rank}`)).toHaveCount(5);
+    }
     for (const [label, state] of [['Correr', 'RUNNING'], ['Golpe', 'ATTACKING'], ['Salto', 'JUMPING'], ['Magia', 'CASTING'], ['Defensa', 'GUARDING'], ['Reposo', 'IDLE']]) {
         await page.getByRole('button', { name: label, exact: true }).click();
         for (const kind of ['goblin', 'skeleton', 'orc', 'ghost', 'slime']) {

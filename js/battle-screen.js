@@ -18,11 +18,18 @@ const BattleScreen = {
     init() {
         if (this.initialized) return;
         this.initialized = true;
-        window.addEventListener('resize', () => this.sync());
-        window.visualViewport?.addEventListener('resize', () => this.sync());
-        window.visualViewport?.addEventListener('scroll', () => this.updateViewport());
-        window.addEventListener('orientationchange', () => this.sync());
-        screen.orientation?.addEventListener('change', () => this.sync());
+        const resize = () => {
+            if (this.resizeFrame) return;
+            this.resizeFrame = requestAnimationFrame(() => { this.resizeFrame = null; this.sync(); });
+        };
+        window.addEventListener('resize', resize);
+        window.visualViewport?.addEventListener('resize', resize);
+        window.addEventListener('orientationchange', resize);
+        screen.orientation?.addEventListener('change', resize);
+        // iOS can pan the document despite overflow:hidden. Only the pause dialog may scroll.
+        document.addEventListener('touchmove', event => {
+            if (document.body.classList.contains('battle-immersive') && event.target.closest?.('#battle-gameplay')) event.preventDefault();
+        }, { passive: false });
         document.addEventListener('fullscreenchange', () => this.sync());
         document.addEventListener('keydown', event => {
             if (!this.active()) return;
@@ -44,10 +51,11 @@ const BattleScreen = {
         if (!this.active()) return;
         const viewport = window.visualViewport;
         const style = document.getElementById('app-content').style;
-        style.setProperty('--battle-width', `${viewport?.width || innerWidth}px`);
-        style.setProperty('--battle-height', `${viewport?.height || innerHeight}px`);
-        style.setProperty('--battle-left', `${viewport?.offsetLeft || 0}px`);
-        style.setProperty('--battle-top', `${viewport?.offsetTop || 0}px`);
+        const width = Math.round(Math.min(innerWidth, viewport?.width || innerWidth));
+        const height = Math.round(Math.min(innerHeight, viewport?.height || innerHeight));
+        style.setProperty('--battle-width', `${width}px`);
+        style.setProperty('--battle-height', `${height}px`);
+        // A fixed, scroll-locked root must not follow visualViewport scroll offsets.
     },
     canPlay() {
         return !!this.active() && !this.waitingForTurn() && !this.needsResume && !this.focusPaused && !document.hidden && !document.querySelector('[role="dialog"]:not([hidden])');
@@ -61,7 +69,10 @@ const BattleScreen = {
             if (this.portraitLocked) { try { screen.orientation?.unlock(); } catch (_) {} this.portraitLocked = false; }
         }
         if (!this.portrait()) this.rotated = false;
-        document.body.classList.toggle('battle-immersive', !!active && (this.mobile() || document.fullscreenElement === document.getElementById('app-content')));
+        const immersive = !!active && (this.mobile() || document.fullscreenElement === document.getElementById('app-content'));
+        if (immersive && !document.body.classList.contains('battle-immersive')) window.scrollTo(0, 0);
+        document.documentElement.classList.toggle('battle-immersive', immersive);
+        document.body.classList.toggle('battle-immersive', immersive);
         document.body.classList.toggle('battle-rotated', !!active && this.rotated);
         if (!active) {
             this.leave();
@@ -124,6 +135,7 @@ const BattleScreen = {
         this.sessionActive = false;
         this.rotated = false;
         document.body.classList.remove('battle-immersive', 'battle-rotated');
+        document.documentElement.classList.remove('battle-immersive');
         const style = document.getElementById('app-content')?.style;
         ['width', 'height', 'left', 'top'].forEach(key => style?.removeProperty(`--battle-${key}`));
         // Remove the visual rotation immediately; native orientation is best effort.
