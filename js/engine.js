@@ -243,6 +243,10 @@ const Engine = {
     async equipItem(itemId) {
         const item = GameState.inventory.find(i => i.id === itemId);
         if (!item) return { status: 'error' };
+        const avatar = GameState.avatar;
+        const slot = { background: 'equippedBackground', pet: 'equippedPet', weapon: 'equippedWeapon', shield: 'equippedShield', spell: 'equippedSpell' }[item.type];
+        if (!slot) return { status: 'error' };
+        const previous = avatar[slot];
 
         let equipped = false;
         if (item.type === 'background') {
@@ -258,7 +262,7 @@ const Engine = {
             if (GameState.avatar.equippedShield === item.id) GameState.avatar.equippedShield = null;
             else { GameState.avatar.equippedShield = item.id; equipped = true; }
         } else if (item.type === 'spell') {
-            let spells = GameState.avatar.equippedSpell ? GameState.avatar.equippedSpell.split(',') : [];
+            let spells = this.equippedSpells();
             if (spells.includes(item.id)) {
                 spells = spells.filter(s => s !== item.id);
                 equipped = false;
@@ -268,8 +272,34 @@ const Engine = {
             }
             GameState.avatar.equippedSpell = spells.length > 0 ? spells.join(',') : null;
         }
-        await saveAvatarToDB();
+        try {
+            const response = await saveAvatarToDB();
+            if (response?.error) throw response.error;
+        } catch (error) {
+            avatar[slot] = previous;
+            throw error;
+        }
         return { status: 'success', equipped };
+    },
+
+    equippedSpells() {
+        const owned = new Set((GameState.inventory || []).filter(item => item.type === 'spell').map(item => item.id));
+        return [...new Set((GameState.avatar.equippedSpell || '').split(',').map(id => id.trim()).filter(id => owned.has(id)))];
+    },
+
+    combatAbilities() {
+        const spells = this.equippedSpells();
+        return {
+            magic: GameState.avatar.avatarClass === 'mage',
+            fire: spells.includes('spell_fire'),
+            heal: spells.includes('spell_heal'),
+            weapon: { wpn_staff: 'magic', wpn_bow: 'arrow' }[GameState.avatar.equippedWeapon] || null
+        };
+    },
+
+    combatKeyAction(code) {
+        const abilities = this.combatAbilities();
+        return { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', Space: 'attack', KeyZ: 'attack', KeyV: 'heavy', KeyC: 'guard', KeyH: abilities.heal ? 'heal' : null, KeyX: abilities.fire ? 'fire' : abilities.magic ? 'magic' : null, KeyF: abilities.magic ? 'magic' : null }[code];
     },
 
     // --- Battle System ---
@@ -477,7 +507,7 @@ const Engine = {
             ent.staggerWindow = Math.max(0, ent.staggerWindow - dt);
             if (!ent.staggerWindow && !ent.recoveryPending) ent.staggerHits = 0;
             if (ent.state === 'HIT_STUN' && !ent.hitStunTimer) ent.state = 'IDLE';
-            if (ent.state === 'CASTING' && !ent.castTimer) ent.state = 'IDLE';
+            if (ent.state === 'CASTING' && !ent.castTimer && !ent.attack) ent.state = 'IDLE';
             if (ent.recoveryPending && !ent.hitStunTimer && ent.state !== 'DEAD') {
                 ent.recoveryPending = false;
                 ent.recoveryTimer = 1.15;
@@ -515,7 +545,7 @@ const Engine = {
     _controlPlayer(player, enemy, dt) {
         if (player.state === 'DEAD' || player.hitStunTimer > 0 || player.castTimer > 0) return;
         if (player.attack) {
-            if (this._inputBuffer.attack && player.attack.kind === 'light' && player.combo < 3) {
+            if (this._inputBuffer.attack && player.attack.kind === 'light' && !player.attack.projectile && player.combo < 3) {
                 player.queuedCombo = true;
                 delete this._inputBuffer.attack;
             }
@@ -589,19 +619,20 @@ const Engine = {
 
     _startAttack(ent, kind, chained = false) {
         if (ent.state === 'DEAD' || ent.hitStunTimer > 0) return;
-        const combo = kind === 'light' ? (chained ? ent.combo + 1 : (ent.comboWindow > 0 && ent.combo < 3 ? ent.combo + 1 : 1)) : 0;
+        const projectile = ent.isPlayer ? this.combatAbilities().weapon : null;
+        const combo = kind === 'light' && !projectile ? (chained ? ent.combo + 1 : (ent.comboWindow > 0 && ent.combo < 3 ? ent.combo + 1 : 1)) : 0;
         ent.combo = combo;
         const heavy = kind === 'heavy';
         ent.attack = {
-            kind, elapsed: 0, startup: ent.isPlayer ? (heavy ? 0.23 : 0.075) : (heavy ? ent.difficulty.heavyWindup : ent.difficulty.lightWindup),
-            active: heavy ? 0.14 : 0.1, recovery: heavy ? 0.36 : 0.19,
+            kind, projectile, elapsed: 0, startup: projectile ? (heavy ? 0.45 : 0.2) : ent.isPlayer ? (heavy ? 0.23 : 0.075) : (heavy ? ent.difficulty.heavyWindup : ent.difficulty.lightWindup),
+            active: heavy ? 0.14 : 0.1, recovery: projectile ? (heavy ? 0.5 : 0.35) : heavy ? 0.36 : 0.19,
             range: heavy ? 91 : (combo === 3 ? 84 : 76),
             multiplier: heavy ? 1.85 : [1, 1, 1.15, 1.4][combo || 1],
             knockback: heavy ? 330 : (combo === 3 ? 220 : 100),
             phase: 'startup', hit: false
         };
         ent.queuedCombo = false;
-        ent.state = heavy ? 'HEAVY_ATTACK' : 'ATTACKING';
+        ent.state = projectile === 'magic' ? 'CASTING' : projectile === 'arrow' ? 'SHOOTING' : heavy ? 'HEAVY_ATTACK' : 'ATTACKING';
         ent.vx *= ent.grounded ? 0.2 : 0.8;
     },
 
@@ -611,11 +642,19 @@ const Engine = {
         attack.elapsed += dt;
         if (attack.elapsed < attack.startup) attack.phase = 'startup';
         else if (attack.elapsed < attack.startup + attack.active) {
-            if (attack.phase === 'startup') {
+            if (attack.phase === 'startup' && !attack.projectile) {
                 ent.vx += (ent.facing === 'right' ? 1 : -1) * (attack.kind === 'heavy' ? 140 : 90);
             }
             attack.phase = 'active';
-            if (!attack.hit) this._executeMeleeHit(ent);
+            if (!attack.hit) {
+                if (attack.projectile) {
+                    attack.hit = true;
+                    this._spawnProjectile(ent, attack.projectile, {
+                        warmup: 0, damage: Math.round((13 + (GameState.avatar.level || 1) * 2) * attack.multiplier),
+                        knockback: attack.knockback, heavy: attack.kind === 'heavy'
+                    });
+                } else this._executeMeleeHit(ent);
+            }
         } else attack.phase = 'recovery';
         if (attack.elapsed >= attack.startup + attack.active + attack.recovery) {
             ent.attack = null;
@@ -687,16 +726,13 @@ const Engine = {
     },
 
     _castSpell(player, requested) {
-        if (player.magicCooldown > 0) return;
-        const spells = (GameState.avatar.equippedSpell || '').split(',');
         const battle = GameState.currentBattle;
-        let type = requested;
-        if (type === 'magic') {
-            type = spells.includes('spell_fire') && !battle.fireUses ? 'fire' : spells.includes('spell_heal') && !battle.healUses ? 'heal' : 'magic';
-            if (type === 'magic' && spells.some(id => ['spell_heal', 'spell_fire'].includes(id))) return;
-        }
+        if (!battle || battle.isFinished || battle.knockout || player.state === 'DEAD' || player.attack || player.hitStunTimer > 0 || player.castTimer > 0 || player.magicCooldown > 0) return;
+        const abilities = this.combatAbilities();
+        const type = requested;
+        if (!['magic', 'fire', 'heal'].includes(type) || !abilities[type]) return;
         if (type === 'heal') {
-            if (!spells.includes('spell_heal') || battle.healUses >= 1) return;
+            if (battle.healUses >= 1 || battle.playerHp >= battle.playerMaxHp) return;
             battle.healUses++;
             const restored = Math.min(battle.playerMaxHp - battle.playerHp, Math.floor(battle.playerMaxHp * 0.35));
             battle.playerHp += restored;
@@ -705,9 +741,9 @@ const Engine = {
             this._updateHpBars();
         } else {
             if (type === 'fire') {
-                if (!spells.includes('spell_fire') || battle.fireUses >= 1) return;
+                if (battle.fireUses >= 1) return;
                 battle.fireUses++;
-            } else if (GameState.avatar.level < 2) return;
+            }
             this._spawnProjectile(player, type);
         }
         player.state = 'CASTING';
@@ -716,13 +752,14 @@ const Engine = {
         player.vx *= 0.25;
     },
 
-    _spawnProjectile(source, type) {
+    _spawnProjectile(source, type, options = {}) {
         const direction = source.facing === 'right' ? 1 : -1;
-        this._spellBurst(type, source.x + direction * 43, source.y - 56, true, direction);
+        if (type !== 'arrow') this._spellBurst(type, source.x + direction * 43, source.y - 56, true, direction);
         this._rtProjectiles.push({
             sourceId: source.id, x: source.x + direction * 43, y: source.y - 56,
-            vx: direction * 380, radius: 15, type, life: 2.5, warmup: 0.1, trailTimer: 0, dom: null,
-            damage: Math.max(6, (GameState.avatar.level || 1) * 3) * (type === 'fire' ? 2 : 1)
+            vx: direction * (type === 'arrow' ? 560 : 380), radius: type === 'arrow' ? 7 : 15, type, life: 2.5, warmup: 0.1, trailTimer: 0, dom: null,
+            damage: Math.max(6, (GameState.avatar.level || 1) * 3) * (type === 'fire' ? 2 : 1),
+            knockback: 175, heavy: false, ...options
         });
     },
 
@@ -742,14 +779,15 @@ const Engine = {
             projectile.trailTimer -= dt;
             if (projectile.trailTimer <= 0) {
                 projectile.trailTimer = 0.055;
-                if (!this._prefersReducedMotion()) {
+                if (projectile.type !== 'arrow' && !this._prefersReducedMotion()) {
                     this._effect(`trail-${projectile.type}`, projectile.x - Math.sign(projectile.vx) * 15, projectile.y, '', { direction: Math.sign(projectile.vx), life: 0.32 });
                 }
             }
             const target = this._rtEntities.find(ent => ent.id !== projectile.sourceId);
             if (target && target.state !== 'DEAD' && Math.abs(projectile.x - target.x) < target.width / 2 + projectile.radius && projectile.y >= target.y - target.height && projectile.y <= target.y) {
-                this.applyDamage(target.id, projectile.sourceId, projectile.damage, { knockback: 175, direction: Math.sign(projectile.vx) });
-                this._spellBurst(projectile.type, projectile.x, projectile.y, false, Math.sign(projectile.vx));
+                this.applyDamage(target.id, projectile.sourceId, projectile.damage, { knockback: projectile.knockback, heavy: projectile.heavy, direction: Math.sign(projectile.vx) });
+                if (projectile.type === 'arrow') this._effect('hit', projectile.x, projectile.y, '✦');
+                else this._spellBurst(projectile.type, projectile.x, projectile.y, false, Math.sign(projectile.vx));
                 projectile.life = 0;
             }
             const alive = projectile.life > 0 && projectile.x > -30 && projectile.x < this._combat.width + 30;
@@ -905,6 +943,16 @@ const Engine = {
         for (const projectile of this._rtProjectiles) {
             this._renderProjectile(projectile, arena);
         }
+        for (const action of ['fire', 'heal']) {
+            const button = document.querySelector(`.rt-btn[data-action="${action}"]`);
+            if (button && GameState.currentBattle[`${action}Uses`] >= 1 && !button.disabled) {
+                button.disabled = true;
+                this._rtInputs[action] = false;
+                const used = typeof I18N !== 'undefined' && I18N.current === 'en' ? 'USED' : 'USADO';
+                button.querySelector('.rt-btn-label').textContent = used;
+                button.setAttribute('aria-label', `${button.getAttribute('aria-label')} · ${used}`);
+            }
+        }
     },
 
     _renderProjectile(projectile, arena) {
@@ -913,7 +961,9 @@ const Engine = {
             projectile.dom = document.createElement('div');
             projectile.dom.className = `combat-projectile combat-projectile-${projectile.type}`;
             projectile.dom.setAttribute('aria-hidden', 'true');
-            projectile.dom.innerHTML = '<span class="combat-orb"><i class="orb-aura"></i><i class="orb-tail orb-tail-outer"></i><i class="orb-tail orb-tail-inner"></i><i class="orb-ring"></i><i class="orb-core"></i><i class="orb-spark"></i></span>';
+            projectile.dom.innerHTML = projectile.type === 'arrow'
+                ? '<span class="combat-arrow"><i class="arrow-shaft"></i><i class="arrow-head"></i><i class="arrow-feathers"></i></span>'
+                : '<span class="combat-orb"><i class="orb-aura"></i><i class="orb-tail orb-tail-outer"></i><i class="orb-tail orb-tail-inner"></i><i class="orb-ring"></i><i class="orb-core"></i><i class="orb-spark"></i></span>';
             arena.appendChild(projectile.dom);
         }
         // Only this outer element positions the shot. Child transforms animate its art.

@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+﻿const { test, expect } = require('@playwright/test');
 
 // The full UI runs with a test account and in-memory backend. Never writes to Supabase.
 async function boot(page, migrated = false) {
@@ -28,7 +28,7 @@ async function boot(page, migrated = false) {
         GameState.user = { id: 'browser-test-user', user_metadata: {} };
         GameState.avatarId = 'browser-avatar';
         Object.assign(GameState.avatar, { name: 'Aria', avatarClass: 'knight', level: 5, hp: 90, maxHp: 100, currentXP: 65, xpToLevel: 150, gold, isDead: false, equippedWeapon: 'wpn_sword', equippedShield: 'wpn_shield', equippedSpell: 'spell_fire,spell_heal', lastPenaltyCheck: new Date().toISOString() });
-        GameState.inventory = [{ id: 'wpn_sword', name: 'Espada', type: 'weapon', icon: '⚔️' }, { id: 'wpn_shield', name: 'Escudo', type: 'shield', icon: '🛡️' }];
+        GameState.inventory = [{ id: 'wpn_sword', name: 'Espada', type: 'weapon', icon: '⚔️' }, { id: 'wpn_shield', name: 'Escudo', type: 'shield', icon: '🛡️' }, { id: 'spell_fire', name: 'Bola de Fuego', type: 'spell', icon: '🔥' }, { id: 'spell_heal', name: 'Curación', type: 'spell', icon: '♥' }];
         GameState.shopItems = [{ id: 'pet_trex', name: 'Mini T-Rex', type: 'pet', icon: '🦖', description: 'Tu compañero de aventuras', cost: 50 }];
         GameState.habits = [{ id: 'water', title: 'Beber 2 litros de agua', type: 'positive', frequency: 'daily', xpReward: 20, goldReward: 10, completedAt: null }, { id: 'walk', title: 'Caminar durante 30 minutos', type: 'positive', frequency: 'daily', xpReward: 25, goldReward: 12, completedAt: null }];
         await Wardrobe.hydrate({ appearance: { body: 'female', hairStyle: 'ponytail', hairColor: '#684333', skin: '#dca078', outfitColor: '#29adff' } });

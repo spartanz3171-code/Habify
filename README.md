@@ -2,6 +2,13 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
 
+## Actualización 3.8.1
+
+- La magia propia del mago es independiente de fuego y curación. Los hechizos comprados requieren estar en el inventario y equipados; al quitarlos dejan de aparecer y de responder al teclado. Fuego y curación conservan un uso por pelea y muestran **USADO**.
+- El bastón dispara energía arcana y el arco lanza flechas con el ataque principal. El ataque fuerte carga un disparo más potente. Las espadas conservan sus golpes y combos.
+- El fondo elegido vuelve a cubrir la tarjeta completa del personaje, con un panel translúcido detrás de oro, nivel y vida. Todos los hábitos tienen contorno verde, incluidos activos y completados.
+- Caché actualizada a 3.8.1 para navegador y PWA. Sin migraciones SQL.
+
 ## Actualización 3.8.0
 
 - La pelea bloquea el desplazamiento de la página. Barra de herramientas, vida, escenario y controles ocupan filas independientes; los cambios de tamaño del navegador no siguen los desplazamientos tardíos de Safari. El tamaño de los luchadores se adapta al espacio restante.
@@ -95,11 +102,12 @@ Combate local en tiempo real con aceleración, saltos, colisiones, combos de has
 | --- | --- |
 | Moverse | A / D o ← / → |
 | Saltar | W o ↑ |
-| Golpe / combo | Z o espacio; pulsa de nuevo para encadenar |
-| Golpe fuerte | V |
+| Golpe / combo, rayo de bastón o flecha | Z o espacio; pulsa de nuevo para encadenar golpes cuerpo a cuerpo |
+| Golpe fuerte o disparo cargado | V |
 | Defender | Mantener C |
-| Magia equipada | X |
-| Curar, con hechizo equipado | H |
+| Fuego equipado; si no, magia del mago | X |
+| Magia propia del mago | F |
+| Curación equipada | H |
 
 También hay botones táctiles, que permiten mover y atacar al mismo tiempo. Al cambiar de sección o perder el foco se pausa el combate y se liberan los controles. Volver a la arena lo reanuda.
 

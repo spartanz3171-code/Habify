@@ -8,6 +8,7 @@ async function boot(page, viewport = { width: 390, height: 720 }, liveEnemy = fa
     await expect(page.locator('#auth-form')).toBeVisible();
     await page.evaluate(liveEnemy => {
         GameState.user = { id: 'mobile-test' }; GameState.avatarId = 'mobile-test';
+        GameState.inventory = [{ id: 'spell_fire', name: 'Bola de Fuego', icon: '🔥', type: 'spell' }, { id: 'spell_heal', name: 'Curación Menor', icon: '♥', type: 'spell' }];
         Object.assign(GameState.avatar, { name: 'Diegox', avatarClass: 'mage', level: 5, hp: 90, maxHp: 100, isDead: false, equippedSpell: 'spell_fire,spell_heal', equippedBackground: 'bg_japan' });
         saveAvatarToDB = async () => {}; addBattleLogToDB = async () => {};
         if (!liveEnemy) Engine._controlEnemy = () => {};
@@ -226,8 +227,12 @@ test('all dashboard backgrounds contain the hero and pet above a shared floor', 
             expect(bounds.pet.right).toBeLessThanOrEqual(bounds.scene.right);
             expect(bounds.pet.top).toBeGreaterThanOrEqual(bounds.scene.top);
             if (width <= 560) expect(bounds.scene.bottom).toBeLessThanOrEqual(bounds.info.top + 1);
-            if (background) expect(bounds.background).toContain(background + '.png');
-            expect(bounds.cardBackground).not.toContain('bg_');
+            if (background) {
+                expect(bounds.cardBackground).toContain(background + '.png');
+                expect(bounds.background).toBe('none');
+                const panel = await page.locator('.hero-profile-info').evaluate(el => getComputedStyle(el).backgroundColor);
+                expect(panel).toBe('rgba(17, 18, 39, 0.72)');
+            } else expect(bounds.cardBackground).not.toContain('bg_');
         }
     }
     await page.setViewportSize({ width: 390, height: 844 });

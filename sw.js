@@ -2,7 +2,7 @@
 // HABIFY - Service Worker for PWA Offline Support
 // ==========================================
 
-const CACHE_NAME = 'habify-v3.8.0';
+const CACHE_NAME = 'habify-v3.8.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -10,28 +10,28 @@ const ASSETS_TO_CACHE = [
     './assets/icons/icon-192.png',
     './assets/icons/icon-512.png',
     './assets/icons/apple-touch-icon.png',
-    './js/feedback.js?v=3.8.0',
-    './js/battle-screen.js?v=3.8.0',
-    './css/battle-screen.css?v=3.8.0',
+    './js/feedback.js?v=3.8.1',
+    './js/battle-screen.js?v=3.8.1',
+    './css/battle-screen.css?v=3.8.1',
     './assets/backgrounds/arena_ruins.svg',
-    './css/style.css?v=3.8.0',
-    './css/sprites.css?v=3.8.0',
-    './css/characters.css?v=3.8.0',
-    './css/pets.css?v=3.8.0',
-    './css/combat.css?v=3.8.0',
-    './css/polish.css?v=3.8.0',
-    './js/i18n.js?v=3.8.0',
-    './js/characters.js?v=3.8.0',
-    './js/pets.js?v=3.8.0',
-    './js/data.js?v=3.8.0',
-    './js/wardrobe.js?v=3.8.0',
-    './js/habits.js?v=3.8.0',
-    './js/recovery.js?v=3.8.0',
-    './js/engine.js?v=3.8.0',
-    './js/views.js?v=3.8.0',
-    './js/atelier.js?v=3.8.0',
-    './js/app.js?v=3.8.0',
-    './js/supabase.min.js?v=3.8.0'
+    './css/style.css?v=3.8.1',
+    './css/sprites.css?v=3.8.1',
+    './css/characters.css?v=3.8.1',
+    './css/pets.css?v=3.8.1',
+    './css/combat.css?v=3.8.1',
+    './css/polish.css?v=3.8.1',
+    './js/i18n.js?v=3.8.1',
+    './js/characters.js?v=3.8.1',
+    './js/pets.js?v=3.8.1',
+    './js/data.js?v=3.8.1',
+    './js/wardrobe.js?v=3.8.1',
+    './js/habits.js?v=3.8.1',
+    './js/recovery.js?v=3.8.1',
+    './js/engine.js?v=3.8.1',
+    './js/views.js?v=3.8.1',
+    './js/atelier.js?v=3.8.1',
+    './js/app.js?v=3.8.1',
+    './js/supabase.min.js?v=3.8.1'
 ];
 
 // Install Event - Caching App Shell

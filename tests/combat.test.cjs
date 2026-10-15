@@ -11,6 +11,7 @@ function setup() {
     let frame = 0;
     const state = {
         avatar: { level: 1, hp: 80, maxHp: 100, currentXP: 0, xpToLevel: 1000, gold: 0 },
+        inventory: [{ id: 'spell_fire', type: 'spell' }, { id: 'spell_heal', type: 'spell' }],
         battleLog: [], currentBattle: null
     };
     const context = vm.createContext({
@@ -216,6 +217,125 @@ test('unequipped and spent spells cannot be cast; equipped healing works once', 
     engine._castSpell(player, 'heal');
     assert.equal(state.currentBattle.playerHp, 58);
 });
+
+test('equipping and removing fire preserves mage magic without consuming the fire spell', async () => {
+    const { engine, state, player, advance, context } = setup();
+    state.avatar.avatarClass = 'mage';
+    const saved = [];
+    context.saveAvatarToDB = async () => saved.push(state.avatar.equippedSpell);
+    await engine.equipItem('spell_fire');
+    assert.equal(engine.combatKeyAction('KeyX'), 'fire');
+    assert.equal(engine.combatKeyAction('KeyF'), 'magic');
+    engine._castSpell(player, 'magic');
+    assert.equal(engine._rtProjectiles[0].type, 'magic');
+    assert.equal(state.currentBattle.fireUses, 0);
+    advance(1.3);
+    engine._castSpell(player, 'fire');
+    assert.equal(state.currentBattle.fireUses, 1);
+    assert.ok(engine._rtProjectiles.some(p => p.type === 'fire'));
+    advance(1.3);
+    await engine.equipItem('spell_fire');
+    engine._rtProjectiles = [];
+    engine._castSpell(player, 'fire');
+    assert.equal(engine._rtProjectiles.length, 0);
+    assert.equal(engine.combatKeyAction('KeyX'), 'magic');
+    engine._castSpell(player, 'magic');
+    assert.equal(engine._rtProjectiles[0].type, 'magic');
+    assert.deepEqual(saved, ['spell_fire', null]);
+});
+
+test('non-mages cannot cast innate magic and stale unowned spells cannot be used', () => {
+    const { engine, state, player } = setup();
+    state.avatar.level = 20;
+    state.avatar.avatarClass = 'knight';
+    state.avatar.equippedSpell = 'spell_fire,spell_heal';
+    state.inventory = [];
+    for (const action of ['magic', 'fire', 'heal', 'unknown']) engine._castSpell(player, action);
+    assert.equal(engine._rtProjectiles.length, 0);
+    assert.equal(state.currentBattle.fireUses, 0);
+    assert.equal(state.currentBattle.healUses, 0);
+    assert.equal(engine.combatKeyAction('KeyX'), null);
+});
+
+test('failed equipment save restores the previous spell selection', async () => {
+    for (const rejects of [false, true]) {
+        const { engine, state, context } = setup();
+        state.avatar.equippedSpell = 'spell_fire';
+        context.saveAvatarToDB = async () => {
+            if (rejects) throw new Error('offline');
+            return { error: new Error('save rejected') };
+        };
+        await assert.rejects(engine.equipItem('spell_fire'));
+        assert.equal(state.avatar.equippedSpell, 'spell_fire');
+    }
+});
+
+test('fire and healing stay independent, cannot be reused by re-equipping, and reset next battle', async () => {
+    const { engine, state, player, advance } = setup();
+    state.avatar.equippedSpell = 'spell_fire,spell_heal';
+    engine._castSpell(player, 'heal');
+    assert.equal(state.currentBattle.healUses, 0, 'full health should not waste healing');
+    state.currentBattle.playerHp = 20;
+    engine._castSpell(player, 'heal');
+    advance(1.3);
+    engine._castSpell(player, 'fire');
+    advance(1.3);
+    await engine.equipItem('spell_fire');
+    await engine.equipItem('spell_fire');
+    engine._rtProjectiles = [];
+    engine._castSpell(player, 'fire');
+    assert.equal(engine._rtProjectiles.length, 0);
+    state.currentBattle.isFinished = true;
+    engine.startPvEBattle({ hp: 400, maxHp: 400, attack: 16 });
+    engine._castSpell(engine._rtEntities[0], 'fire');
+    assert.equal(engine._rtProjectiles.length, 1);
+    assert.equal(state.currentBattle.healUses, 0);
+});
+
+for (const [weapon, projectile] of [['wpn_staff', 'magic'], ['wpn_bow', 'arrow']]) {
+    test(`${weapon} shoots in both directions, damages at range once and supports charged shots`, () => {
+        for (const direction of [-1, 1]) {
+            const normal = setup(), charged = setup();
+            for (const [scene, action] of [[normal, 'attack'], [charged, 'heavy']]) {
+                const { engine, state, player, enemy, press, advance } = scene;
+                state.avatar.equippedWeapon = weapon;
+                player.x = 300; enemy.x = player.x + direction * 210;
+                press(action);
+                advance(.16);
+                assert.equal(engine._rtProjectiles.length, 0, 'windup cannot damage');
+                assert.equal(state.currentBattle.oppHp, 400);
+                advance(action === 'heavy' ? .33 : .08);
+                const shot = engine._rtProjectiles[0];
+                assert.equal(shot.type, projectile);
+                assert.equal(Math.sign(shot.vx), direction);
+                assert.equal(state.currentBattle.fireUses, 0);
+                assert.equal(player.magicCooldown, 0);
+                advance(1);
+                assert.equal(state.currentBattle.oppHp, 400 - shot.damage, 'one projectile, one hit');
+                assert.equal(engine._rtProjectiles.length, 0);
+            }
+            assert.ok(charged.state.currentBattle.oppHp < normal.state.currentBattle.oppHp);
+        }
+    });
+
+    test(`${weapon} can be interrupted during windup and removing it restores melee`, () => {
+        const { engine, state, player, enemy, press, advance } = setup();
+        state.avatar.equippedWeapon = weapon;
+        press('attack'); advance(.1);
+        engine.applyDamage('player', 'enemy', 5, { direction: -1 });
+        advance(.7);
+        assert.equal(engine._rtProjectiles.length, 0);
+        assert.equal(state.currentBattle.oppHp, 400);
+        state.avatar.equippedWeapon = null;
+        player.x = 150; enemy.x = 360;
+        press('attack'); advance(.4);
+        assert.equal(state.currentBattle.oppHp, 400, 'melee cannot reach a distant enemy');
+        enemy.x = player.x + 60;
+        press('attack'); advance(.2);
+        assert.ok(state.currentBattle.oppHp < 400);
+        assert.equal(engine._rtProjectiles.length, 0);
+    });
+}
 
 test('stopping releases held actions, cancels the frame and invalidates old callbacks', () => {
     const { engine, callbacks, player } = setup();

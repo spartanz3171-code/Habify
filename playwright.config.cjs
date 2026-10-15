@@ -8,7 +8,7 @@ module.exports = defineConfig({
     projects: [
         { name: 'desktop', use: { channel: 'chrome', viewport: { width: 1280, height: 900 } } },
         { name: 'mobile', use: { ...devices['Pixel 7'], channel: 'chrome', defaultBrowserType: 'chromium' } },
-        { name: 'webkit-mobile', testMatch: /mobile-arena\.spec\.cjs/, use: { ...devices['iPhone 13'], browserName: 'webkit' } }
+        { name: 'webkit-mobile', testMatch: /(?:mobile-arena|equipment)\.spec\.cjs/, use: { ...devices['iPhone 13'], browserName: 'webkit' } }
     ],
     webServer: { command: 'npm run dev', url: 'http://127.0.0.1:4173', reuseExistingServer: !process.env.CI }
 });

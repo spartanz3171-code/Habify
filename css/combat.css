@@ -167,6 +167,11 @@
 }
 
 .combat-orb { position: absolute; inset: 0; transform: scaleX(var(--projectile-direction, 1)); }
+.combat-arrow { position: absolute; inset: 0; transform: scaleX(var(--projectile-direction, 1)); filter: drop-shadow(0 2px 2px #09101c); }
+.combat-arrow i { position: absolute; display: block; }
+.arrow-shaft { top: 13px; left: -16px; width: 44px; height: 4px; background: linear-gradient(#ffe0a0 50%, #a86b35 50%); }
+.arrow-head { top: 8px; left: 23px; width: 15px; height: 14px; background: #dceef5; clip-path: polygon(0 0, 100% 50%, 0 100%, 22% 50%); }
+.arrow-feathers { top: 9px; left: -18px; width: 15px; height: 12px; background: #7ddfa6; clip-path: polygon(0 0, 70% 0, 100% 50%, 70% 100%, 0 100%, 25% 50%); }
 .combat-orb i { position: absolute; display: block; }
 .orb-aura { inset: -18px; border-radius: 50%; background: radial-gradient(circle, var(--spell-color), transparent 68%); opacity: .5; }
 .orb-core { inset: 2px; border-radius: 45% 55% 50% 40%; background: radial-gradient(circle at 65% 40%, #fff 0 9%, var(--spell-light) 18% 32%, var(--spell-color) 42% 58%, var(--spell-deep) 70%); box-shadow: 0 0 8px var(--spell-color), inset -3px -3px 0 #75244933; animation: orb-flicker .18s steps(2) infinite; }

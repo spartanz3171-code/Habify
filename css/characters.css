@@ -118,6 +118,10 @@
 .character-art[data-state="CASTING"] .char-upper-body { animation: character-cast .6s steps(4, end) infinite; }
 .character-art[data-state="CASTING"] .char-cast-fx { animation: character-magic .45s steps(3, end) infinite; }
 .character-art[data-state="CASTING"] .char-cape { transform: rotate(17deg); }
+.character-art[data-state="SHOOTING"] .char-arm-front { transform: rotate(-20deg) translate(9px, -10px); transition: transform 90ms ease-out; }
+.character-art[data-state="SHOOTING"] .char-arm-back { transform: rotate(-55deg) translate(-5px, -3px); transition: transform 90ms ease-out; }
+.character-art[data-state="SHOOTING"][data-phase="active"] .char-arm-back { transform: rotate(-25deg) translate(7px, -4px); }
+.character-art[data-state="SHOOTING"] .char-upper-body { transform: rotate(-5deg); }
 .character-art[data-state="HIT_STUN"] .char-body { transform: rotate(-12deg) translate(-4px, 0); animation: character-hit .18s steps(2, end) infinite; }
 .character-art[data-state="HIT_STUN"] .char-head { transform: rotate(-9deg); }
 .character-art[data-state="HIT_STUN"] .char-arm-front { transform: rotate(23deg); }

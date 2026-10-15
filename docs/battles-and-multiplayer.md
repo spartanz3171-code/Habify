@@ -1,5 +1,11 @@
 # Arena horizontal y próximos pasos de multijugador
 
+## Armas y magia en 3.8.1
+
+El ataque principal (**Z** o el botón **RAYO/FLECHA**) dispara energía arcana con `wpn_staff` y flechas con `wpn_bow`. **V / CARGA** prepara un disparo más potente; recibir un golpe durante la preparación lo interrumpe. Cada proyectil causa daño una sola vez, respeta la defensa y viaja en la dirección del rival. Sin estas armas, Z y V conservan los ataques cuerpo a cuerpo.
+
+El mago tiene magia propia reutilizable, con espera entre lanzamientos. **X** lanza fuego cuando está equipado y magia propia cuando no lo está; **F** siempre corresponde a la magia del mago. **H** usa curación. Fuego y curación requieren poseer y equipar el hechizo, se usan una vez por pelea y muestran **USADO** al agotarse. Equiparlos de nuevo no repone el uso dentro de esa pelea. La curación no se gasta cuando la vida está completa. Equipar un hechizo no reemplaza la magia del mago y quitarlo retira su botón y su acceso por teclado.
+
 ## Estabilidad y dificultad en 3.8.0
 
 La raíz de la página se fija durante el combate; los arrastres táctiles sobre la pelea no desplazan el documento. El aviso de pausa conserva su desplazamiento accesible. La pantalla usa el ancho y alto visibles, sin sumar `visualViewport.offsetTop/offsetLeft`: esas coordenadas no deben desplazar otra vez un contenedor fijo. Herramientas, vida, escenario y botones ocupan cuatro filas. Sólo el escenario recibe la sacudida de un impacto fuerte. Al salir se libera el bloqueo del documento.

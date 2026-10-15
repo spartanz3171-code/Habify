@@ -491,8 +491,17 @@ html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
 .hero-profile-art:has(.companion-sprite) > .character-art { left: 43%; }
 /* Keep the header below the iPhone status bar in standalone mode. */
 .app-header { padding-top: calc(12px + env(safe-area-inset-top)); padding-left: max(12px, env(safe-area-inset-left), calc((100vw - 1040px) / 2)); padding-right: max(12px, env(safe-area-inset-right), calc((100vw - 1040px) / 2)); }
-.hero-profile-art.bg_space { background-image: url('../assets/backgrounds/bg_space.png'); }
-.hero-profile-art.bg_forest { background-image: url('../assets/backgrounds/bg_forest.png'); }
-.hero-profile-art.bg_tokyo { background-image: url('../assets/backgrounds/bg_tokyo.png'); }
-.hero-profile-art.bg_paris { background-image: url('../assets/backgrounds/bg_paris.png'); }
-.hero-profile-art.bg_japan { background-image: url('../assets/backgrounds/bg_japan.png'); }
+.avatar-section { background-size: cover; background-position: center; }
+.avatar-section.bg_space { background-image: url('../assets/backgrounds/bg_space.png'); }
+.avatar-section.bg_forest { background-image: url('../assets/backgrounds/bg_forest.png'); }
+.avatar-section.bg_tokyo { background-image: url('../assets/backgrounds/bg_tokyo.png'); }
+.avatar-section.bg_paris { background-image: url('../assets/backgrounds/bg_paris.png'); }
+.avatar-section.bg_japan { background-image: url('../assets/backgrounds/bg_japan.png'); }
+.avatar-section[class*="bg_"] .hero-profile-art { background: transparent; }
+.avatar-section[class*="bg_"] .hero-profile-info { background: rgba(17, 18, 39, .72); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.avatar-section[class*="bg_"] :is(.avatar-level, .stat-label, .progress-label, .progress-value) { color: #e2dfed; text-shadow: 0 1px 3px #080b19; }
+/* Keep the same full green outline on active, completed and catalog habits. */
+.habit-list .habit-item, .habit-list .habit-item.on-cooldown, .habit-list .habit-progress-card,
+.catalog-grid .catalog-card, .catalog-grid .catalog-card.negative,
+.catalog-grid .catalog-card.active-in-habits { border: 1px solid var(--pixel-green); }
+.habit-list .habit-item { opacity: 1; }

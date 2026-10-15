@@ -151,8 +151,8 @@ const Views = {
 
         let html = `
             <section class="page-heading"><div><span class="eyebrow">${I18N.current === 'en' ? 'EVERY HABIT COUNTS' : 'CADA HÁBITO CUENTA'}</span><h1>${I18N.current === 'en' ? 'Your adventure' : 'Tu aventura'}</h1><p>${I18N.current === 'en' ? 'Small steps. A stronger hero.' : 'Pequeños pasos. Un personaje más fuerte.'}</p></div><button class="btn btn-secondary" onclick="App.navigate('character')">${I18N.current === 'en' ? 'CUSTOMIZE' : 'PERSONALIZAR'} ↗</button></section>
-            <div class="avatar-section">
-                <div class="hero-profile-art ${bgClass}"><span class="scene-star star-one">✦</span><span class="scene-star star-two">✦</span><div class="hero-plinth"></div>${CharacterArt.render(a, { state: a.isDead ? 'DEAD' : 'IDLE' })}${petHtml}</div>
+            <div class="avatar-section ${bgClass}">
+                <div class="hero-profile-art"><span class="scene-star star-one">✦</span><span class="scene-star star-two">✦</span><div class="hero-plinth"></div>${CharacterArt.render(a, { state: a.isDead ? 'DEAD' : 'IDLE' })}${petHtml}</div>
                 <div class="hero-profile-info">
                 <span class="eyebrow">${I18N.current === 'en' ? 'YOUR HERO' : 'TU PERSONAJE'}</span>
                 <div class="avatar-name">${this.escape(a.name)}</div>
@@ -532,10 +532,10 @@ const Views = {
                     (GameState.avatar.equippedSpell && GameState.avatar.equippedSpell.split(',').includes(item.id));
 
                 html += `
-                    <button type="button" ${App.shopBusy || Atelier.busy ? 'disabled' : ''} class="inventory-item ${isEquipped ? 'equipped' : ''}" onclick="App.equipItem('${item.id}')">
+                    <button type="button" ${App.shopBusy || Atelier.busy ? 'disabled' : ''} class="inventory-item ${isEquipped ? 'equipped' : ''}" aria-pressed="${!!isEquipped}" onclick="App.equipItem('${item.id}')">
                         <span class="inventory-item-icon ${PetArt.supports(item.id) ? 'inventory-pet-art' : ''}">${PetArt.supports(item.id) ? PetArt.render(item.id) : this.escape(item.icon)}</span>
                         <span>${item.name}</span>
-                        ${isEquipped ? '<span style="color: var(--pixel-green);">*</span>' : ''}
+                        <small>${isEquipped ? t('✓ Equipado · Quitar', '✓ Equipped · Remove') : t('Equipar', 'Equip')}</small>
                     </button>
                 `;
             });
@@ -553,6 +553,9 @@ const Views = {
         const t = (es, en) => I18N.current === 'en' ? en : es;
         const b = GameState.currentBattle;
         const fighting = b && !b.isFinished;
+        const abilities = Engine.combatAbilities();
+        const ranged = abilities.weapon;
+        const attackLabel = ranged === 'arrow' ? t('FLECHA', 'ARROW') : ranged === 'magic' ? t('RAYO', 'BOLT') : t('GOLPE', 'HIT');
         if (!GameState._currentOpponent || (!fighting && GameState._currentOpponent.level < a.level)) GameState._currentOpponent = Engine.generateOpponent();
         const opp = fighting ? b.opponent : GameState._currentOpponent;
         const background = /^bg_[a-z]+$/.test(a.equippedBackground || '') ? a.equippedBackground : '';
@@ -566,7 +569,11 @@ const Views = {
             fire: '<path d="M13 2c2 6-4 7-3 11 2 0 4-2 5-4 7 8 2 13-3 13S2 17 5 12c0 3 2 3 2 3-2-7 6-8 6-13Z"/>',
             magic: '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>'
         };
-        const control = (action, icon, label, key, style = '') => `<button type="button" class="rt-btn ${style}" data-action="${action}" aria-label="${label}" title="${label} (${key})"><span class="rt-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icons[action] || icon}</svg></span><span class="rt-btn-label">${label}</span><kbd>${key}</kbd></button>`;
+        if (ranged) icons.attack = ranged === 'magic' ? icons.magic : '<path d="M5 3c16 3 16 15 0 18L12 12 5 3m-3 9h20m-4-4 4 4-4 4"/>';
+        const control = (action, icon, label, key, style = '') => {
+            const spent = (action === 'fire' && b?.fireUses >= 1) || (action === 'heal' && b?.healUses >= 1);
+            return `<button type="button" class="rt-btn ${style}" data-action="${action}" ${spent ? 'disabled' : ''} aria-label="${label}${spent ? t(' · Usado', ' · Used') : ''}" title="${label} (${key})"><span class="rt-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icons[action] || icon}</svg></span><span class="rt-btn-label">${spent ? t('USADO', 'USED') : label}</span><kbd>${key}</kbd></button>`;
+        };
         let html = `<section class="page-heading"><div><span class="eyebrow">${t('PON A PRUEBA TU PROGRESO', 'PUT YOUR PROGRESS TO THE TEST')}</span><h1>${t('Arena de combate', 'Battle arena')}</h1><p>${t('Muévete, salta y encuentra el momento de atacar.', 'Move, jump and find your opening.')}</p></div><span class="arena-mode">PvE</span></section>`;
         if (fighting) {
             html += `<section class="battle-session" id="battle-gameplay" aria-label="${t('Arena', 'Arena')}">
@@ -574,8 +581,8 @@ const Views = {
             html += `<div class="battle-hud"><div class="hud-unit player"><div class="hud-label">${this.escape(a.name)} <span>LV ${a.level}</span></div><div class="hud-bar-container"><div id="rt-p-hp-fill" class="hud-bar-fill hp" style="width:${b.playerHp / b.playerMaxHp * 100}%"></div><div id="rt-p-hp-text" class="hud-bar-text">${b.playerHp}/${b.playerMaxHp}</div></div></div><span class="hud-vs-badge">VS</span><div class="hud-unit enemy"><div class="hud-label">${this.escape(opp.name)} <span>LV ${opp.level}</span></div><div class="hud-bar-container"><div id="rt-e-hp-fill" class="hud-bar-fill enemy-hp" style="width:${b.oppHp / b.oppMaxHp * 100}%"></div><div id="rt-e-hp-text" class="hud-bar-text">${b.oppHp}/${b.oppMaxHp}</div></div></div></div>
                 <div id="real-time-arena" class="arena-stage ${background}" role="region" aria-label="${t('Combate en tiempo real', 'Real-time battle')}"></div>
                 <div class="rt-controls"><div class="rt-cluster rt-cluster-move" role="group" aria-label="${t('Movimiento', 'Movement')}">${control('left', '←', t('IZQ', 'LEFT'), 'A / ←', 'rt-btn-dir')}${control('right', '→', t('DER', 'RIGHT'), 'D / →', 'rt-btn-dir')}${control('up', '↑', t('SALTO', 'JUMP'), 'W / ↑', 'rt-btn-jump')}</div>
-                <div class="rt-cluster rt-cluster-action" role="group" aria-label="${t('Ataques y habilidades', 'Attacks and skills')}">${control('attack', '✦', t('GOLPE', 'HIT'), 'Z', 'rt-btn-attack')}${control('heavy', '✹', t('FUERTE', 'HEAVY'), 'V', 'rt-btn-heavy')}${control('guard', '◈', t('DEFENSA', 'GUARD'), 'C', 'rt-btn-guard')}${a.equippedSpell?.includes('spell_heal') ? control('heal', '♥', t('CURAR', 'HEAL'), 'H', 'rt-btn-heal') : ''}${a.equippedSpell?.includes('spell_fire') ? control('fire', '♨', t('FUEGO', 'FIRE'), 'X', 'rt-btn-fire') : ''}${!a.equippedSpell?.includes('spell_fire') && !a.equippedSpell?.includes('spell_heal') && a.level >= 2 ? control('magic', '✧', t('MAGIA', 'MAGIC'), 'X', 'rt-btn-magic') : ''}</div></div>
-                <div class="combat-footer"><p>${t('Z encadena · V golpe fuerte · C defiende. Contorno dorado: el rival puede contraatacar.', 'Z combos · V heavy hit · C guard. Gold outline: your rival can retaliate.')}</p></div></section>
+                <div class="rt-cluster rt-cluster-action" role="group" aria-label="${t('Ataques y habilidades', 'Attacks and skills')}">${control('attack', '✦', attackLabel, 'Z', 'rt-btn-attack')}${control('heavy', '✹', ranged ? t('CARGA', 'CHARGE') : t('FUERTE', 'HEAVY'), 'V', 'rt-btn-heavy')}${control('guard', '◈', t('DEFENSA', 'GUARD'), 'C', 'rt-btn-guard')}${abilities.heal ? control('heal', '♥', t('CURAR', 'HEAL'), 'H', 'rt-btn-heal') : ''}${abilities.fire ? control('fire', '♨', t('FUEGO', 'FIRE'), 'X', 'rt-btn-fire') : ''}${abilities.magic ? control('magic', '✧', t('MAGIA', 'MAGIC'), abilities.fire ? 'F' : 'X', 'rt-btn-magic') : ''}</div></div>
+                <div class="combat-footer"><p>${ranged ? t('Z dispara · V disparo cargado · C defiende.', 'Z shoots · V charged shot · C guards.') : t('Z encadena · V golpe fuerte · C defiende.', 'Z combos · V heavy hit · C guards.')} ${t('Fuego y curación: una vez por pelea. Contorno dorado: el rival puede contraatacar.', 'Fire and heal: once per battle. Gold outline: your rival can retaliate.')}</p></div></section>
                 <section class="battle-pause-screen" id="battle-pause-screen" role="dialog" aria-modal="true" aria-labelledby="battle-pause-title" aria-describedby="battle-pause-description" hidden><div class="battle-pause-card"><div class="rotate-phone" aria-hidden="true"><span>↻</span></div><span class="battle-pause-eyebrow">HABIFY ARENA</span><h2 id="battle-pause-title" tabindex="-1"></h2><p id="battle-pause-description"></p><p id="battle-rotation-help">${t('Si Safari no gira, pulsa Girar arena y sostén el celular de lado. Al salir, la página vuelve a su posición normal.', 'If your browser will not rotate, tap Rotate arena and hold your phone sideways. The page returns to normal when you leave.')}</p><div class="battle-pause-actions"><button type="button" class="btn btn-primary" id="battle-rotate-fallback" onclick="BattleScreen.rotateArena()" hidden>${t('GIRAR ARENA', 'ROTATE ARENA')} ↻</button><button type="button" class="btn btn-primary" id="battle-resume" onclick="BattleScreen.resume()">${t('CONTINUAR', 'CONTINUE')} →</button><button type="button" class="btn btn-secondary" onclick="App.navigate('dashboard')">${t('VOLVER AL INICIO', 'BACK TO HOME')}</button></div></div></section>`;
         } else {
             html += `<div class="arena-stage arena-preview ${background}"><div class="arena-preview-top"><span>HABIFY ARENA</span><span>${t('CONTRA MONSTRUOS', 'VERSUS MONSTERS')}</span></div><div class="arena-fighters"><div class="arena-fighter player">${CharacterArt.render(a, { state: a.isDead ? 'DEAD' : 'IDLE' })}<div class="arena-fighter-name">${this.escape(a.name)}</div><div class="arena-fighter-level">${this.classLabel(a)} · LV ${a.level}</div></div><div class="arena-vs">VS</div><div class="arena-fighter enemy">${CharacterArt.renderMonster(opp.sprite, { facing: 'left', level: opp.level })}<div class="arena-fighter-name">${this.escape(opp.name)}</div><div class="arena-fighter-level">LV ${opp.level}</div></div></div></div>`;

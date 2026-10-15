@@ -8,6 +8,7 @@ async function boot(page, viewport = { width: 390, height: 844 }) {
     await expect(page.locator('#auth-form')).toBeVisible();
     await page.evaluate(() => {
         GameState.user = { id: 'landscape-user' }; GameState.avatarId = 'landscape-avatar';
+        GameState.inventory = [{ id: 'spell_fire', name: 'Bola de Fuego', icon: '🔥', type: 'spell' }, { id: 'spell_heal', name: 'Curación Menor', icon: '♥', type: 'spell' }];
         Object.assign(GameState.avatar, { name: 'Aria', avatarClass: 'knight', level: 5, hp: 90, maxHp: 100, gold: 500, isDead: false, equippedSpell: 'spell_fire,spell_heal' });
         saveAvatarToDB = async () => {}; addBattleLogToDB = async () => {};
         Engine._controlEnemy = () => {}; // Stable input assertions; no random enemy hits.

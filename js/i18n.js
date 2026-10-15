@@ -113,15 +113,15 @@ const I18N = {
             'item.wpn_sword.name': 'Espada de Madera',
             'item.wpn_sword.desc': 'Una espada básica para principiantes.',
             'item.wpn_staff.name': 'Bastón Arcano',
-            'item.wpn_staff.desc': 'Un bastón cargado de energía mágica.',
+            'item.wpn_staff.desc': 'Dispara energía arcana. El ataque fuerte carga un rayo más potente.',
             'item.wpn_bow.name': 'Arco Élfico',
-            'item.wpn_bow.desc': 'Un arco forjado por elfos ancestrales.',
+            'item.wpn_bow.desc': 'Lanza flechas a distancia. El ataque fuerte carga un disparo más potente.',
             'item.wpn_shield.name': 'Escudo de Hierro',
             'item.wpn_shield.desc': 'Protección resistente contra ataques.',
             'item.spell_fire.name': 'Bola de Fuego',
-            'item.spell_fire.desc': 'Hechizo de Daño Altísimo',
+            'item.spell_fire.desc': 'Bola de fuego de alto daño. Equípala para usarla una vez por pelea.',
             'item.spell_heal.name': 'Curación Menor',
-            'item.spell_heal.desc': 'Recupera el 35% de Vida Máxima'
+            'item.spell_heal.desc': 'Recupera el 35% de vida de combate. Equípala para usarla una vez por pelea.'
         },
         en: {
             'nav.home': 'Home',
@@ -234,15 +234,15 @@ const I18N = {
             'item.wpn_sword.name': 'Wooden Sword',
             'item.wpn_sword.desc': 'A basic sword for beginners.',
             'item.wpn_staff.name': 'Arcane Staff',
-            'item.wpn_staff.desc': 'A staff charged with magic energy.',
+            'item.wpn_staff.desc': 'Fires arcane energy. The heavy attack charges a stronger bolt.',
             'item.wpn_bow.name': 'Elven Bow',
-            'item.wpn_bow.desc': 'A bow forged by ancestral elves.',
+            'item.wpn_bow.desc': 'Shoots arrows at range. The heavy attack charges a stronger shot.',
             'item.wpn_shield.name': 'Iron Shield',
             'item.wpn_shield.desc': 'Sturdy protection against attacks.',
             'item.spell_fire.name': 'Fireball',
-            'item.spell_fire.desc': 'Very High Damage spell.',
+            'item.spell_fire.desc': 'A high-damage fireball. Equip to use once per battle.',
             'item.spell_heal.name': 'Minor Heal',
-            'item.spell_heal.desc': 'Recovers 35% of Maximum HP.'
+            'item.spell_heal.desc': 'Restores 35% of combat health. Equip to use once per battle.'
         }
     },
 

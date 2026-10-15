@@ -107,7 +107,7 @@ const App = {
             sources.set(action, held);
             if (wasPressed !== (held.size > 0)) Engine.handleInput(action, held.size > 0);
         };
-        const keyAction = code => ({ ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', Space: 'attack', KeyZ: 'attack', KeyV: 'heavy', KeyC: 'guard', KeyH: 'heal', KeyX: GameState.avatar.equippedSpell?.includes('spell_fire') ? 'fire' : (GameState.avatar.equippedSpell?.includes('spell_heal') ? 'heal' : 'magic') })[code];
+        const keyAction = code => Engine.combatKeyAction(code);
         window.addEventListener('keydown', event => {
             if (!active() || event.target.closest?.('input,select,textarea,[contenteditable="true"]')) return;
             if (event.code === 'Space' && event.target.closest?.('button:not([data-action])')) return;
