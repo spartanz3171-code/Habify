@@ -78,6 +78,10 @@ const App = {
         HabitProgress.installed = false;
         HabitProgress.rulesReady = false;
         HabitProgress.deleteAvailableAt = null;
+        HabitProgress.clockOffset = 0;
+        HabitProgress.lastRefreshAttempt = 0;
+        HabitProgress.pendingRequests.clear();
+        HabitProgress.cyclePenalties = [];
         GameState._avatarBalance = null;
         GameState.isAdmin = false;
         GameState.adminUsersList = [];

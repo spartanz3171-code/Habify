@@ -2,6 +2,15 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
 
+## Actualización 3.9.0
+
+- Cada hábito inicia su periodo al activarlo. Se puede completar una vez dentro del periodo; la cuenta regresiva conserva la hora de renovación aunque se complete antes.
+- Tras tres periodos consecutivos sin cumplir, se descuentan 15 monedas y 15 de vida, sin bajar de cero, y el hábito se desactiva. Se conserva su historial y puede reactivarse manualmente.
+- **Retos personales** reemplaza «A evitar», con **NO** al inicio de los nombres. **NO LO HICE** concede +2 XP y +1 moneda, una vez durante las últimas dos horas y sin tropiezos registrados. **SÍ LO HICE** descuenta 5 monedas y 5 de vida por cada registro intencional. Los reintentos de conexión no cobran dos veces.
+- Las acciones de cumplimiento están en **Inicio**. **Hábitos** muestra metas, periodos, configuración e historial.
+- **Requiere ejecutar [`supabase_habit_cycles.sql`](supabase_habit_cycles.sql) en Supabase** después de las migraciones anteriores de hábitos. Subir a GitHub no aplica SQL. Los hábitos existentes reciben un periodo nuevo sin penalizaciones retroactivas. Mientras el servidor siga en la versión anterior, las acciones muestran mantenimiento.
+- [Instalación, reglas y comprobaciones](docs/habit-cycles.md). Caché web/PWA: 3.9.0.
+
 ## Actualización 3.8.1
 
 - La magia propia del mago es independiente de fuego y curación. Los hechizos comprados requieren estar en el inventario y equipados; al quitarlos dejan de aparecer y de responder al teclado. Fuego y curación conservan un uso por pelea y muestran **USADO**.

@@ -1059,7 +1059,7 @@ const Engine = {
     getCompletionRate() {
         if (typeof HabitProgress !== 'undefined' && HabitProgress.ready) {
             const due = GameState.habits.filter(h => h.period);
-            return due.length ? Math.round(due.filter(h => h.recorded).length / due.length * 100) : 0;
+            return due.length ? Math.round(due.filter(h => h.recorded && !h.lapse_count).length / due.length * 100) : 0;
         }
         if (GameState.habits.length === 0) return 0;
         const completed = GameState.habits.filter(h => isOnCooldown(h)).length;

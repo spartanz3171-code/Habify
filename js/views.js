@@ -216,6 +216,7 @@ const Views = {
                 <span class="section-title" data-i18n="dashboard.habits">${I18N.t('dashboard.habits')}</span>
                 <span class="section-badge">${completionRate}%</span>
             </div>
+            ${HabitProgress.penaltyNotice()}
         `;
 
         if (GameState.habits.length === 0) {
@@ -249,7 +250,7 @@ const Views = {
                          id="habit-${h.id}">
                         <div class="habit-checkbox">${isCompleted ? '✓' : ''}</div>
                         <div class="habit-info">
-                            <div class="habit-title">${h.title}</div>
+                            <div class="habit-title">${this.escape(HabitProgress.title(h))}</div>
                             ${onCooldown ? cooldownHtml : rewardText}
                         </div>
                     </div>
@@ -280,7 +281,9 @@ const Views = {
                 </div>
             </div>
             
-            ${HabitProgress.ready ? `${HabitProgress.showGuide() ? `<section class="habit-quick-guide" aria-label="${t('Cómo funcionan los hábitos', 'How habits work')}"><button type="button" class="habit-guide-close" aria-label="${t('Cerrar consejos de hábitos', 'Dismiss habit tips')}" onclick="HabitProgress.dismissGuide()">×</button><p>${t('Un paso pequeño cada día', 'One small step each day')}</p><ol><li><span>1</span>${t('Elige un hábito', 'Choose a habit')}</li><li><span>2</span>${t('Cumple tu meta', 'Meet your goal')}</li><li><span>3</span>${t('Marca Completado', 'Mark completed')}</li></ol><small>${t('Ganas monedas y experiencia (XP) para tu personaje.', 'Earn coins and experience (XP) for your character.')}</small></section>` : ''}<details class="habit-management-notice" ${!HabitProgress.rulesReady ? 'open' : ''}><summary>${t('Sobre eliminar hábitos', 'About deleting habits')}</summary><p role="status">${this.escape(HabitProgress.managementNotice())}</p></details>` : ''}
+            ${HabitProgress.penaltyNotice()}
+            <p class="habit-page-intro">${t('Aquí puedes consultar tus metas, periodos e historial. Registra tus avances desde Inicio.', 'Review your goals, periods and history here. Record your progress on Home.')}</p>
+            ${HabitProgress.ready ? `${HabitProgress.showGuide() ? `<section class="habit-quick-guide" aria-label="${t('Cómo funcionan los hábitos', 'How habits work')}"><button type="button" class="habit-guide-close" aria-label="${t('Cerrar consejos de hábitos', 'Dismiss habit tips')}" onclick="HabitProgress.dismissGuide()">×</button><p>${t('Un paso pequeño cada día', 'One small step each day')}</p><ol><li><span>1</span>${t('Activa un hábito', 'Activate a habit')}</li><li><span>2</span>${t('Cumple durante su periodo', 'Meet your goal during its period')}</li><li><span>3</span>${t('Regístralo en Inicio', 'Record it on Home')}</li></ol><small>${t('El periodo empieza al activar el hábito. Completarlo no cambia su hora de renovación. Tres periodos seguidos sin cumplir: −15 monedas, −15 de vida y desactivación del hábito. El historial se conserva.', 'The period starts when you activate the habit. Completing it does not change its renewal time. Three consecutive missed periods: −15 coins, −15 health and habit deactivation. History is preserved.')}</small></section>` : ''}<details class="habit-management-notice" ${!HabitProgress.rulesReady ? 'open' : ''}><summary>${t('Periodos, penalizaciones y eliminación', 'Periods, penalties and deletion')}</summary><p role="status">${this.escape(HabitProgress.managementNotice())}</p><p>${t('El reloj empieza al activar el hábito, con una oportunidad de cumplir por periodo. Tres periodos seguidos sin cumplir lo desactivan y descuentan 15 monedas y 15 de vida, sin bajar de cero. Reactivarlo durante un periodo abierto conserva su frecuencia y reloj original.', 'The timer starts at activation, with one completion per period. Three consecutive missed periods deactivate it and deduct 15 coins and 15 health, without going below zero. Reactivating during an open period keeps its original schedule and timer.')}</p></details>` : ''}
             ${editCooldown ? `
             <div class="card" style="border-color: var(--pixel-red); margin-bottom: 12px; text-align: center;">
                 <div style="font-size: 9px; color: var(--pixel-red); margin-bottom: 4px;">🔒 ELIMINACIÓN BLOQUEADA</div>
@@ -335,7 +338,7 @@ const Views = {
                             ${h.type === 'positive' ? '+' : '-'}
                         </div>
                         <div class="habit-info">
-                            <div class="habit-title">${h.title}</div>
+                            <div class="habit-title">${this.escape(HabitProgress.title(h))}</div>
                             <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
                                 ${rewardText}
                                 <span style="font-size: 6px; padding: 1px 4px; background: var(--bg-input); border: 1px solid var(--pixel-dark-gray); color: var(--pixel-cyan);">
@@ -386,13 +389,14 @@ const Views = {
             const activeHabit = GameState.habits.find(h => h.catalog_id === item.id || h.title === item.title);
             const alreadyActive = !!activeHabit;
             const isNegative = item.type === 'negative';
+            const selectedFrequency = activeHabit?.frequency || item.defaultFrequency;
 
             html += `
                 <div class="catalog-card ${alreadyActive ? 'active-in-habits' : ''} ${isNegative ? 'negative' : ''}">
                     <div>
                         <div class="catalog-card-header">
                             <span class="catalog-card-icon">${this.escape(item.icon)}</span>
-                            <span class="catalog-card-title">${this.escape(HabitProgress.ready ? activeHabit ? HabitProgress.title(activeHabit) : HabitProgress.catalogTitle(item) : item.title)}</span>
+                            <span class="catalog-card-title">${this.escape(activeHabit ? HabitProgress.title(activeHabit) : HabitProgress.catalogTitle(item))}</span>
                         </div>
                         <div class="catalog-card-desc">${this.escape(item.description)}</div>
                         <div class="catalog-card-meta"><span data-habit-reward>${this.escape(HabitProgress.rewardText(activeHabit || item, HabitProgress.ready && !alreadyActive && !isNegative && !!HabitProgress.preset(item)))}</span><span class="catalog-category">${this.escape(I18N.t('habits.filter_' + item.category))}</span></div>
@@ -402,11 +406,11 @@ const Views = {
                         <div class="catalog-card-freq">
                             <label for="freq-select-${item.id}" data-i18n="habits.frequency_label">${I18N.t('habits.frequency_label')}</label>
                             <select id="freq-select-${item.id}" ${alreadyActive ? 'disabled' : ''}>
-                                <option value="daily" ${item.defaultFrequency === 'daily' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('daily') : 'Diario (24h)'}</option>
-                                <option value="workdays" ${item.defaultFrequency === 'workdays' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('workdays') : 'Días Laborales (Lun-Vie)'}</option>
-                                <option value="3x_week" ${item.defaultFrequency === '3x_week' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('3x_week') : '3 veces por semana (48h)'}</option>
-                                <option value="2x_week" ${item.defaultFrequency === '2x_week' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('2x_week') : '2 veces por semana (72h)'}</option>
-                                <option value="weekly" ${item.defaultFrequency === 'weekly' ? 'selected' : ''}>${HabitProgress.ready ? HabitProgress.frequency('weekly') : 'Semanal (7 días)'}</option>
+                                <option value="daily" ${selectedFrequency === 'daily' ? 'selected' : ''}>${HabitProgress.frequency('daily')}</option>
+                                <option value="workdays" ${selectedFrequency === 'workdays' ? 'selected' : ''}>${HabitProgress.frequency('workdays')}</option>
+                                <option value="3x_week" ${selectedFrequency === '3x_week' ? 'selected' : ''}>${HabitProgress.frequency('3x_week')}</option>
+                                <option value="2x_week" ${selectedFrequency === '2x_week' ? 'selected' : ''}>${HabitProgress.frequency('2x_week')}</option>
+                                <option value="weekly" ${selectedFrequency === 'weekly' ? 'selected' : ''}>${HabitProgress.frequency('weekly')}</option>
                             </select>
                         </div>
 
@@ -988,7 +992,7 @@ const Views = {
                                     <option value="productivity">Estudio/Productividad</option>
                                     <option value="mind">Mente</option>
                                     <option value="finance">Finanzas</option>
-                                    <option value="negative">A Evitar (Negativo)</option>
+                                    <option value="negative">Retos personales</option>
                                 </select>
                             </div>
                             <div class="form-group" style="flex:1;">
