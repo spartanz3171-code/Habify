@@ -8,7 +8,8 @@ module.exports = defineConfig({
     projects: [
         { name: 'desktop', use: { channel: 'chrome', viewport: { width: 1280, height: 900 } } },
         { name: 'mobile', use: { ...devices['Pixel 7'], channel: 'chrome', defaultBrowserType: 'chromium' } },
-        { name: 'webkit-mobile', testMatch: /(?:mobile-arena|equipment|habits-progress|habify)\.spec\.cjs/, use: { ...devices['iPhone 13'], browserName: 'webkit' } }
+        // WebKit's Windows renderer needs more time for full SVG editor journeys.
+        { name: 'webkit-mobile', timeout: 180000, testMatch: /(?:mobile-arena|equipment|habits-progress|habify)\.spec\.cjs/, use: { ...devices['iPhone 13'], browserName: 'webkit' } }
     ],
     webServer: { command: 'npm run dev', url: 'http://127.0.0.1:4173', reuseExistingServer: !process.env.CI }
 });
