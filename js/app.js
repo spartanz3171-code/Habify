@@ -77,6 +77,7 @@ const App = {
         HabitProgress.ready = false;
         HabitProgress.installed = false;
         HabitProgress.rulesReady = false;
+        HabitProgress.abstinenceReady = false;
         HabitProgress.deleteAvailableAt = null;
         HabitProgress.clockOffset = 0;
         HabitProgress.lastRefreshAttempt = 0;

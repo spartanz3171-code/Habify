@@ -15,7 +15,8 @@
     });
     const DEFAULT_APPEARANCE = Object.freeze({
         body: 'male', skin: '#efbd91', hairStyle: 'short', hairColor: '#44302e',
-        outfitColor: '#8256c6', outfit: 'default', accessory: 'none', headwear: 'default', beardStyle: 'default'
+        outfitColor: '#8256c6', outfit: 'default', accessory: 'none', headwear: 'default', beardStyle: 'default',
+        eyeShape: 'classic', mouthStyle: 'classic', noseShape: 'classic', browStyle: 'classic', eyeColor: 'default'
     });
 
     function normalizeAppearance(value) {
@@ -26,6 +27,11 @@
             body: pick('body', ['male', 'female']), skin: color('skin'),
             hairStyle: pick('hairStyle', ['short', 'long', 'ponytail', 'braids']),
             beardStyle: pick('beardStyle', ['default', 'none', 'short', 'goatee', 'long', 'braided']),
+            eyeShape: pick('eyeShape', ['classic', 'round', 'almond', 'focused']),
+            mouthStyle: pick('mouthStyle', ['classic', 'smile', 'grin', 'serious']),
+            noseShape: pick('noseShape', ['classic', 'button', 'straight', 'broad']),
+            browStyle: pick('browStyle', ['classic', 'soft', 'arched', 'bold']),
+            eyeColor: color('eyeColor'),
             hairColor: color('hairColor'), outfitColor: color('outfitColor'),
             outfit: pick('outfit', ['default', 'outfit_ranger', 'outfit_knight', 'outfit_arcane']),
             accessory: pick('accessory', ['none', 'acc_scarf', 'acc_circlet', 'acc_cape']),
@@ -245,6 +251,12 @@
         // A fitted waist and smaller shoulder plates give the female rig its own silhouette.
         if (feminine) art += poly('39,60 42,63 44,67 41,69 39,66', c.clothDeep) +
             poly('56,60 58,59 56,66 58,69 54,68 53,65', c.clothDeep);
+        art += hairLayer('char-material-finish',
+            path(robe ? 'M40 70L38 78M55 72L57 80M46 85L47 88' :
+                ranger ? 'M40 54L41 57M43 58L44 60M53 58L54 56' :
+                    'M40 51L41 53M55 49L57 50M41 57L42 59', 'none',
+                `stroke="${robe ? c.clothHigh : ranger ? c.leatherLight : c.steelHigh}" stroke-width=".65" stroke-linecap="round"`) +
+            path('M36 66L39 67M58 66L60 65', 'none', `stroke="${c.clothDeep}" stroke-width=".8" stroke-linecap="round"`));
         art += poly('35,67 42,68 59,67 62,69 61,74 43,75 35,73', INK) +
             poly('37,69 44,70 59,69 60,70 59,72 43,73 37,71', c.leather) +
             rect(38, 69, 7, 1, c.leatherLight) + rect(54, 69, 5, 1, c.leatherLight) +
@@ -341,6 +353,69 @@
             strand('M39 21Q41 16.5 47 15M38 28Q39 25 43 23M58 17Q61 19 62 23'));
     }
 
+    function facialNose(a, light, shadow, deep) {
+        let art;
+        const line = (d, color = shadow, width = .7) => path(d, 'none', `stroke="${color}" stroke-width="${width}" stroke-linecap="round"`);
+        if (a.noseShape === 'button') art =
+            path('M55.4 30.5Q57.5 30 58.5 31.5Q58.6 33 56.5 33Q54.8 32.9 54.8 31.9Z', light) +
+            line('M55 31.7Q55 33.2 57.1 33.3Q58.5 33.1 58.7 32.2') +
+            line('M55.6 32.9L56.1 33M57.8 32.8L58.2 32.6', deep, .45);
+        else if (a.noseShape === 'straight') art =
+            path('M55.4 27.5L56.8 27.6L57.7 32.2L59.2 32.8L56.4 33.5L55.5 32.8Z', light) +
+            line('M55.3 27.5L55.2 32.4Q55.3 33.5 56.5 33.6L59.2 32.9') +
+            line('M57.7 33.3L58.5 33.1', deep, .55);
+        else if (a.noseShape === 'broad') art =
+            path('M55.3 28.4L57 29L57.9 31.2Q60 31.2 60 32.5Q59.7 34 57.7 33.6L56.1 33.8Q53.5 33.5 53.7 32.2L55.1 31Z', light) +
+            line('M54.7 30.4L53.7 32Q53.2 33.5 55.6 33.8M58.9 31.6Q60.7 33 58.3 33.8') +
+            line('M54.7 33L55.5 33.2M58.1 33.2L59 33', deep, .6);
+        else art =
+            line('M55 27.5Q55 30.5 54.5 31.5Q54.4 32.5 56.3 32.8L58.2 32.5') +
+            path('M55.9 29L56.8 31L58 31.7Q56.7 32.5 55.7 31.8Z', light) +
+            line('M56.3 32.7Q57 32.3 57.6 32.5', deep, .5);
+        return group(`char-nose char-nose-${a.noseShape}`, art);
+    }
+
+    function facialBrows(a, color) {
+        const feminine = a.body === 'female';
+        const shapes = {
+            classic: [feminine ? 'M45.3 25.5Q48.2 23.9 51.7 25.7L51.5 26.3Q48.1 25.1 45.3 26.1Z' :
+                'M45.2 25.1Q48 23.8 51.9 25.5L51.7 26.5Q48.1 25.4 45.3 26.3Z',
+            feminine ? 'M57 25.7Q59 24.7 60.5 25.8L60.7 26.3Q58.9 25.7 57.2 26.3Z' :
+                'M56.9 25.7Q59 24.3 60.5 25.5L60.8 26.5Q59.1 25.8 57.1 26.7Z'],
+            soft: ['M45.3 25.9Q48.1 25.1 51.7 26.1L51.6 26.6Q48.2 25.9 45.4 26.5Z',
+                'M57.1 26.1Q59 25.5 60.7 26L60.8 26.5Q59 26.2 57.2 26.6Z'],
+            arched: ['M45.1 25.9L47.8 23.9Q49.6 23.8 52 25.6L51.7 26.4L48 24.9L45.4 26.4Z',
+                'M56.9 26L58.8 24.3L60.7 25.4L60.9 26.2L58.9 25.2L57.2 26.6Z'],
+            bold: ['M45 24.9Q48.2 24.1 52.1 25.5L51.9 27Q48.3 25.8 45 26.3Z',
+                'M56.8 25.6L60.5 24.5L61 25.9L57.1 27Z']
+        };
+        return group(`char-brows char-brows-${a.browStyle}`, shapes[a.browStyle].map(d => path(d, color)).join(''));
+    }
+
+    function facialMouth(a, lip, deep, skin) {
+        const feminine = a.body === 'female';
+        const line = (d, color = feminine ? mix(lip, '#633d42', .25) : deep, width = .6) =>
+            path(d, 'none', `stroke="${color}" stroke-width="${width}" stroke-linecap="round"`);
+        let art;
+        if (a.mouthStyle === 'smile') art =
+            path('M50.6 35.1Q54 37.6 58.1 34.8Q56.4 38.7 53 37.5Z', lip) +
+            line('M50.6 35.1Q53.9 38 58.1 34.8', deep, .65) +
+            line('M52.9 37.6Q54.5 38.1 56 37.3', mix(skin, '#f3c5af', .4), .55);
+        else if (a.mouthStyle === 'grin') art =
+            path('M50.4 34.9Q54.4 36.1 58.6 34.5Q57.9 38 54.3 38Q51.6 37.9 50.4 34.9Z', deep) +
+            path('M51.4 35.5Q54.5 36.1 57.8 35.2L57 36.6Q54.4 37.3 52.3 36.7Z', '#fff0d5') +
+            line('M53.1 38Q55 38.4 56.4 37.5', lip, .5);
+        else if (a.mouthStyle === 'serious') art =
+            (feminine ? path('M51.5 35.6Q54 35.1 57.4 35.8L57.1 36.6Q54.4 36.9 51.6 36.2Z', lip) : '') +
+            line('M51.3 35.9Q54.5 35.5 57.4 36', deep, .7) +
+            line('M53.4 37.1L55.5 37.1', mix(skin, '#f3c5af', .2), .45);
+        else art = (feminine ?
+            path('M51.1 35.5Q52.7 35.2 53.8 35.5Q55.2 35 57.6 35.1Q55.5 37 53.4 36.8Z', lip) +
+            path('M52.5 36.3Q54.4 37 56.2 35.9', 'none', `stroke="${mix(skin, '#f0b2a3', .33)}" stroke-width=".45"`) : '') +
+            line('M51.5 35.6Q54.5 36.3 57.5 35.2', undefined, feminine ? .5 : .6);
+        return group(`char-mouth char-mouth-${a.mouthStyle}`, art);
+    }
+
     function face(c, role, a) {
         const feminine = a.body === 'female';
         const light = mix(c.skin, '#ffe9d0', .2);
@@ -350,7 +425,7 @@
         const contour = mix(c.skin, '#302435', .65);
         const brow = mix(c.hairDark, '#3d292b', .3);
         const lip = mix(c.skin, '#8e4652', feminine ? .42 : .24);
-        const iris = { hero: '#517886', mage: '#776590', knight: '#8d733c', elf: '#497559' }[role];
+        const iris = a.eyeColor === 'default' ? { hero: '#517886', mage: '#776590', knight: '#8d733c', elf: '#497559' }[role] : a.eyeColor;
         // The neck disappears into the collar; no skin-coloured ring around the shoulders.
         let art = path(feminine ? 'M47 35H54V41L56 44Q51 46 45 43L47 40Z' :
             'M45 35H55V41L58 44Q51 46 43 43L46 40Z', shadow) +
@@ -366,26 +441,36 @@
                 'M42 26L44 30L44.5 34L47 37L51 39L56 39.5L53 41L49 40L45 37L42 31Z', shadow) +
             path('M59 23L61 25L60.8 28Q61.4 29.6 61.2 31.3L60.5 33L60 35L58 37L58.5 33L58 30Z', shadow) +
             path('M45 31Q48 30 51.5 31.5L50 33.7Q46.5 34 45 32Z', soft) +
-            // A short bridge and a small nostril give the nose a readable profile.
-            path('M55 27.5Q55 30.5 54.5 31.5Q54.4 32.5 56.3 32.8L58.2 32.5', 'none',
-                `stroke="${shadow}" stroke-width=".7" stroke-linecap="round"`) +
-            path('M55.9 29L56.8 31L58 31.7Q56.7 32.5 55.7 31.8Z', light) +
-            path('M56.3 32.7Q57 32.3 57.6 32.5', 'none', `stroke="${deep}" stroke-width=".5" stroke-linecap="round"`) +
-            // Brows taper towards the temples and follow the same perspective as the eyes.
-            path(feminine ? 'M45.3 25.5Q48.2 23.9 51.7 25.7L51.5 26.3Q48.1 25.1 45.3 26.1Z' :
-                'M45.2 25.1Q48 23.8 51.9 25.5L51.7 26.5Q48.1 25.4 45.3 26.3Z', brow) +
-            path(feminine ? 'M57 25.7Q59 24.7 60.5 25.8L60.7 26.3Q58.9 25.7 57.2 26.3Z' :
-                'M56.9 25.7Q59 24.3 60.5 25.5L60.8 26.5Q59.1 25.8 57.1 26.7Z', brow);
+            facialNose(a, light, shadow, deep) + facialBrows(a, brow);
 
         const eye = far => {
             const whites = mix(c.skin, '#fff8e6', .8);
-            const eyeShape = far ? 'M57 28.2Q58.7 26.8 60.5 28Q59.5 30 57.2 29.4Z' :
+            const classicShape = far ? 'M57 28.2Q58.7 26.8 60.5 28Q59.5 30 57.2 29.4Z' :
                 feminine ? 'M45.5 28.2Q48.3 26.5 51.8 28.1Q49.3 30.6 46.3 29.6Z' :
                     'M45.7 28.1Q48.3 26.8 51.7 28.1Q49.4 30.3 46.5 29.5Z';
+            if (a.eyeShape !== 'classic') {
+                const shapes = {
+                    round: far ? ['M57 28.9Q57 26.8 59 27.1Q60.9 27.3 60.6 29Q60.2 30.9 58.5 30.7Q57 30.5 57 28.9Z', 58.9, 28.9, 1.05, 1.5] :
+                        ['M45.6 29Q45.7 26.6 48.6 26.8Q51.8 26.9 51.8 29Q51.4 31.2 48.7 31.2Q46 31 45.6 29Z', 49, 29, 1.45, 1.85],
+                    almond: far ? ['M56.8 28.8Q58.7 26.5 60.9 28.1Q59.5 30.6 56.8 28.8Z', 59, 28.6, .8, .85] :
+                        ['M45.1 28.7Q48.5 25.9 52.2 28.2Q49 31.7 45.1 28.7Z', 49.1, 28.65, 1.15, 1.15],
+                    focused: far ? ['M56.9 28.2L60.7 27.6L60.3 29.3Q58.4 30 57.1 29.1Z', 58.9, 28.65, .75, .65] :
+                        ['M45.5 27.7L52 28.4L51.3 29.4Q48.1 30.5 45.9 29Z', 49.1, 28.85, 1.1, .48]
+                };
+                const [shape, x, y, rx, ry] = shapes[a.eyeShape];
+                // The iris stays inside its eye silhouette; no masks or shared SVG IDs are needed.
+                return group('char-eye', path(shape, whites) +
+                    ellipse(x, y, rx, ry, mix(iris, '#172a30', .35)) +
+                    ellipse(x, y + .15, rx * .72, ry * .78, iris) +
+                    ellipse(x + .08, y + .08, rx * .38, ry * .73, '#202633') +
+                    ellipse(x - rx * .3, y - ry * .3, .26, .29, '#fff8df') +
+                    path(shape, 'none', `stroke="${feminine ? brow : contour}" stroke-width="${a.eyeShape === 'focused' ? .65 : .45}" stroke-linejoin="round"`) +
+                    (feminine ? path(far ? 'M60.2 27.9L61 27.3' : 'M46.1 28L45.1 27.2', 'none', `stroke="${brow}" stroke-width=".65" stroke-linecap="round"`) : ''));
+            }
             const cx = far ? 58.8 : 49.1;
             const cy = far ? 28.45 : 28.55;
             return group('char-eye',
-                path(eyeShape, whites) +
+                path(classicShape, whites) +
                 ellipse(cx, cy, far ? .95 : 1.25, far ? 1.05 : 1.2, mix(iris, '#172a30', .35)) +
                 ellipse(cx, cy + .15, far ? .65 : .88, far ? .8 : .95, iris) +
                 ellipse(cx + .1, cy, far ? .36 : .48, .84, '#202633') +
@@ -396,13 +481,10 @@
                     `stroke="${shadow}" stroke-width=".4" stroke-linecap="round"`) +
                 (feminine ? path(far ? 'M60 27.7L60.7 27.2L60.4 28.2Z' : 'M45.8 28.3L44.9 27.3L47 27.8Z', brow) : ''));
         };
-        art += group('char-eyes', eye(false) + eye(true));
+        art += group(`char-eyes char-eyes-${a.eyeShape}`, eye(false) + eye(true));
         if (feminine) art +=
-            path('M46 32.3Q48.3 31.8 50.5 32.5Q48.5 33.8 46.4 33.1Z', mix(c.skin, '#c87a75', .13)) +
-            path('M51.1 35.5Q52.7 35.2 53.8 35.5Q55.2 35 57.6 35.1Q55.5 37 53.4 36.8Z', lip) +
-            path('M52.5 36.3Q54.4 37 56.2 35.9', 'none', `stroke="${mix(c.skin, '#f0b2a3', .33)}" stroke-width=".45"`);
-        // A slight lift at the far corner reads as a relaxed, attentive expression.
-        art += path('M51.5 35.6Q54.5 36.3 57.5 35.2', 'none', `stroke="${feminine ? mix(lip, '#633d42', .25) : deep}" stroke-width="${feminine ? .5 : .6}" stroke-linecap="round"`) +
+            path('M46 32.3Q48.3 31.8 50.5 32.5Q48.5 33.8 46.4 33.1Z', mix(c.skin, '#c87a75', .13));
+        art += facialMouth(a, lip, deep, c.skin) +
             path('M52.7 38Q54.7 38.5 56.2 37.8', 'none', `stroke="${soft}" stroke-width=".8" stroke-linecap="round"`) +
             path('M41.8 28Q38.5 26.2 39.4 30.6Q40.4 33.6 42.6 33.1L43 30.5Z', c.skin,
                 `stroke="${contour}" stroke-width=".65"`) +
@@ -505,8 +587,10 @@
     function beard(c, role, a) {
         const style = a.beardStyle === 'default' ? (role === 'mage' && a.body === 'male' ? 'short' : 'none') : a.beardStyle;
         if (style === 'none') return '';
-        const moustache = path('M51.4 35.1Q53.2 34.3 54.5 35Q56.2 34.2 57.7 35L59 36.3Q56.6 36.1 54.5 35.7Q52.8 36.3 50.7 36.4Z', c.hair) +
+        const moustacheArt = path('M51.4 35.1Q53.2 34.3 54.5 35Q56.2 34.2 57.7 35L59 36.3Q56.6 36.1 54.5 35.7Q52.8 36.3 50.7 36.4Z', c.hair) +
             path('M52 35.3L53.6 35.1M55.2 35.1L57 35.4', 'none', `stroke="${c.hairLight}" stroke-width=".45" stroke-linecap="round"`);
+        // Custom expressions remain visible below the moustache, including on the mage.
+        const moustache = a.mouthStyle === 'classic' ? moustacheArt : `<g transform="translate(0 -.8)">${moustacheArt}</g>`;
         let art;
         if (style === 'goatee') art = moustache +
             path('M50.4 38.4Q54 39.3 57.3 38.2L56.6 42.4L54.1 45L51.6 42.7Z', c.hairDark) +
@@ -703,6 +787,16 @@
         return shell(cape(c, role, a) + leg(c, false, armored) + leg(c, true, armored) + group('char-upper-body', upper), options, role);
     }
 
+    function renderPortrait(avatar = {}) {
+        avatar = avatar && typeof avatar === 'object' ? avatar : {};
+        const a = { ...normalizeAppearance(avatar.appearance), headwear: 'none' };
+        const c = colors(a);
+        const role = ROLES.includes(avatar.avatarClass) ? avatar.avatarClass : 'hero';
+        const art = backHair(c, a, role) + frontHair(c, a) + head(c, role, a);
+        // Use the same face and hair, without equipment covering the editor preview.
+        return `<span class="character-portrait" data-role="${role}" aria-hidden="true"><svg viewBox="20 9 50 54" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" preserveAspectRatio="xMidYMid meet" focusable="false">${art}</svg></span>`;
+    }
+
     // The creatures share animation anchors, but each has its own silhouette and materials.
     const contour = (d, fill, width = 1.8) => path(d, fill, `stroke="${INK}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"`);
     const stroke = (d, color, width = 1) => path(d, 'none', `stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"`);
@@ -812,7 +906,11 @@
             contour('M48 73 L54 73 L54 78 L48 78 Z', '#d1aa60', .7) + rect(50, 74, 2, 3, '#504431') +
             contour('M34 75 L42 75 L44 82 L39 87 L33 83 Z', '#927448', 1.2) +
             path('M34 76 L41 76 L40 79 L35 80 Z', '#c3a26a') + ellipse(38, 79, 1, 1, GOLD) +
-            stroke('M56 57 L60 59 M56 61 L59 63', '#b79f76', .8);
+            stroke('M56 57 L60 59 M56 61 L59 63', '#b79f76', .8) +
+            hairLayer('creature-material-finish',
+                stroke('M36 59L38 61M37 63L39 65M38 67L40 69M56 76L58 75', '#d0b581', .7) +
+                path('M35 51L38 49L40 53L38 55Z', '#bea16b') +
+                stroke('M35 79L36 81M39 81L40 80', '#624735', .8));
         const headArt =
             contour('M38 29 Q30 25 21 22 Q23 36 37 39 L43 35 Z', '#729d61') +
             path('M25 26 L36 32 L37 36 Q29 33 25 26 Z', '#a1b97b') +
@@ -831,7 +929,14 @@
             contour('M53 30 Q55 34 62 35 L59 38 L52 37 L51 35', '#a1b777', .8) +
             stroke('M49 41 Q56 43 61 39', '#303e30', 1.2) +
             poly('52,42 54,42 53,39', '#f5e1b2') +
-            ellipse(33, 37, 1.8, 2.3, GOLD) + ellipse(33, 36.5, .9, 1.4, '#56764e');
+            ellipse(33, 37, 1.8, 2.3, GOLD) + ellipse(33, 36.5, .9, 1.4, '#56764e') +
+            hairLayer('creature-face-finish',
+                stroke('M24 24Q29 27 34 28M68 28L72 25', '#d0d39a', .8) +
+                path('M39 30L41 31L42 34L40 36L38 33Z', '#91b975') +
+                path('M60 24L63 27L64 30L62 28Z', '#b3c989') +
+                ellipse(47.3, 32.3, .34, .4, '#fff3c8') + ellipse(60.8, 31, .3, .35, '#fff3c8') +
+                stroke('M54 37L55.8 37.3M60 35.7L61.1 35.1M58 43L60 42', '#456543', .65) +
+                ellipse(34, 37.9, .5, .5, '#ffe6a0'));
         return creatureLeg(false, false) + creatureLeg(true, false) + group('char-upper-body',
             creatureArm(false, false) + group('char-torso', torso + creatureEquipment('goblin', tier)) + group('char-head', headArt + creatureCrest('goblin', tier)) + creatureArm(true, false) + effects());
     }
@@ -848,7 +953,12 @@
             stroke('M34 73 Q45 76 63 72', '#96724d', 1.5) +
             contour('M45 73 L53 72 L55 78 L50 83 L44 79 Z', '#afac91', 1) +
             poly('46,75 49,75 49,78 46,78', '#3b3935') + poly('51,74 53,75 53,77 51,77', '#3b3935') +
-            contour('M35 79 L43 80 L44 89 L38 87 L33 89 Z M55 80 L63 78 L66 88 L59 91 Z', '#775044', 1.2);
+            contour('M35 79 L43 80 L44 89 L38 87 L33 89 Z M55 80 L63 78 L66 88 L59 91 Z', '#775044', 1.2) +
+            hairLayer('creature-material-finish',
+                path('M34 51L36 50L38 54L36 58L34 56Z', '#c4c584') +
+                stroke('M40 63L44 64M54 63L58 62M58 66L60 65', '#b1af72', .7) +
+                stroke('M37 82L41 83M57 83L61 81', '#ba8062', .8) +
+                path('M36 86L39 87L41 86L41 88L38 87L35 89Z', '#523a38'));
         const headArt =
             contour('M36 25 L27 23 L29 33 L37 36 M64 23 L72 19 L71 29 L65 32', '#79854f', 1.7) +
             contour('M35 22 Q39 15 52 15 L63 20 L67 30 L66 39 Q62 46 48 47 L37 43 L33 33 Z', '#8c9758') +
@@ -865,7 +975,14 @@
             contour('M44 41 Q39 38 41 33 Q43 37 47 38 Z M58 40 Q64 36 63 31 Q60 36 57 37 Z', '#e6d8ae', .7) +
             path('M42 34 L44 39 L45 40 L44 37 Z M62 33 L60 38 L59 38 Z', '#fff1c9') +
             stroke('M38 26 L41 24 M39 28 L42 26', '#6c7945', .8) +
-            ellipse(31, 33, 1.7, 2, GOLD) + ellipse(31, 32.5, .8, 1.1, '#79854f');
+            ellipse(31, 33, 1.7, 2, GOLD) + ellipse(31, 32.5, .8, 1.1, '#79854f') +
+            hairLayer('creature-face-finish',
+                stroke('M37 23L40 21M57 21L61 23M28 25L30 28', '#d2ce90', .75) +
+                path('M36 33L39 35L40 39L38 38Z', '#a3b06c') +
+                path('M60 32L63 30L63 33L61 34Z', '#bcc183') +
+                ellipse(45.7, 31, .4, .4, '#fff1a2') + ellipse(59.7, 28.8, .3, .3, '#fff1a2') +
+                stroke('M44 36L45 38M60 35L59 37', '#9c986d', .65) +
+                stroke('M46 43L50 44M54 43L57 42', '#c0bb7e', .85));
         return creatureLeg(false, true) + creatureLeg(true, true) + group('char-upper-body',
             creatureArm(false, true) + group('char-torso', torso + creatureEquipment('orc', tier)) + group('char-head', headArt + creatureCrest('orc', tier)) + creatureArm(true, true) + effects());
     }
@@ -911,7 +1028,13 @@
             poly('53,32 56,37 51,37', '#4a4944') +
             path('M46 39 Q54 41 61 37 L60 42 Q54 45 47 42 Z', '#6a695e') +
             [47, 50, 53, 56, 59].map((x, i) => path(`M${x} ${i>2?39:40} L${x+1.8} ${i>2?38.5:40} L${x+1.5} 43 L${x} 43 Z`, high)).join('') +
-            stroke('M51 16 L49 21 L52 24 L50 27 M38 24 L41 24', '#9e9c86', .8);
+            stroke('M51 16 L49 21 L52 24 L50 27 M38 24 L41 24', '#9e9c86', .8) +
+            hairLayer('creature-face-finish',
+                stroke('M39 27L41 25L44 25M58 23L61 24M45 37L46 38', '#fff3d7', .7) +
+                stroke('M61 19L58 21L59 23M38 31L39 33M47 42L48 43', '#858471', .65) +
+                ellipse(46.8, 31.4, .7, .65, '#ffe1a3') + ellipse(59.8, 29.5, .55, .55, '#ffe1a3') +
+                path('M42 31L43 29L46 28L44 30Z', '#555162') +
+                ellipse(44, 20.5, .7, .45, '#d4c9a9') + ellipse(58.5, 35.8, .55, .4, '#6d6d63'));
         return legs + group('char-upper-body', arm(false) + group('char-torso', ribs + creatureEquipment('skeleton', tier)) + group('char-head', skull + creatureCrest('skeleton', tier)) + arm(true) + effects());
     }
 
@@ -937,7 +1060,15 @@
             path('M48 94 Q52 97 57 92 Q55 99 50 98 Z', '#244737') +
             ellipse(35, 92, 3, 1.3, '#6bb784') + ellipse(66, 89, 2.4, 1.1, '#6bb784') +
             poly('48,69 53,73 51,80 46,78 45,73', '#2f7462') + poly('48,70 51,73 49,77 47,74', '#c9f5b2') +
-            stroke('M37 82 L44 85 M57 81 L65 78', '#285745', 1.4));
+            stroke('M37 82 L44 85 M57 81 L65 78', '#285745', 1.4) +
+            hairLayer('creature-gel-finish',
+                path('M21 96Q23 94 24 91Q23 99 29 101L37 102Q25 104 21 100Z', '#b2e5a4', 'opacity=".65"') +
+                path('M66 75Q70 84 71 88L73 93Q68 89 66 84Z', '#b1e8b0', 'opacity=".35"') +
+                ellipse(56, 68.5, 2.5, 2.9, '#bbebba') + ellipse(56.6, 69.1, 1.9, 2.1, '#76b984') +
+                ellipse(32, 86, 1.6, 1.9, '#bce6a9') + ellipse(32.5, 86.3, 1.1, 1.3, '#75bb81') +
+                ellipse(66.2, 98.3, .85, 1, '#b5e6ae') + ellipse(44.5, 101, .7, .7, '#95d894') +
+                stroke('M30 58L32 56M63 53L63 60M68 55L68 58', '#e5ffdc', .85) +
+                path('M50 96Q53 96.5 54 95L53 97L51 97Z', '#91bf75')));
     }
 
     function ghost(tier = 0) {
@@ -968,7 +1099,15 @@
             path('M49 41 Q52 38 53 42 L51 45 L49 44 Z', '#151c32');
         const sigils = hairLayer('creature-sigils', stroke('M37 56 L39 61 L37 66 M57 56 L59 60 L56 66 M43 71 L46 74 L49 70', '#c6efd4', 1) +
             (tier >= 2 ? stroke('M33 69 L35 75 L41 79 M60 69 L56 75 L52 80', GOLD, 1) : ''));
-        return group('char-ghost', tail + group('char-upper-body', arm(false) + group('char-torso', torso + sigils) + group('char-head', hood + creatureCrest('ghost', tier)) + arm(true) + effects()));
+        const faceFinish = hairLayer('creature-face-finish',
+            stroke('M36 31Q38 25 43 23M57 24L60 27M34 39L35 42', '#f5e8f4', .85) +
+            path('M41 33Q44 29 49 32L48 34L44 33Z M54 30L59 28L59 31L55 33Z', '#80d2b0', 'opacity=".25"') +
+            stroke('M43 38L44 40M56 37L54 40', '#a0e9c6', .7) +
+            stroke('M40 46L44 49L48 50M58 44L60 41', '#8cddaF', .7));
+        const wisps = hairLayer('creature-wisps',
+            path('M26 87Q20 82 23 77Q22 84 29 84Z M77 81Q84 76 81 70Q88 76 80 86Z', '#a6d9ce', 'opacity=".45"') +
+            ellipse(25, 74, .8, 1.1, '#d9f9de') + ellipse(81, 69, .7, .9, '#d9f9de'));
+        return group('char-ghost', wisps + tail + group('char-upper-body', arm(false) + group('char-torso', torso + sigils) + group('char-head', hood + faceFinish + creatureCrest('ghost', tier)) + arm(true) + effects()));
     }
 
     function renderMonster(sprite = 'goblin', options = {}) {
@@ -980,5 +1119,5 @@
     }
 
 
-    window.CharacterArt = Object.freeze({ render, renderMonster, normalizeAppearance, DEFAULT_APPEARANCE, PALETTES });
+    window.CharacterArt = Object.freeze({ render, renderPortrait, renderMonster, normalizeAppearance, DEFAULT_APPEARANCE, PALETTES });
 })();

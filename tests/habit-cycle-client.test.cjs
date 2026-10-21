@@ -7,7 +7,7 @@ const path = require('node:path');
 
 const START = '2026-10-05T18:00:00Z';
 const END = '2026-10-06T18:00:00Z';
-const UNLOCK = '2026-10-06T16:00:00Z';
+const UNLOCK = START;
 const hours = value => value * 60 * 60 * 1000;
 const clone = value => JSON.parse(JSON.stringify(value));
 const row = (type = 'negative', overrides = {}) => ({
@@ -67,10 +67,10 @@ function setup(habits = [row()]) {
   run(`supabase=client;GameState.user={id:'owner'};GameState.avatarId='avatar';
     GameState.avatar.gold=100;GameState.avatar.hp=100;GameState.avatar.currentXP=0;
     GameState.habits=inputRows.map(h=>HabitProgress.fromRow(h));
-    HabitProgress.ready=true;HabitProgress.installed=true;HabitProgress.rulesReady=true;
+    HabitProgress.ready=true;HabitProgress.installed=true;HabitProgress.rulesReady=true;HabitProgress.abstinenceReady=true;
     App.showToast=onToast;App.navigate=onNavigate;`);
   const response = (status, extra = {}) => ({
-    status, rules_version: 4, server_now: new TestDate().toISOString(),
+    status, rules_version: 5, server_now: new TestDate().toISOString(),
     habits: clone(habits), avatar: { gold: 100, hp: 100, current_xp: 0 },
     xp: 0, gold: 0, gold_lost: 0, hp_lost: 0, penalties: [], ...extra
   });
@@ -101,7 +101,7 @@ test('Habits shows detailed summaries and Home alone exposes completion controls
   assert.match(home, /SÍ LO HICE/);
   assert.match(button(home, 'data-habit-lapse'), /btn-danger/);
   assert.doesNotMatch(button(home, 'data-habit-lapse'), /\bdisabled\b/);
-  assert.match(button(home, 'data-habit-abstain'), /\bdisabled\b/);
+  assert.doesNotMatch(button(home, 'data-habit-abstain'), /\bdisabled\b/);
 });
 
 test('negative titles normalize NO once, including translated and already-prefixed catalog entries', () => {
@@ -121,36 +121,31 @@ test('negative titles normalize NO once, including translated and already-prefix
   assert.equal(h.run("I18N.t('habits.filter_negative')"), 'PERSONAL CHALLENGES');
 });
 
-test('server clock offset unlocks abstinence exactly two hours before renewal and updates countdown controls', () => {
+test('server clock permits abstinence from activation and locks it after completion or renewal', () => {
   const h = setup();
   const nodes = Object.fromEntries([
     '[data-cycle-countdown]', '[data-abstinence-countdown]', '[data-habit-abstain]', '[data-habit-lapse]'
   ].map(selector => [selector, { textContent: '', disabled: false }]));
   h.state.cards = [{ dataset: { progressHabit: 'negative' }, querySelector: selector => nodes[selector] || null }];
-  h.state.localNow = Date.parse(START) + hours(21);
-  h.run(`HabitProgress.syncRules({rules_version:4,server_now:'2026-10-06T15:30:00Z'});
+  h.state.localNow = Date.parse(START) - hours(1);
+  h.run(`HabitProgress.syncRules({rules_version:5,server_now:'2026-10-05T18:00:00Z'});
     HabitProgress.updateCountdowns();`);
-  assert.equal(h.run('HabitProgress.clockOffset'), hours(0.5));
-  assert.equal(nodes['[data-cycle-countdown]'].textContent, '02:30:00');
-  assert.equal(nodes['[data-abstinence-countdown]'].textContent, '00:30:00');
-  assert.equal(nodes['[data-habit-abstain]'].disabled, true);
+  assert.equal(h.run('HabitProgress.clockOffset'), hours(1));
+  assert.equal(nodes['[data-cycle-countdown]'].textContent, '1d 00:00:00');
+  assert.equal(nodes['[data-habit-abstain]'].disabled, false);
   assert.equal(nodes['[data-habit-lapse]'].disabled, false);
-  h.state.localNow += hours(0.5) - 1000;
-  h.run('HabitProgress.updateCountdowns()');
-  assert.equal(nodes['[data-abstinence-countdown]'].textContent, '00:00:01');
-  assert.equal(nodes['[data-habit-abstain]'].disabled, true);
   h.state.localNow += 1000;
   h.run('HabitProgress.updateCountdowns()');
-  assert.equal(nodes['[data-cycle-countdown]'].textContent, '02:00:00');
+  assert.equal(nodes['[data-cycle-countdown]'].textContent, '23:59:59');
   assert.equal(nodes['[data-habit-abstain]'].disabled, false);
   h.run('GameState.habits[0].recorded=true;HabitProgress.updateCountdowns()');
   assert.equal(nodes['[data-habit-abstain]'].disabled, true);
   assert.equal(nodes['[data-habit-lapse]'].disabled, false);
-  assert.match(h.run('HabitProgress.cycleSummary(GameState.habits[0])'), /Podrás completarlo de nuevo en/);
+  assert.match(h.run('HabitProgress.cycleSummary(GameState.habits[0])'), /Nueva oportunidad en/);
   h.run('HabitProgress.busy=true;HabitProgress.updateCountdowns()');
   assert.equal(nodes['[data-habit-lapse]'].disabled, true);
   h.run('HabitProgress.busy=false');
-  h.state.localNow += hours(2);
+  h.state.localNow += hours(24) - 1000;
   h.run('HabitProgress.updateCountdowns()');
   assert.equal(nodes['[data-cycle-countdown]'].textContent, '00:00:00');
   assert.equal(nodes['[data-habit-abstain]'].disabled, true);
@@ -170,6 +165,18 @@ test('outdated service rules and logged lapses keep success actions unavailable'
   }
   await h.run("HabitProgress.report('negative','lapse')");
   await h.run("HabitProgress.complete('positive')");
+  assert.equal(h.state.calls.length, 0);
+});
+
+test('v4 keeps positive habits available while explaining the missing abstinence update', async () => {
+  const h = setup([row(), row('positive')]);
+  h.run("HabitProgress.syncRules({rules_version:4,server_now:'2026-10-05T18:00:00Z'})");
+  const home = h.run('Views.renderDashboard()');
+  assert.match(button(home, 'data-habit-abstain'), /\bdisabled\b/);
+  assert.doesNotMatch(button(home, 'data-habit-complete'), /\bdisabled\b/);
+  assert.doesNotMatch(button(home, 'data-habit-lapse'), /\bdisabled\b/);
+  assert.match(home, /Falta actualizar los retos/);
+  await h.run("HabitProgress.report('negative','abstain')");
   assert.equal(h.state.calls.length, 0);
 });
 

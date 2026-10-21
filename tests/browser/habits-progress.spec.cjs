@@ -68,7 +68,8 @@ test('activation clocks, progression, personal challenges and automatic removal 
   await page.evaluate(()=>App.navigate('dashboard'));
   await water.getByRole('button',{name:'MARCAR COMPLETADO',exact:true}).click();
   await expect(water.getByRole('button',{name:'COMPLETADO',exact:true})).toBeDisabled();
-  await expect(water).toContainText('Podrás completarlo de nuevo en');
+  await expect(water).toContainText('Nueva oportunidad en');
+  expect((await water.locator('.habit-cycle-clock').boundingBox()).height).toBeLessThan(90);
   expect(await page.evaluate(id=>GameState.habits.find(h=>h.id===id).cycle_end_at,id)).toBe(deadline);
   await expect(water.getByRole('progressbar')).toHaveAttribute('value','1');
   for(let day=6;day<=11;day++){
@@ -102,12 +103,10 @@ test('activation clocks, progression, personal challenges and automatic removal 
   const challengeId=await page.evaluate(()=>GameState.habits.find(h=>h.catalog_id==='hab_no_soda').id);
   const challenge=page.locator(`[data-progress-habit="${challengeId}"]`);
   await expect(challenge.locator('[data-habit-abstain],[data-habit-lapse]')).toHaveCount(0);
-  now='2026-10-12T15:59:00Z';await refresh();
-  await expect(challenge.locator('[data-habit-abstain]')).toBeDisabled();
-  await expect(challenge.locator('[data-habit-lapse]')).toBeEnabled();
-  await expect(challenge.locator('[data-abstinence-countdown]')).toBeVisible();
-  now='2026-10-12T16:00:00Z';await refresh();
+  await refresh();
   await expect(challenge.locator('[data-habit-abstain]')).toBeEnabled();
+  await expect(challenge.locator('[data-habit-lapse]')).toBeEnabled();
+  await expect(challenge.locator('[data-abstinence-countdown]')).toHaveCount(0);
   const before=await balance();
   await challenge.locator('[data-habit-abstain]').click();
   await expect(challenge.locator('[data-habit-abstain]')).toBeDisabled();

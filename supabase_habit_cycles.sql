@@ -1,4 +1,4 @@
--- Habify: activation-anchored habit cycles and personal challenges (rules v4).
+-- Habify: activation-anchored habit cycles and personal challenges (rules v5).
 -- Run AFTER supabase_habit_fixed_progression.sql. For a fresh installation run
 -- supabase_habit_progression.sql, supabase_habit_fixed_progression.sql, then this file.
 -- This migration preserves balances/history and grants existing active habits a
@@ -181,7 +181,7 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
   'abstained',h.type='negative' AND x.success_at IS NOT NULL,
   'lapse_count',greatest(coalesce(x.lapse_count,0),
    CASE WHEN g.last_lapse_at>=h.cycle_start_at AND g.last_lapse_at<h.cycle_end_at THEN 1 ELSE 0 END),
-  'abstinence_available_at',CASE WHEN h.type='negative' THEN h.cycle_end_at-interval '2 hours' END,
+  'abstinence_available_at',CASE WHEN h.type='negative' THEN h.cycle_start_at END,
   'current_target',CASE WHEN h.progression IS NOT NULL THEN least((h.progression->>'max')::numeric,
    (h.progression->>'initial')::numeric+(h.difficulty_level-1)*(h.progression->>'step')::numeric) END,
   'rewards',CASE WHEN h.type='negative' THEN jsonb_build_object('xp',2,'gold',1)
@@ -339,7 +339,6 @@ BEGIN
        hp_lost=habit_activity.hp_lost+excluded.hp_lost,gold_lost=habit_activity.gold_lost+excluded.gold_lost;
    ELSIF p_action='abstain' AND (coalesce(activity.lapse_count,0)>0 OR
     (g.last_lapse_at>=h.cycle_start_at AND g.last_lapse_at<h.cycle_end_at)) THEN status:='cycle_failed';
-   ELSIF p_action='abstain' AND p_now<h.cycle_end_at-interval '2 hours' THEN status:='not_due';
    ELSIF activity.success_at IS NOT NULL OR activity.outcome IN ('completed','abstained','legacy')
     OR g.next_reward_at>p_now OR g.last_period>=period THEN status:='already_recorded';
    ELSE
@@ -417,7 +416,7 @@ BEGIN
   'avatar',to_jsonb(a),'habits',public.habit_snapshot(a.id::text,p_now),
   'xp',xp,'gold',gold,'bonus_xp',bx,'bonus_gold',bg,'avatar_bonus_gold',avatar_bonus,
   'hp_lost',hp_loss,'gold_lost',gold_loss,'penalties',penalties,'advanced',advanced,
-  'habit_id',coalesce(h.id::text,p_id),'rules_version',4,'server_now',p_now,
+  'habit_id',coalesce(h.id::text,p_id),'rules_version',5,'server_now',p_now,
   'delete_available_at',delete_after);
 END $$;
 

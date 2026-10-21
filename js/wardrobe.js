@@ -136,6 +136,11 @@ const Wardrobe = (() => {
                 return result(false, 'error', say('Tu cuenta no confirmó la apariencia. Vuelve a intentarlo.', 'Your account did not confirm the appearance. Please try again.'), 'invalid_response');
             }
             const savedAppearance = normalize(cloudAppearance);
+            for (const slot of ['outfit', 'accessory']) {
+                if (savedAppearance[slot] !== appearance[slot]) {
+                    return result(false, 'error', say('Tu cuenta no confirmó la prenda. Vuelve a intentarlo.', 'Your account did not confirm the clothing item. Please try again.'), 'cosmetic_not_saved');
+                }
+            }
             const hasHeadwear = Object.prototype.hasOwnProperty.call(cloudAppearance, 'headwear');
             let pendingHeadwear = false;
             if (!hasHeadwear || cloudAppearance.headwear !== appearance.headwear) {
@@ -153,17 +158,32 @@ const Wardrobe = (() => {
                 return result(false, 'error', say('Tu cuenta no confirmó el estilo de barba. Vuelve a intentarlo.', 'Your account did not confirm the beard style. Please try again.'), 'beard_not_saved');
             }
             const pendingBeard = !hasBeard && appearance.beardStyle !== 'default';
-            if (pendingHeadwear || pendingBeard) {
+            const pendingFace = {};
+            const facialDefaults = { eyeShape: 'classic', mouthStyle: 'classic', noseShape: 'classic', browStyle: 'classic', eyeColor: 'default' };
+            for (const [field, fallback] of Object.entries(facialDefaults)) {
+                if (Object.prototype.hasOwnProperty.call(cloudAppearance, field)) {
+                    // A present but different value is not an old validator. Do
+                    // not conceal a rejected choice with a local success.
+                    if (cloudAppearance[field] !== appearance[field]) {
+                        return result(false, 'error', say('Tu cuenta no confirmó los rasgos del rostro. Vuelve a intentarlo.', 'Your account did not confirm your facial features. Please try again.'), 'face_not_saved');
+                    }
+                } else if (appearance[field] !== fallback) {
+                    pendingFace[field] = appearance[field];
+                }
+            }
+            const pendingFacialFeatures = Object.keys(pendingFace).length > 0;
+            if (pendingHeadwear || pendingBeard || pendingFacialFeatures) {
                 const pendingAppearance = { ...savedAppearance,
                     ...(pendingHeadwear ? {headwear:appearance.headwear} : {}),
-                    ...(pendingBeard ? {beardStyle:appearance.beardStyle} : {}) };
+                    ...(pendingBeard ? {beardStyle:appearance.beardStyle} : {}),
+                    ...pendingFace };
                 if (!writeLocal(ctx.userId, pendingAppearance, true)) {
                     return result(false, 'error', say('No se pudieron conservar los cambios. Revisa el almacenamiento del navegador.', 'Could not keep your changes. Check your browser storage.'), 'storage_unavailable');
                 }
                 GameState.avatar.appearance = pendingAppearance;
                 GameState.appearanceSaveStatus = 'local';
-                const part = pendingBeard ? pendingHeadwear ? say('El casco y la barba se conservan', 'Headwear and beard are saved') : say('La barba se conserva', 'Your beard is saved') : say('El casco se conserva', 'Headwear is saved');
-                return result(true, 'local', part + say(' solo en este dispositivo. Todavía no se puede guardar en tu cuenta.', ' only on this device. It cannot be saved to your account yet.'), pendingBeard ? 'beard_sync_pending' : 'headwear_sync_pending');
+                const part = pendingFacialFeatures ? say('Los cambios de apariencia se conservan', 'Your appearance changes are saved') : pendingBeard ? pendingHeadwear ? say('El casco y la barba se conservan', 'Headwear and beard are saved') : say('La barba se conserva', 'Your beard is saved') : say('El casco se conserva', 'Headwear is saved');
+                return result(true, 'local', part + say(' solo en este dispositivo. Todavía no se puede guardar en tu cuenta.', ' only on this device. It cannot be saved to your account yet.'), pendingFacialFeatures ? 'face_sync_pending' : pendingBeard ? 'beard_sync_pending' : 'headwear_sync_pending');
             }
             GameState.avatar.appearance = savedAppearance;
             GameState.appearanceSaveStatus = 'cloud';

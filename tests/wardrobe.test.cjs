@@ -71,6 +71,136 @@ function harness({ migration = true, inventory = [], storageBlocked = false, cat
     return { context, game, state, storage, calls, wardrobe: context.window.Wardrobe };
 }
 
+test('facial choices round-trip across reloads without changing the class or paid clothing', async () => {
+    const h = harness({ inventory: ['outfit_arcane', 'acc_scarf', 'headwear_arcane'] });
+    h.game.avatar.avatarClass = 'mage';
+    await h.wardrobe.hydrate({ appearance: { outfit: 'outfit_arcane', accessory: 'acc_scarf', headwear: 'headwear_arcane', beardStyle: 'braided' } });
+    const choices = [
+        { eyeShape: 'round', mouthStyle: 'smile', noseShape: 'button', browStyle: 'soft', eyeColor: '#88aacc' },
+        { eyeShape: 'almond', mouthStyle: 'grin', noseShape: 'straight', browStyle: 'arched', eyeColor: '#28bd83' },
+        { eyeShape: 'focused', mouthStyle: 'serious', noseShape: 'broad', browStyle: 'bold', eyeColor: '#b27432' },
+        { eyeShape: 'classic', mouthStyle: 'classic', noseShape: 'classic', browStyle: 'classic', eyeColor: 'default' }
+    ];
+    for (const face of choices) {
+        assert.equal((await h.wardrobe.saveAppearance({ ...h.game.avatar.appearance, ...face })).status, 'cloud');
+        const cloud = JSON.parse(JSON.stringify(h.calls.at(-1).args.p_appearance));
+        h.wardrobe.reset();
+        await h.wardrobe.hydrate({ appearance: cloud });
+        for (const [key, value] of Object.entries(face)) assert.equal(h.game.avatar.appearance[key], value);
+        assert.equal(h.game.avatar.appearance.outfit, 'outfit_arcane');
+        assert.equal(h.game.avatar.appearance.accessory, 'acc_scarf');
+        assert.equal(h.game.avatar.appearance.headwear, 'headwear_arcane');
+        assert.equal(h.game.avatar.appearance.beardStyle, 'braided');
+        assert.equal(h.game.avatar.avatarClass, 'mage');
+        assert.equal(h.game.avatar.gold, 100);
+    }
+});
+
+test('older validators keep a pending face only for its owner and later synchronize the same face', async () => {
+    const h = harness({ inventory: ['outfit_arcane', 'acc_scarf', 'headwear_arcane'] });
+    const face = { eyeShape: 'almond', mouthStyle: 'grin', noseShape: 'straight', browStyle: 'arched', eyeColor: '#28bd83' };
+    const clothing = { outfit: 'outfit_arcane', accessory: 'acc_scarf', headwear: 'headwear_arcane', beardStyle: 'short' };
+    await h.wardrobe.hydrate({ appearance: clothing });
+    let cloud;
+    h.state.rpc = async (_name, args) => {
+        cloud = { ...args.p_appearance, skin: '#754d3b' };
+        for (const field of Object.keys(face)) delete cloud[field];
+        return { data: { status: 'saved', appearance: cloud } };
+    };
+    const saved = await h.wardrobe.saveAppearance({ ...clothing, ...face });
+    assert.equal(saved.code, 'face_sync_pending');
+    assert.equal(saved.status, 'local');
+    assert.match(saved.message, /solo en este dispositivo/);
+    assert.equal(JSON.parse(h.storage.get('habify_appearance_v1_user-a')).pending, true);
+    h.wardrobe.reset();
+    await h.wardrobe.hydrate({ appearance: cloud });
+    for (const [key, value] of Object.entries({ ...face, ...clothing, skin: '#754d3b' })) assert.equal(h.game.avatar.appearance[key], value);
+    h.game.user = { id: 'user-b' }; h.game.avatarId = 'avatar-b';
+    await h.wardrobe.hydrate({});
+    assert.equal(h.game.avatar.appearance.eyeShape, 'classic');
+    assert.equal(h.game.avatar.appearance.eyeColor, 'default');
+    h.game.user = { id: 'user-a' }; h.game.avatarId = 'avatar-a';
+    await h.wardrobe.hydrate({ appearance: cloud });
+    h.state.rpc = null;
+    assert.equal((await h.wardrobe.saveAppearance(h.game.avatar.appearance)).status, 'cloud');
+    assert.equal(h.game.avatar.appearance.eyeShape, face.eyeShape);
+    assert.equal(JSON.parse(h.storage.get('habify_appearance_v1_user-a')).pending, false);
+});
+
+test('facial fallback rejects explicit differences, denials, blocked storage and unconfirmed paid headwear', async () => {
+    const face = { eyeShape: 'almond', mouthStyle: 'grin', noseShape: 'straight', browStyle: 'arched', eyeColor: '#28bd83' };
+    for (const scenario of [...Object.keys(face), 'denied', 'rejected', 'storage', 'paid']) {
+        const h = harness({ storageBlocked: scenario === 'storage', inventory: ['headwear_guardian'] });
+        await h.wardrobe.hydrate({ appearance: { eyeShape: 'round', headwear: 'none' } });
+        h.state.rpc = async (_name, args) => {
+            if (scenario === 'denied') return { error: { code: '42501' } };
+            if (scenario === 'rejected') return { data: { status: 'invalid_appearance' } };
+            const appearance = { ...args.p_appearance };
+            for (const field of Object.keys(face)) delete appearance[field];
+            if (Object.hasOwn(face, scenario)) appearance[scenario] = scenario === 'eyeColor' ? 'default' : 'classic';
+            if (scenario === 'paid') delete appearance.headwear;
+            return { data: { status: 'saved', appearance } };
+        };
+        const saved = await h.wardrobe.saveAppearance({ ...face, headwear: scenario === 'paid' ? 'headwear_guardian' : 'none' });
+        assert.equal(saved.ok, false, scenario);
+        assert.equal(h.game.avatar.appearance.eyeShape, 'round', scenario);
+        assert.equal(h.game.avatar.appearance.headwear, 'none', scenario);
+        assert.equal(h.storage.size, 0, scenario);
+        assert.equal(h.game.avatar.gold, 100, scenario);
+    }
+});
+
+test('an older validator may omit default facial fields without creating a pending change', async () => {
+    const h = harness();
+    await h.wardrobe.hydrate({});
+    h.state.rpc = async (_name, args) => {
+        const appearance = { ...args.p_appearance };
+        for (const field of ['eyeShape', 'mouthStyle', 'noseShape', 'browStyle', 'eyeColor']) delete appearance[field];
+        return { data: { status: 'saved', appearance } };
+    };
+    assert.equal((await h.wardrobe.saveAppearance({})).status, 'cloud');
+    assert.equal(h.game.avatar.appearance.eyeShape, 'classic');
+    assert.equal(h.game.avatar.appearance.eyeColor, 'default');
+    assert.equal(JSON.parse(h.storage.get('habify_appearance_v1_user-a')).pending, false);
+});
+
+test('a pending free face never conceals missing or different paid clothing confirmation', async () => {
+    for (const [slot, item] of [['outfit', 'outfit_arcane'], ['accessory', 'acc_scarf']]) {
+        for (const omit of [true, false]) {
+            const h = harness({ inventory: [item] });
+            await h.wardrobe.hydrate({ appearance: { eyeShape: 'round' } });
+            h.state.rpc = async (_name, args) => {
+                const appearance = { ...args.p_appearance };
+                delete appearance.eyeShape;
+                if (omit) delete appearance[slot];
+                else appearance[slot] = slot === 'outfit' ? 'default' : 'none';
+                return { data: { status: 'saved', appearance } };
+            };
+            const saved = await h.wardrobe.saveAppearance({ eyeShape: 'almond', [slot]: item });
+            assert.equal(saved.ok, false);
+            assert.equal(saved.code, 'cosmetic_not_saved');
+            assert.equal(h.game.avatar.appearance.eyeShape, 'round');
+            assert.equal(h.game.avatar.appearance[slot], slot === 'outfit' ? 'default' : 'none');
+            assert.equal(h.storage.size, 0);
+        }
+    }
+});
+
+test('a late facial save never writes its face or pending storage into the next account', async () => {
+    const h = harness();
+    const pending = deferred();
+    await h.wardrobe.hydrate({});
+    h.state.rpc = () => pending.promise;
+    const save = h.wardrobe.saveAppearance({ eyeShape: 'almond' });
+    await Promise.resolve();
+    h.wardrobe.reset();
+    h.game.user = { id: 'user-b' }; h.game.avatarId = 'avatar-b';
+    pending.resolve({ data: { status: 'saved', appearance: { eyeShape: 'almond' } } });
+    assert.equal((await save).code, 'session_changed');
+    assert.equal(h.game.avatar.appearance.eyeShape, 'classic');
+    assert.equal(h.storage.size, 0);
+});
+
 test('all free beard choices round-trip through the account without changing class, headwear or gold', async () => {
     const h = harness();
     h.game.avatar.avatarClass = 'mage';

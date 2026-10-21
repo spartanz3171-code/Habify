@@ -64,6 +64,40 @@ test('editor previews, saves locally and retains role across navigation', async 
     expect(errors).toEqual([]);
 });
 
+test('facial choices preview, save and reload without changing headwear, class or balance', async ({ page }, info) => {
+    await boot(page);
+    await page.locator('.nav-item[data-view="character"]').click();
+    const face = page.locator('.face-customization');
+    await expect(face.locator('.character-portrait')).toBeVisible();
+    await expect(face.locator('.char-headwear')).toHaveCount(0);
+    await expect(page.locator('#character-preview .char-headwear')).toHaveCount(1);
+    const original = await face.locator('.character-portrait').innerHTML();
+    for (const [field, label] of [['eyeShape','Redondos'], ['browStyle','Arqueadas'], ['noseShape','Ancha'], ['mouthStyle','Sonrisa amplia']]) {
+        await face.locator('[data-face-field="'+field+'"]').getByRole('button', { name: label, exact: true }).click();
+    }
+    await face.locator('[data-face-field="eyeColor"]').getByRole('button', { name: 'Verde bosque', exact: true }).click();
+    expect(await face.locator('.character-portrait').innerHTML()).not.toBe(original);
+    expect(await page.evaluate(() => GameState.avatar.appearance.eyeShape)).toBe('classic');
+    await page.getByRole('button', { name: 'GUARDAR APARIENCIA', exact: true }).click();
+    await expect(page.locator('#appearance-status')).toContainText('Guardado en este dispositivo');
+    await boot(page);
+    await page.locator('.nav-item[data-view="character"]').click();
+    expect(await page.evaluate(() => {
+        const a = GameState.avatar.appearance;
+        return [a.eyeShape,a.eyeColor,a.browStyle,a.noseShape,a.mouthStyle,a.headwear,GameState.avatar.avatarClass,GameState.avatar.gold];
+    })).toEqual(['round','#497559','arched','broad','grin','default','knight',500]);
+    await expect(face.locator('[data-face-field="eyeShape"]').getByRole('button',{name:'Redondos',exact:true})).toHaveAttribute('aria-pressed','true');
+    await face.screenshot({path:info.outputPath('face-editor.png')});
+    await page.setViewportSize({width:320,height:800});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await face.locator('[data-face-field="mouthStyle"]').getByRole('button',{name:'Seria',exact:true}).click();
+    await page.getByRole('button',{name:'DESHACER',exact:true}).click();
+    await expect(face.locator('[data-face-field="mouthStyle"]').getByRole('button',{name:'Sonrisa amplia',exact:true})).toHaveAttribute('aria-pressed','true');
+    await page.locator('#lang-switch').selectOption('en');
+    await expect(face).toContainText('Eye shape');
+    await expect(face).toContainText('Eyebrows');
+});
+
 test('unlocked cosmetics buy once, equip visibly, and save to account', async ({ page }) => {
     await boot(page, true);
     await page.locator('.nav-item[data-view="character"]').click();

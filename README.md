@@ -2,6 +2,14 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
 
+## Actualización 3.10.0
+
+- Contador compacto con icono de reloj, duración y fecha de renovación.
+- **NO LO HICE** está disponible desde la activación, una vez por periodo y sin tropiezos registrados. Requiere ejecutar [supabase_habit_abstinence_activation.sql](supabase_habit_abstinence_activation.sql) sobre la migración de ciclos ya instalada; conserva los relojes, saldos e historial. La instalación nueva de [supabase_habit_cycles.sql](supabase_habit_cycles.sql) ya incluye esta regla. Los hábitos positivos siguen funcionando en servidores v4.
+- **Personaje → Rostro personalizado** incorpora formas de ojos, cejas, nariz y boca, color de ojos y una vista ampliada sin casco. Los cambios son gratuitos. Ejecuta [supabase_facial_features.sql](supabase_facial_features.sql) para guardarlos en la cuenta. Antes de instalarlo, la app puede conservarlos en este dispositivo y lo indica explícitamente. [Guía de personalización facial](docs/facial-customization.md).
+- Más detalle en materiales del avatar y los cinco monstruos, e iris, escamas, pelaje y plumas de las cuatro mascotas. Se conservan las animaciones, el equipo y las mecánicas.
+- Caché web/PWA actualizada a 3.10.0. Subir a GitHub no ejecuta las dos migraciones de Supabase.
+
 ## Actualización 3.9.0
 
 - Cada hábito inicia su periodo al activarlo. Se puede completar una vez dentro del periodo; la cuenta regresiva conserva la hora de renovación aunque se complete antes.

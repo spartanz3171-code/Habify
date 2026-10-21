@@ -4,6 +4,7 @@ const HabitProgress = {
     installed: false,
     busy: false,
     rulesReady: false,
+    abstinenceReady: false,
     deleteAvailableAt: null,
     clockOffset: 0,
     pendingRequests: new Map(),
@@ -47,6 +48,7 @@ const HabitProgress = {
     },
     syncRules(data) {
         this.rulesReady = data.rules_version >= 4;
+        this.abstinenceReady = data.rules_version >= 5;
         this.deleteAvailableAt = data.delete_available_at || null;
         this.clockOffset = data.server_now ? Date.parse(data.server_now) - Date.now() : 0;
         if (data.penalties?.length) this.cyclePenalties.push(...data.penalties);
@@ -150,7 +152,7 @@ const HabitProgress = {
         const hours = Math.floor(seconds / 3600); seconds %= 3600;
         return `${days ? days + 'd ' : ''}${String(hours).padStart(2,'0')}:${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`;
     },
-    abstinenceAvailable(h) { return h.type === 'negative' && this.available(h) && !h.lapse_count && this.now() >= Date.parse(h.abstinence_available_at); },
+    abstinenceAvailable(h) { return this.abstinenceReady && h.type === 'negative' && this.available(h) && !h.lapse_count; },
     canLapse(h) { return this.rulesReady && h.type === 'negative' && this.cycleOpen(h); },
     stamp() { return (this.deleteRemaining() > 0 ? 'locked:' : 'open:') + GameState.habits.map(h => `${h.id}:${h.cycle_start_at}:${this.cycleOpen(h)}:${this.remaining(h.abstinence_available_at) > 0}:${this.remaining(h.available_after) > 0}`).join('|'); },
     updateCountdowns() {
@@ -182,17 +184,16 @@ const HabitProgress = {
         if (!h.cycle_end_at) return '';
         const t = this.text.bind(this), esc = Views.escape;
         const date = new Intl.DateTimeFormat(I18N.current === 'en' ? 'en-US' : 'es-MX', { timeZone: h.habit_timezone || 'UTC', dateStyle: 'short', timeStyle: 'short' }).format(new Date(h.cycle_end_at));
-        return `<div class="habit-cycle-clock"><span>${h.recorded && !h.lapse_count ? t('Podrás completarlo de nuevo en', 'You can complete it again in') : t('Este periodo termina en', 'This period ends in')}</span><strong data-cycle-countdown>${this.duration(this.remaining(h.cycle_end_at))}</strong><small>${t('Se renueva', 'Renews')}: ${esc(date)}</small></div>
+        return `<div class="habit-cycle-clock"><span class="habit-clock-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div class="habit-cycle-copy"><span>${h.recorded && !h.lapse_count ? t('Nueva oportunidad en', 'Next opportunity in') : t('El periodo termina en', 'Period ends in')}</span><strong data-cycle-countdown>${this.duration(this.remaining(h.cycle_end_at))}</strong></div><small>${t('Se renueva', 'Renews')}<br>${esc(date)}</small></div>
             ${h.missed_cycles > 0 ? `<p class="habit-cycle-warning">${t(`${h.missed_cycles}/3 periodos seguidos sin cumplir. Al tercero se desactiva: −15 monedas y −15 de vida.`, `${h.missed_cycles}/3 consecutive missed periods. At three it becomes inactive: −15 coins and −15 health.`)}</p>` : ''}`;
     },
     actionButtons(h) {
         const t = this.text.bind(this), id = Views.escape(h.id);
         if (h.type === 'positive') return `<button class="btn btn-primary habit-complete-button" data-habit-complete ${!this.available(h) || this.busy ? 'disabled' : ''} onclick="App.toggleHabit('${id}')">${!this.rulesReady ? t('EN MANTENIMIENTO','UNDER MAINTENANCE') : h.recorded ? t('COMPLETADO','COMPLETED') : t('MARCAR COMPLETADO','MARK COMPLETED')}</button>`;
-        const wait = !h.recorded && !h.lapse_count && this.remaining(h.abstinence_available_at) > 0;
         return `<div class="habit-abstinence-actions">
             <button class="btn btn-primary habit-abstain-button" data-habit-abstain ${!this.abstinenceAvailable(h) || this.busy ? 'disabled' : ''} onclick="HabitProgress.report('${id}','abstain')">${t('NO LO HICE','I DID NOT DO IT')}<small>${h.lapse_count ? t('Periodo con tropiezos','Setbacks this period') : h.recorded ? t('Ya registrado','Already recorded') : '+2 XP · +1 G'}</small></button>
             <button class="btn btn-danger habit-lapse-button" data-habit-lapse ${!this.canLapse(h) || this.busy ? 'disabled' : ''} onclick="HabitProgress.report('${id}','lapse')">${t('SÍ LO HICE','I DID IT')}<small>−5 G · −5 HP</small></button>
-            </div>${wait ? `<p class="habit-unlock-note">${t('“NO LO HICE” se habilita en','“I DID NOT DO IT” unlocks in')} <strong data-abstinence-countdown>${this.duration(this.remaining(h.abstinence_available_at))}</strong>. ${t('Solo durante las últimas 2 horas del periodo.','Only during the last 2 hours of the period.')}</p>` : ''}`;
+            </div>${!this.abstinenceReady ? `<p class="habit-unlock-note" role="status">${t('Falta actualizar los retos en tu cuenta para habilitar “NO LO HICE” desde la activación.', 'Your account needs the challenge update to enable “I DID NOT DO IT” from activation.')}</p>` : ''}`;
     },
     penaltyNotice() {
         if (!this.cyclePenalties.length) return '';
@@ -210,7 +211,7 @@ const HabitProgress = {
         const fixedLabel = t('Tu meta de este periodo', 'Your goal this period');
         return `<article class="card habit-progress-card ${done ? 'completed' : ''} ${positive ? 'positive' : 'negative'}" data-progress-habit="${esc(h.id)}">
             <div class="habit-progress-heading"><span class="habit-symbol" aria-hidden="true">${esc(icon)}</span><div class="habit-heading-copy"><h3>${esc(this.title(h))}</h3><p class="habit-schedule">${this.frequency(h.frequency)}</p></div><span class="habit-kind">${p ? `${t('NIVEL', 'LEVEL')} ${h.difficulty_level}` : positive ? t('Meta fija', 'Fixed goal') : t('Reto personal', 'Personal challenge')}</span></div>
-            <p class="habit-instruction">${p && !this.preset(h) ? `<strong>${t('Tu meta', 'Your goal')}: ${h.current_target} ${this.unit(p.unit)}.</strong> ` : ''}${positive ? management ? t('Registra en Inicio cuando alcances tu meta. Hacer más también cuenta, una vez por periodo.', 'Record your goal on Home when you reach it. Doing more counts too, once per period.') : t('Cuando lo logres, pulsa Marcar completado. ¡También cuenta si haces más!', 'When you reach your goal, tap Mark completed. Doing more counts too!') : t('“SÍ LO HICE” significa que realizaste la conducta que quieres evitar. “NO LO HICE” confirma que la evitaste; se habilita en las últimas 2 horas, una vez por periodo y solo si no registraste tropiezos.', '“I DID IT” means you did the behavior you want to avoid. “I DID NOT DO IT” confirms you avoided it; it unlocks in the last 2 hours, once per period and only if you logged no setbacks.')}</p>
+            <p class="habit-instruction">${p && !this.preset(h) ? `<strong>${t('Tu meta', 'Your goal')}: ${h.current_target} ${this.unit(p.unit)}.</strong> ` : ''}${positive ? management ? t('Registra en Inicio cuando alcances tu meta. Hacer más también cuenta, una vez por periodo.', 'Record your goal on Home when you reach it. Doing more counts too, once per period.') : t('Cuando lo logres, pulsa Marcar completado. ¡También cuenta si haces más!', 'When you reach your goal, tap Mark completed. Doing more counts too!') : t('“SÍ LO HICE” significa que realizaste la conducta que quieres evitar. “NO LO HICE” confirma que la evitaste; está disponible desde la activación, una vez por periodo y solo si no registraste tropiezos.', '“I DID IT” means you did the behavior you want to avoid. “I DID NOT DO IT” confirms you avoided it; it is available from activation, once per period and only if you logged no setbacks.')}</p>
             ${p ? `<div class="habit-progress-meter"><div class="habit-meter-label"><label for="habit-meter-${esc(h.id)}">${max ? t('¡Llegaste al último nivel!', 'You reached the final level!') : t(`Camino al nivel ${h.difficulty_level+1}`, `On the way to level ${h.difficulty_level+1}`)}</label><strong>${max ? '7/7' : `${h.progress_count}/7`}</strong></div><progress id="habit-meter-${esc(h.id)}" max="7" value="${max ? 7 : h.progress_count}" aria-label="${max ? t('Último nivel alcanzado', 'Final level reached') : t('Progreso al siguiente nivel', 'Progress to next level')}"></progress>
                 <p>${max ? t('Sigue cumpliendo esta meta para ganar premios.', 'Keep meeting this goal to earn rewards.') : t(`Completa tu meta 7 veces seguidas para llegar a ${next} ${this.unit(p.unit)}.`, `Meet your goal 7 times in a row to reach ${next} ${this.unit(p.unit)}.`)}</p></div>` : positive ? `<div class="habit-progress-meter habit-fixed-meter"><div class="habit-meter-label"><label for="habit-meter-${esc(h.id)}">${fixedLabel}</label><strong>${done ? t('¡Lista!', 'Done!') : !h.period ? t('Descanso', 'Rest day') : t('Pendiente', 'Not yet')}</strong></div><progress id="habit-meter-${esc(h.id)}" max="1" value="${done ? 1 : 0}"></progress><p>${t('Esta meta se mantiene igual. También ganas premios al completarla.', 'This goal stays the same. You still earn rewards for completing it.')}</p></div>` : ''}
             <div class="habit-reward-row"><span class="habit-reward">${esc(this.rewardText(h))}</span>${positive ? `<span class="habit-streak" title="${t('Cumplimientos seguidos', 'Completions in a row')}"><span aria-hidden="true">🔥</span> ${h.current_streak === 1 ? t('1 vez', '1 time') : t(`${h.current_streak} veces seguidas`, `${h.current_streak} in a row`)}</span>` : ''}</div>
@@ -279,7 +280,7 @@ const HabitProgress = {
             : result.status === 'request_replayed' ? t('Ese intento ya se había guardado. No se aplicó otro cobro ni otra recompensa.', 'That attempt was already saved. No extra charge or reward was applied.')
             : result.status === 'cycle_failed' ? t('Ya registraste un tropiezo en este periodo. Podrás ganar la recompensa en el siguiente.', 'You already logged a setback this period. You can earn the reward next period.')
             : result.status === 'auto_archived' ? t('El hábito se desactivó tras 3 periodos sin cumplir. Puedes reactivarlo desde Hábitos.', 'The habit was deactivated after 3 missed periods. You can reactivate it from Habits.')
-            : result.status === 'not_due' && action === 'abstain' ? t('“NO LO HICE” se habilita durante las últimas 2 horas del periodo.', '“I DID NOT DO IT” unlocks during the last 2 hours of the period.')
+            : result.status === 'not_due' && action === 'abstain' ? t('Este periodo no está activo. Actualiza tus hábitos e inténtalo de nuevo.', 'This period is not active. Refresh your habits and try again.')
             : result.status === 'below_target'
             ? t('Cantidad guardada. Aún no alcanzaste el objetivo; puedes actualizarla en este período.', 'Amount saved. Target not reached yet; you can update it within this period.')
             : result.status === 'already_recorded' ? t('Este período ya estaba registrado. No se duplicaron recompensas.', 'This period was already recorded. Rewards were not duplicated.')

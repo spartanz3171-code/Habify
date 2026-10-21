@@ -6,6 +6,7 @@ const path = require('node:path');
 const { createFixture, user } = require('./helpers/habit-db.cjs');
 
 const migration = fs.readFileSync(path.join(__dirname, '../supabase_habit_cycles.sql'), 'utf8');
+const activationPatch = fs.readFileSync(path.join(__dirname, '../supabase_habit_abstinence_activation.sql'), 'utf8');
 const BASE = '2026-10-05T18:00:00Z';
 const timestamp = value => new Date(value).getTime();
 const plusHours = (value, hours) => new Date(timestamp(value) + hours * 60 * 60 * 1000).toISOString();
@@ -90,6 +91,12 @@ test('activation cycles, personal challenges and automatic archiving remain auth
       assert.equal(snapshotHabit(repeated, 'old').cycle_start_at, old.cycle_start_at);
       assert.equal(snapshotHabit(repeated, 'old').cycle_end_at, old.cycle_end_at);
       assert.deepEqual(await history('old'), migratedHistory);
+      await db.exec(activationPatch);
+      await db.exec(activationPatch);
+      const patched = await call('list', { at: new Date().toISOString() });
+      assert.equal(patched.rules_version, 5);
+      assert.equal(snapshotHabit(patched, 'old').cycle_start_at, old.cycle_start_at);
+      assert.deepEqual(await history('old'), migratedHistory);
     });
 
     await t.test('all frequencies start at activation and end at the next scheduled day at the same local time', async () => {
@@ -107,7 +114,7 @@ test('activation cycles, personal challenges and automatic archiving remain auth
       for (const [catalog, frequency, start, end] of cases) {
         const result = await create(catalog, frequency, start);
         const habit = snapshotHabit(result, result.habit_id);
-        assert.equal(result.rules_version, 4);
+        assert.equal(result.rules_version, 5);
         assert.equal(timestamp(habit.cycle_start_at), timestamp(start), frequency);
         assert.equal(timestamp(habit.cycle_end_at), timestamp(end), frequency);
         assert.equal(habit.recorded, false);
@@ -283,25 +290,24 @@ test('activation cycles, personal challenges and automatic archiving remain auth
       await assert.rejects(create(), error => error.code === '22023');
     });
 
-    await t.test('abstinence succeeds only in the final two hours and pays a small reward once', async () => {
+    await t.test('abstinence is available immediately after activation and pays once per cycle', async () => {
       await account();
       const created = await create('hab_no_soda');
       const id = created.habit_id;
       const initial = snapshotHabit(created, id);
-      assert.equal(timestamp(initial.abstinence_available_at), timestamp(plusHours(BASE, 22)));
-      assert.equal((await call('abstain', { id, at: plusHours(BASE, 22 - 1 / 3600), cycleStart: BASE })).status, 'not_due');
+      assert.equal(timestamp(initial.abstinence_available_at), timestamp(BASE));
       assert.deepEqual(await balance(), { gold: 100, hp: 100, current_xp: 0, is_dead: false });
       const results = await Promise.all([
-        call('abstain', { id, at: plusHours(BASE, 22), cycleStart: BASE }),
-        call('abstain', { id, at: plusHours(BASE, 22), cycleStart: BASE })
+        call('abstain', { id, at: BASE, cycleStart: BASE }),
+        call('abstain', { id, at: BASE, cycleStart: BASE })
       ]);
       assert.deepEqual(results.map(result => result.status).sort(), ['abstained', 'already_recorded']);
       assert.equal(results.reduce((sum, result) => sum + result.xp, 0), 2);
       assert.equal(results.reduce((sum, result) => sum + result.gold, 0), 1);
       assert.deepEqual(await balance(), { gold: 101, hp: 100, current_xp: 2, is_dead: false });
       const next = await call('abstain', { id, at: plusHours(BASE, 24), cycleStart: plusHours(BASE, 24) });
-      assert.equal(next.status, 'not_due');
-      assert.equal(snapshotHabit(next, id).recorded, false);
+      assert.equal(next.status, 'abstained');
+      assert.equal(snapshotHabit(next, id).recorded, true);
       assert.equal(timestamp(snapshotHabit(next, id).cycle_end_at), timestamp(plusHours(BASE, 48)));
     });
 

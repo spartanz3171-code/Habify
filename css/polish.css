@@ -508,9 +508,13 @@ html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
 
 /* Activation-based periods remain visible in both the action and summary views. */
 .habit-page-intro { margin-bottom: 18px; color: var(--text-secondary); line-height: 1.6; }
-.habit-cycle-clock { display: grid; gap: 6px; margin: 16px 0; padding: 14px 16px; background: rgba(7, 15, 27, .5); border: 1px solid rgba(77, 227, 160, .22); border-radius: 12px; }
-.habit-cycle-clock > span, .habit-cycle-clock small { color: var(--text-secondary); font-size: 13px; }
-.habit-cycle-clock strong { color: #baf7d3; font-family: var(--font-ui); font-size: 24px; font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+.habit-cycle-clock { display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 10px 12px; background: linear-gradient(110deg, #112c2d88, #10162999); border: 1px solid #4de3a02d; border-radius: 12px; }
+.habit-clock-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: #56edac12; color: #91d7b6; }
+.habit-clock-icon svg { width: 21px; height: 21px; }
+.habit-cycle-copy { display: grid; gap: 3px; min-width: 0; }
+.habit-cycle-copy > span, .habit-cycle-clock small { color: var(--text-secondary); font-size: 11px; line-height: 1.4; }
+.habit-cycle-clock small { margin-left: auto; text-align: right; flex: 0 1 130px; }
+.habit-cycle-clock strong { color: #baf7d3; font-family: var(--font-ui); font-size: 18px; line-height: 1.2; font-variant-numeric: tabular-nums; letter-spacing: .035em; white-space: nowrap; }
 .habit-cycle-warning, .habit-cycle-notice { color: #ffd9b0; line-height: 1.6; }
 .habit-cycle-warning { font-size: 13px; }
 .habit-cycle-notice { margin: 16px 0; padding: 18px; border: 1px solid #db9f67; border-radius: 14px; background: #2a202b; }
@@ -524,6 +528,30 @@ html { scroll-padding-top: 96px; scroll-padding-bottom: 112px; }
 .habit-unlock-note { margin-top: 12px; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
 .habit-unlock-note strong { font-variant-numeric: tabular-nums; color: #baf7d3; }
 @media (max-width: 360px) {
+    .habit-cycle-clock { gap: 8px; padding: 9px; }
+    .habit-clock-icon { display: none; }
+    .habit-cycle-clock strong { font-size: 16px; }
+    .habit-cycle-clock small { flex-basis: 86px; font-size: 10px; }
     .habit-abstinence-actions { grid-template-columns: 1fr; gap: 8px; }
     .habit-abstinence-actions .btn { min-height: 58px; }
+}
+
+/* A face workbench keeps the actual avatar beside free, named feature choices. */
+.face-customization { border: 1px solid #7286b542; border-radius: 14px; margin: 24px 0; background: linear-gradient(145deg, #232743, #191c32); }
+.face-customization > summary { padding: 15px; color: #e5dbff; font-size: 15px; font-weight: 700; cursor: pointer; }
+.face-workbench { padding: 0 14px 16px; display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: start; gap: 16px; }
+.face-preview { position: sticky; top: 100px; display: grid; justify-items: center; gap: 9px; padding: 12px 4px; border: 1px solid #a4bfe733; border-radius: 50px 50px 14px 14px; background: radial-gradient(ellipse at 50% 35%, #525274, #202740 70%); }
+.face-preview small { text-align: center; color: #bfc7dc; font-size: 10px; line-height: 1.5; }
+#face-preview { width: 116px; height: 124px; display: grid; place-items: center; }
+#face-preview .character-portrait { width: 100%; max-width: 100%; }
+.face-controls { min-width: 0; }
+.face-controls .choice-row { gap: 6px; }
+.face-controls .choice-chip { padding: 7px 9px; font-size: 11px; border-radius: 8px; }
+.face-controls .swatch-row { gap: 8px; margin-top: 9px; }
+.face-controls .color-swatch { width: 28px; height: 28px; }
+.face-controls fieldset:last-child { margin-bottom: 0; }
+@media (max-width: 400px) {
+    .face-workbench { grid-template-columns: minmax(0, 1fr); }
+    .face-preview { position: static; width: 144px; justify-self: center; }
+    #face-preview { width: 112px; height: 112px; }
 }

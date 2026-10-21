@@ -32,6 +32,7 @@ DECLARE
     v_outfit text;
     v_accessory text;
     v_headwear text;
+    v_field text;
 BEGIN
     IF jsonb_typeof(v_value) <> 'object' THEN
         RAISE EXCEPTION 'Appearance must be an object' USING ERRCODE = '22023';
@@ -46,6 +47,15 @@ BEGIN
     IF TG_OP = 'UPDATE' AND NOT (v_value ? 'beardStyle')
        AND OLD.appearance ? 'beardStyle' THEN
         v_value := v_value || jsonb_build_object('beardStyle', OLD.appearance->'beardStyle');
+    END IF;
+    -- Older apps omit these free facial choices. Preserve the account's
+    -- selected face rather than silently resetting it during another edit.
+    IF TG_OP = 'UPDATE' THEN
+        FOREACH v_field IN ARRAY ARRAY['eyeShape', 'mouthStyle', 'noseShape', 'browStyle', 'eyeColor'] LOOP
+            IF NOT (v_value ? v_field) AND OLD.appearance ? v_field THEN
+                v_value := v_value || jsonb_build_object(v_field, OLD.appearance->v_field);
+            END IF;
+        END LOOP;
     END IF;
     -- Keep the empty initial value so first-login preferences from signup
     -- metadata can be restored by the client, including confirmation by email.
@@ -81,7 +91,12 @@ BEGIN
         'outfit', v_outfit,
         'accessory', v_accessory,
         'headwear', v_headwear,
-        'beardStyle', CASE WHEN v_value->>'beardStyle' IN ('default', 'none', 'short', 'goatee', 'long', 'braided') THEN v_value->>'beardStyle' ELSE 'default' END
+        'beardStyle', CASE WHEN v_value->>'beardStyle' IN ('default', 'none', 'short', 'goatee', 'long', 'braided') THEN v_value->>'beardStyle' ELSE 'default' END,
+        'eyeShape', CASE WHEN v_value->>'eyeShape' IN ('classic', 'round', 'almond', 'focused') THEN v_value->>'eyeShape' ELSE 'classic' END,
+        'mouthStyle', CASE WHEN v_value->>'mouthStyle' IN ('classic', 'smile', 'grin', 'serious') THEN v_value->>'mouthStyle' ELSE 'classic' END,
+        'noseShape', CASE WHEN v_value->>'noseShape' IN ('classic', 'button', 'straight', 'broad') THEN v_value->>'noseShape' ELSE 'classic' END,
+        'browStyle', CASE WHEN v_value->>'browStyle' IN ('classic', 'soft', 'arched', 'bold') THEN v_value->>'browStyle' ELSE 'classic' END,
+        'eyeColor', CASE WHEN v_value->>'eyeColor' ~ '^#[0-9a-fA-F]{6}$' THEN lower(v_value->>'eyeColor') ELSE 'default' END
     );
     RETURN NEW;
 END;

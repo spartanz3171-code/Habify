@@ -28,7 +28,7 @@ const Atelier = {
         const role = Views.classLabel(a);
         const option = (field, value, label) => `<button type="button" class="choice-chip ${this.draft[field] === value ? 'selected' : ''}" aria-pressed="${this.draft[field] === value}" onclick="Atelier.choose('${field}', '${value}')">${label}</button>`;
         const swatches = (field, colors) => {
-            if (!colors.some(([value]) => value === this.draft[field])) colors.unshift([this.draft[field], t('Actual', 'Current')]);
+            if (/^#[0-9a-f]{6}$/i.test(this.draft[field]) && !colors.some(([value]) => value === this.draft[field])) colors.unshift([this.draft[field], t('Actual', 'Current')]);
             return colors.map(([value, label]) => `<button type="button" class="color-swatch ${this.draft[field] === value ? 'selected' : ''}" style="--swatch:${value}" aria-label="${label}" title="${label}" aria-pressed="${this.draft[field] === value}" onclick="Atelier.choose('${field}', '${value}')"><span aria-hidden="true">${this.draft[field] === value ? '✓' : ''}</span></button>`).join('');
         };
         return `<section class="page-heading"><div><span class="eyebrow">${t('TU AVENTURA, TU ESTILO', 'YOUR QUEST, YOUR STYLE')}</span><h1>${t('Tu personaje', 'Your character')}</h1><p>${t('Dale una identidad propia a tu héroe.', 'Give your hero an identity of their own.')}</p></div><span class="section-badge">LV ${a.level}</span></section>
@@ -50,6 +50,16 @@ const Atelier = {
                     <fieldset class="beard-options"><legend>${t('Barba', 'Beard')}</legend><div class="choice-row">${option('beardStyle', 'default', t('Original', 'Original'))}${option('beardStyle', 'none', t('Sin barba', 'No beard'))}${option('beardStyle', 'short', t('Corta', 'Short beard'))}${option('beardStyle', 'goatee', t('Perilla', 'Goatee'))}${option('beardStyle', 'long', t('Larga', 'Long beard'))}${option('beardStyle', 'braided', t('Trenzada', 'Braided beard'))}</div><p class="character-note">${t('Usa el mismo color del cabello. Puedes probarla antes de guardar.', 'Uses your hair color. Try it before saving.')}</p></fieldset>
                     <fieldset><legend>${t('Color de cabello', 'Hair color')}</legend><div class="swatch-row">${swatches('hairColor', [['#332c42', t('Negro', 'Black')], ['#684333', t('Castaño', 'Brown')], ['#c99044', t('Dorado', 'Golden')], ['#b84c41', t('Cobrizo', 'Copper')], ['#ded6e4', t('Plata', 'Silver')], ['#8251b5', t('Violeta', 'Violet')]])}</div></fieldset>
                     <fieldset><legend>${t('Casco', 'Headwear')}</legend><div class="choice-row">${option('headwear', 'default', t('De clase', 'Class default'))}${option('headwear', 'none', t('Sin casco', 'No headwear'))}</div></fieldset>
+                    <details class="face-customization" open><summary>${t('Rostro personalizado', 'Make your face your own')}</summary><div class="face-workbench">
+                        <div class="face-preview"><div id="face-preview">${CharacterArt.renderPortrait(a)}</div><small>${t('Vista del rostro sin casco', 'Face preview without headwear')}</small></div>
+                        <div class="face-controls">
+                            <fieldset data-face-field="eyeShape"><legend>${t('Forma de ojos', 'Eye shape')}</legend><div class="choice-row">${option('eyeShape','classic',t('Clásicos','Classic'))}${option('eyeShape','round',t('Redondos','Round'))}${option('eyeShape','almond',t('Almendrados','Almond'))}${option('eyeShape','focused',t('Intensos','Focused'))}</div></fieldset>
+                            <fieldset data-face-field="eyeColor"><legend>${t('Color de ojos', 'Eye color')}</legend><div class="choice-row">${option('eyeColor','default',t('De mi clase','Class color'))}</div><div class="swatch-row">${swatches('eyeColor', [['#517886',t('Azul iris','Blue iris')],['#497559',t('Verde bosque','Forest green')],['#8d733c',t('Miel','Hazel')],['#654334',t('Café','Brown')],['#776590',t('Violeta iris','Violet iris')],['#647786',t('Gris','Gray')]].filter(([value])=>value!=='default'))}</div></fieldset>
+                            <fieldset data-face-field="browStyle"><legend>${t('Cejas', 'Eyebrows')}</legend><div class="choice-row">${option('browStyle','classic',t('Clásicas','Classic'))}${option('browStyle','soft',t('Suaves','Soft'))}${option('browStyle','arched',t('Arqueadas','Arched'))}${option('browStyle','bold',t('Marcadas','Bold'))}</div></fieldset>
+                            <fieldset data-face-field="noseShape"><legend>${t('Nariz', 'Nose')}</legend><div class="choice-row">${option('noseShape','classic',t('Clásica','Classic'))}${option('noseShape','button',t('Pequeña','Button'))}${option('noseShape','straight',t('Recta','Straight'))}${option('noseShape','broad',t('Ancha','Broad'))}</div></fieldset>
+                            <fieldset data-face-field="mouthStyle"><legend>${t('Boca', 'Mouth')}</legend><div class="choice-row">${option('mouthStyle','classic',t('Clásica','Classic'))}${option('mouthStyle','smile',t('Sonrisa','Smile'))}${option('mouthStyle','grin',t('Sonrisa amplia','Grin'))}${option('mouthStyle','serious',t('Seria','Serious'))}</div></fieldset>
+                        </div>
+                    </div></details>
                     <fieldset><legend>${t('Color de atuendo', 'Outfit color')}</legend><div class="swatch-row">${swatches('outfitColor', [['#29adff', t('Azul', 'Blue')], ['#a855f7', t('Violeta', 'Violet')], ['#00a878', t('Verde', 'Green')], ['#d84969', t('Carmesí', 'Crimson')], ['#d99a36', t('Ámbar', 'Amber')], ['#8996b0', t('Acero', 'Steel')]])}</div></fieldset>
                     <div class="atelier-save-row"><button id="save-appearance" class="btn btn-primary" onclick="Atelier.save()" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('GUARDAR APARIENCIA', 'SAVE APPEARANCE')}</button><button class="btn btn-secondary" onclick="Atelier.resetDraft()" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('DESHACER', 'RESET')}</button></div>
                     <p id="appearance-status" class="save-status" role="status" aria-live="polite">${this.escape(this.savedMessage)}</p>
@@ -91,7 +101,7 @@ const Atelier = {
         App.updateHeader();
     },
     choose(field, value) {
-        if (this.busy || !['body', 'skin', 'hairStyle', 'hairColor', 'outfitColor', 'headwear', 'beardStyle'].includes(field)) return;
+        if (this.busy || !['body', 'skin', 'hairStyle', 'hairColor', 'outfitColor', 'headwear', 'beardStyle', 'eyeShape', 'eyeColor', 'browStyle', 'noseShape', 'mouthStyle'].includes(field)) return;
         if (field === 'headwear' && !['default', 'none'].includes(value)) return;
         this.draft = CharacterArt.normalizeAppearance({ ...this.draft, [field]: value });
         this.savedMessage = this.text('Cambios sin guardar', 'Unsaved changes');
