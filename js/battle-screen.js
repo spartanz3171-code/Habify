@@ -20,7 +20,7 @@ const BattleScreen = {
         this.initialized = true;
         const resize = () => {
             if (this.resizeFrame) return;
-            this.resizeFrame = requestAnimationFrame(() => { this.resizeFrame = null; this.sync(); });
+            this.resizeFrame = requestAnimationFrame(() => { this.resizeFrame = null; App.releaseBattleInputs?.(); this.sync(); });
         };
         window.addEventListener('resize', resize);
         window.visualViewport?.addEventListener('resize', resize);

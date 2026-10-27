@@ -84,7 +84,7 @@ test('landscape fits small phones, multitouch releases, pause keeps focus, and r
         await expect.poll(() => page.evaluate(() => document.getElementById('app-content').style.getPropertyValue('--battle-height'))).toBe(`${size.height}px`);
         await expect.poll(() => page.evaluate(() => Math.abs(Engine._combat.height - document.getElementById('real-time-arena').clientHeight))).toBeLessThan(1);
         const layout = await page.evaluate(() => {
-            const rects = [...document.querySelectorAll('.rt-btn, .battle-tool:not([hidden]), .hud-bar-container')].map(el => {
+            const rects = [...document.querySelectorAll('.rt-btn, .battle-joystick, .battle-tool:not([hidden]), .hud-bar-container')].map(el => {
                 const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
             });
             return { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, rects };
@@ -95,11 +95,11 @@ test('landscape fits small phones, multitouch releases, pause keeps focus, and r
             expect(rect.top).toBeGreaterThanOrEqual(0); expect(rect.bottom).toBeLessThanOrEqual(size.height);
         }
     }
-    const left = await page.locator('[data-action="left"]').boundingBox();
+    const left = await page.locator('#battle-joystick').boundingBox();
     const hit = await page.locator('[data-action="attack"]').boundingBox();
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [
-        { id: 1, x: left.x + left.width / 2, y: left.y + left.height / 2 },
+        { id: 1, x: left.x + left.width * .2, y: left.y + left.height / 2 },
         { id: 2, x: hit.x + hit.width / 2, y: hit.y + hit.height / 2 }
     ] });
     await expect.poll(() => page.evaluate(() => Engine._rtInputs.left && Engine._rtInputs.attack)).toBe(true);
@@ -120,6 +120,42 @@ test('landscape fits small phones, multitouch releases, pause keeps focus, and r
     await expect(page.locator('.battle-result')).toBeVisible();
     await expect(page.locator('#bottom-nav')).toBeVisible();
     expect(await page.evaluate(() => Engine._gameLoopRunning)).toBe(false);
+});
+
+test('joystick dead zone, jump, keyboard overlap and pause remain safe in both orientations', async ({ page }) => {
+    for (const viewport of [{ width: 568, height: 320 }, { width: 390, height: 844 }]) {
+        await boot(page, viewport);
+        const rotated = viewport.height > viewport.width;
+        if (rotated) await page.locator('#battle-rotate-fallback').click();
+        await expect.poll(() => page.evaluate(() => Engine._gameLoopRunning)).toBe(true);
+        const stick = page.locator('#battle-joystick');
+        const bounds = await stick.boundingBox();
+        const move = (horizontal, vertical) => page.mouse.move(
+            bounds.x + bounds.width / 2 + (rotated ? -vertical : horizontal) * bounds.width,
+            bounds.y + bounds.height / 2 + (rotated ? horizontal : vertical) * bounds.height);
+        await move(0, 0);
+        await page.mouse.down();
+        await move(.01, 0);
+        expect(await page.evaluate(() => Engine._rtInputs.left || Engine._rtInputs.right || Engine._rtInputs.up)).toBe(false);
+        await move(.3, 0);
+        await expect.poll(() => page.evaluate(() => Engine._rtInputs.right)).toBe(true);
+        await page.keyboard.down('ArrowRight');
+        await page.mouse.up();
+        expect(await page.evaluate(() => Engine._rtInputs.right)).toBe(true);
+        await page.keyboard.up('ArrowRight');
+        expect(await page.evaluate(() => Engine._rtInputs.right)).toBe(false);
+        await move(0, 0);
+        await page.mouse.down();
+        await move(0, -.4);
+        await expect.poll(() => page.evaluate(() => Engine._rtEntities[0].grounded)).toBe(false);
+        await page.evaluate(() => BattleScreen.pause());
+        expect(await page.evaluate(() => Object.values(Engine._rtInputs).some(Boolean))).toBe(false);
+        await expect(stick).not.toHaveClass(/active/);
+        await page.mouse.up();
+        await page.locator('#battle-resume').click();
+        await move(.3, 0);
+        expect(await page.evaluate(() => Engine._rtInputs.right)).toBe(false);
+    }
 });
 
 test('fullscreen failure leaves a usable fight and English rotation text', async ({ page }) => {

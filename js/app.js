@@ -107,6 +107,7 @@ const App = {
         const sources = new Map();
         const pointers = new Map();
         const keys = new Map();
+        let joystick = null;
         const active = () => BattleScreen.canPlay();
         const input = (action, source, pressed) => {
             const held = sources.get(action) || new Set();
@@ -116,6 +117,34 @@ const App = {
             if (wasPressed !== (held.size > 0)) Engine.handleInput(action, held.size > 0);
         };
         const keyAction = code => Engine.combatKeyAction(code);
+        const moveJoystick = event => {
+            if (!joystick || event.pointerId !== joystick.pointerId) return;
+            const bounds = joystick.element.getBoundingClientRect();
+            const offsetX = event.clientX - bounds.left - bounds.width / 2;
+            const offsetY = event.clientY - bounds.top - bounds.height / 2;
+            const radius = joystick.element.clientWidth * .32;
+            const logicalX = BattleScreen.rotated ? offsetY : offsetX;
+            const logicalY = BattleScreen.rotated ? -offsetX : offsetY;
+            const distance = Math.hypot(logicalX, logicalY);
+            const scale = distance > radius ? radius / distance : 1;
+            const horizontal = logicalX * scale;
+            const vertical = logicalY * scale;
+            joystick.element.style.setProperty('--stick-x', `${horizontal}px`);
+            joystick.element.style.setProperty('--stick-y', `${vertical}px`);
+            input('left', joystick.source, horizontal < -radius * .3);
+            input('right', joystick.source, horizontal > radius * .3);
+            input('up', joystick.source, vertical < -radius * .65);
+        };
+        const releaseJoystick = () => {
+            if (!joystick) return;
+            const held = joystick;
+            joystick = null;
+            for (const action of ['left', 'right', 'up']) input(action, held.source, false);
+            held.element.classList.remove('active');
+            held.element.style.removeProperty('--stick-x');
+            held.element.style.removeProperty('--stick-y');
+            if (held.element.hasPointerCapture?.(held.pointerId)) held.element.releasePointerCapture(held.pointerId);
+        };
         window.addEventListener('keydown', event => {
             if (!active() || event.target.closest?.('input,select,textarea,[contenteditable="true"]')) return;
             if (event.code === 'Space' && event.target.closest?.('button:not([data-action])')) return;
@@ -133,6 +162,17 @@ const App = {
             keys.delete(event.code);
         });
         document.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+            const stick = event.target.closest?.('#battle-joystick');
+            if (stick) {
+                if (!active() || joystick) return;
+                event.preventDefault();
+                joystick = { element: stick, pointerId: event.pointerId, source: `joystick:${event.pointerId}` };
+                stick.setPointerCapture?.(event.pointerId);
+                stick.classList.add('active');
+                moveJoystick(event);
+                return;
+            }
             const button = event.target.closest?.('[data-action]');
             if (!button || !active() || button.disabled) return;
             event.preventDefault();
@@ -141,7 +181,14 @@ const App = {
             button.classList.add('active');
             input(button.dataset.action, event.pointerId, true);
         });
+        document.addEventListener('pointermove', event => {
+            if (!joystick || event.pointerId !== joystick.pointerId) return;
+            if (!active()) { releaseJoystick(); return; }
+            event.preventDefault();
+            moveJoystick(event);
+        }, { passive: false });
         const release = event => {
+            if (joystick?.pointerId === event.pointerId) releaseJoystick();
             const pointer = pointers.get(event.pointerId);
             if (!pointer) return;
             pointers.delete(event.pointerId);
@@ -152,6 +199,7 @@ const App = {
         document.addEventListener('pointercancel', release);
         document.addEventListener('lostpointercapture', release);
         this.releaseBattleInputs = () => {
+            releaseJoystick();
             sources.clear(); keys.clear(); pointers.clear();
             Engine.resetInputs();
             document.querySelectorAll('[data-action].active').forEach(b => b.classList.remove('active'));

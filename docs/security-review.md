@@ -1,8 +1,21 @@
 # Revisión de seguridad · 12 de octubre de 2026
 
-## Correcciones locales del 26 de octubre (3.11.0)
+## Actualización manual de 3.12.0
 
-Se completaron las correcciones de compras, limpieza de cuentas y resultados de batalla pendientes de la revisión posterior. **No se ejecutó SQL en Supabase, no se utilizaron cuentas reales y no se publicó el proyecto.** La validación se hizo con PostgreSQL local en memoria, sesiones simuladas y pruebas de navegador.
+El límite nuevo es de **5 XP y 3 monedas por victoria**, para las **primeras 3 victorias recompensadas de cada día UTC**. Son como máximo 15 XP y 9 monedas de premio directo diario por cuenta; el bono normal de subir de nivel se contabiliza aparte. Los triunfos posteriores no pagan ni curan. Las penalizaciones por derrota o retirada no cambian.
+
+1. Conserva los requisitos y las variables privadas de 3.11.0 descritos abajo. Primero ensaya sobre una copia de prueba con respaldo.
+2. **Vuelve a ejecutar manualmente el archivo completo [supabase_economy_security.sql](../supabase_economy_security.sql)**. Añade `verified_battles.settled_at` y actualiza `combat_settle`; no reinicia saldos ni borra partidas. Para resultados antiguos sin fecha de liquidación se usa la fecha de apertura como aproximación, sin recalcular premios ya concedidos.
+3. Coordina esa migración con el despliegue del cliente y función de 3.12.0. Termina las partidas antes de cambiar el motor; la huella del motor cambia y un replay anterior no es compatible. Recarga la PWA para obtener la caché 3.12.0.
+4. En la copia de prueba, verifica tres victorias con premio y una cuarta sin premio ni curación, reenvía un resultado y comprueba el aislamiento entre cuentas. El reinicio usa las 00:00 UTC y la fecha de liquidación del servidor, no el reloj del celular.
+
+El conteo y el pago se realizan bajo el bloqueo de la fila del avatar. Reintentar, cambiar de dispositivo o abrir más pestañas no concede cupos adicionales. Los topes se aplican también si el catálogo antiguo contiene recompensas elevadas. No es protección contra cuentas múltiples o automatización; los límites operativos de solicitudes siguen siendo necesarios.
+
+**Publicar 3.12.0 en GitHub no ejecuta SQL remoto ni configura las variables privadas del servidor.** El límite diario no existe en una base que siga usando la función anterior. Las pruebas usan PostgreSQL en memoria y sesiones simuladas.
+
+## Correcciones del 26 de octubre (3.11.0)
+
+Se completaron las correcciones de compras, limpieza de cuentas y resultados de batalla pendientes de la revisión posterior. **No se ejecutó SQL en Supabase ni se utilizaron cuentas reales.** La validación se hizo con PostgreSQL local en memoria, sesiones simuladas y pruebas de navegador.
 
 - `purchase_shop_item` obtiene el precio del catálogo, bloquea la fila del avatar y guarda artículo y descuento en una sola transacción. Un fallo revierte ambos; una compra repetida devuelve la propiedad existente.
 - La nueva protección impide escrituras directas de saldo, experiencia, nivel, salud, inventario e historial, incluso desde el panel de un administrador autenticado. Las operaciones autorizadas de hábitos, compras y apariencia siguen funcionando. La administración confiable de la base conserva sus permisos.

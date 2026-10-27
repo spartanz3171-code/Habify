@@ -2,14 +2,23 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. La interfaz se sirve en Vercel y una función Node.js verifica los combates.
 
-## Actualización 3.11.0 (preparada en local)
+## Actualización 3.12.0
+
+- **Tienda** concentra las compras de ropa y accesorios. **Personaje** muestra sólo prendas adquiridas, además del editor gratuito y la opción de equipar o quitar prendas.
+- Vista previa apoyada sobre la plataforma, manos y botas más naturales, contornos suaves y materiales retocados. Las criaturas conservan equipo, rangos y animaciones, con acabados diferenciados.
+- Joystick para moverse y saltar al arrastrar hacia arriba. Ataques y habilidades siguen disponibles al mismo tiempo; teclado, pausa y giro del teléfono conservan su funcionamiento.
+- **5 XP y 3 monedas por victoria, máximo 3 victorias recompensadas por día UTC**. Después no se obtiene XP, oro ni curación por ganar. Las derrotas y retiradas mantienen sus penalizaciones; las bonificaciones normales de subir de nivel siguen separadas.
+- **Activación manual pendiente:** vuelve a ejecutar la versión actual de [supabase_economy_security.sql](supabase_economy_security.sql), incluso si aplicaste 3.11.0. Lee la [actualización de seguridad](docs/security-review.md#actualización-manual-de-3120). Cambiar el cliente no activa el límite diario en la base.
+- Caché 3.12.0. Publicar en GitHub no ejecuta SQL remoto ni configura las variables privadas del servidor.
+
+## Actualización 3.11.0
 
 - Las compras de equipo cobran y entregan el artículo en una transacción de servidor. Los reintentos no vuelven a cobrar.
 - Cambiar de cuenta limpia avatar, inventario, historial y partidas. Una carga fallida no abre la cuenta con datos anteriores; se descartan respuestas de sesiones antiguas.
 - La arena solicita una partida al servidor. Al terminar, el servidor reproduce sus entradas con el mismo motor, valida equipo y resultado, y registra premios e historial una sola vez. No acepta oro, XP ni victorias calculadas por el navegador.
 - El equipo queda fijo durante cada partida. Un guardado sin confirmar muestra **Pendiente** y permite reintentar sin duplicar recompensas.
 - **Requiere activación manual:** [supabase_economy_security.sql](supabase_economy_security.sql) y la función [api/combat.js](api/combat.js), con variables privadas de servidor. Lee el [orden de instalación y los límites](docs/security-review.md#activación-manual-de-3110) antes de publicar. No basta con subir los archivos estáticos.
-- No se ejecutó SQL remoto ni se desplegó este cambio. Mientras falte la función de compra o la API de combate, esos flujos muestran un error sin fingir un guardado.
+- No se ejecutó SQL remoto ni se configuraron las variables privadas del servidor. Mientras falte la función de compra o la API de combate, esos flujos muestran un error sin fingir un guardado.
 
 ## Actualización 3.10.0
 

@@ -62,7 +62,8 @@ test('catalog and fallback rivals keep up with hero level and become harder rela
                 }
                 assert.ok(rival.difficulty.lightWindup >= .27, 'every strike must retain a readable warning');
                 assert.ok(rival.difficulty.heavyWindup >= .4);
-                assert.ok(rival.xp > 0 && rival.goldRaw > 0);
+                assert.equal(rival.xp, 5);
+                assert.equal(rival.goldRaw, 3);
                 previous = { hits, danger, speed: rival.difficulty.moveSpeed, interval: rival.difficulty.attackInterval };
             }
         }
@@ -410,6 +411,21 @@ test('verified combat never changes balance before confirmation and retains a re
     assert.equal(state.avatar.gold, 10);
     assert.equal(state.pendingCombatSettlement, null);
     assert.equal(state.battleLog.length, 1);
+});
+
+test('a daily-capped verified victory displays the server limit without applying local rewards', async () => {
+    const { engine, state, context } = setup();
+    state.currentBattle.verification = { id: 'official' };
+    context.queueAvatarWrite = task => task();
+    context.HabitProgress = { syncAvatar(row) { state.avatar.gold = row.gold; } };
+    context.CombatService = { finish: async () => ({ won: true, fled: false, avatar: { gold: 9 }, xp: 0, gold: 0,
+        reward_limited: true, daily_remaining: 0, hp_lost: 0, opponent: 'Official' }) };
+    const result = await engine._endBattle(true);
+    assert.equal(result.won, true);
+    assert.equal(result.goldGain, 0);
+    assert.equal(result.dailyRemaining, 0);
+    assert.match(result.message, /00:00 UTC/);
+    assert.equal(state.avatar.gold, 9);
 });
 
 test('defeat and surrender retain the minimum real avatar HP', async () => {

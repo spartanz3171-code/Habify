@@ -18,6 +18,10 @@ test('server generates the same opponent from its stored snapshot and match id',
     const row = { id: match().id, engine_version: engineVersion,
         snapshot: { avatar: { level: 1 }, inventory: [], opponent_sprite: 'orc' } };
     assert.equal(createMatch(row).opponent.sprite, 'orc');
+    row.snapshot.avatar.level = 100;
+    row.snapshot.monsters = [{ sprite: 'orc', name: 'Enemy', xp_reward: 999999, gold_reward: 999999 }];
+    assert.equal(createMatch(row).opponent.xp, 5);
+    assert.equal(createMatch(row).opponent.goldRaw, 3);
     row.snapshot.opponent_sprite = 'unknown';
     assert.throws(() => createMatch(row), /Unknown opponent/);
 });

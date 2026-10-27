@@ -1,4 +1,8 @@
 .battle-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.arena-rewards { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 0; border-bottom: 1px solid #8093b343; font: 13px/1.5 var(--font-ui); color: #cad9d6; }
+.arena-rewards strong { color: #a9efd0; font-size: 16px; }
+.arena-rewards strong span { color: #f1d48a; margin-left: 8px; }
+.battle-reward-counter { margin-top: 8px; color: #cad9d6; font: 13px/1.5 var(--font-ui); }
 .battle-tool { min-height: 44px; padding: 8px 12px; border: 1px solid #8093b343; border-radius: 9px; background: #171b30ed; color: #e9f1f3; font: 700 11px/1.2 var(--font-ui); cursor: pointer; }
 .battle-tool:hover { border-color: #00e436; color: #99f3ae; }
 .battle-tool:focus-visible, .battle-pause-screen button:focus-visible { outline: 3px solid #00e436; outline-offset: 3px; }
@@ -63,6 +67,14 @@ body.battle-immersive { position: fixed; inset: 0; width: 100%; height: 100%; mi
 .rt-btn-magic { --control-color: #d4b1ff; }
 .rt-btn.active, .rt-btn:active { transform: translateY(3px); color: #fff; background: color-mix(in srgb, var(--control-color) 35%, #182338); box-shadow: 0 1px 0 #080e19, inset 0 0 0 2px var(--control-color); }
 .rt-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.battle-joystick { position: relative; width: 96px; height: 96px; flex: 0 0 auto; border: 2px solid #87b9b76b; border-radius: 50%; background: radial-gradient(circle, #182f3a 0 38%, #0d1727 40% 66%, #29424c 68%); box-shadow: inset 0 2px 9px #0009, 0 2px 0 #050b12; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+.battle-joystick:focus-visible { outline: 3px solid #d9fff0; outline-offset: 3px; }
+.joystick-axis::before, .joystick-axis::after { content: ''; position: absolute; background: #a2ccc32e; top: 15%; bottom: 15%; width: 2px; left: calc(50% - 1px); }
+.joystick-axis::after { transform: rotate(90deg); }
+.joystick-thumb { position: absolute; width: 44%; height: 44%; top: 28%; left: 28%; border-radius: 50%; border: 2px solid #beddd6; background: radial-gradient(circle at 35% 25%, #7cafa6, #345b58 65%); box-shadow: 0 4px 7px #0008, inset 0 1px 2px #fff5; transform: translate(var(--stick-x, 0px), var(--stick-y, 0px)); transition: transform .1s ease-out; }
+.battle-joystick.active { border-color: #b5ffd2; cursor: grabbing; }
+.battle-joystick.active .joystick-thumb { transition: none; background: #528c76; }
+.battle-immersive .battle-joystick { width: 72px; height: 72px; }
 @container (max-width: 700px) {
     .battle-immersive .rt-controls { gap: 10px; padding-inline: 8px; }
     .battle-immersive .rt-cluster { gap: 5px; }
@@ -85,6 +97,7 @@ body.battle-immersive { position: fixed; inset: 0; width: 100%; height: 100%; mi
 /* Expanded browser bars can leave much less room than the phone's screen height. */
 @container (max-height: 300px) {
     .battle-immersive .battle-session { grid-template-rows: 44px 32px minmax(0, 1fr) 64px; }
+    .battle-immersive .battle-joystick { width: 54px; height: 54px; }
     .battle-immersive .rt-btn { height: 52px; min-height: 52px; }
     .battle-immersive .rt-btn-attack { height: 56px; min-height: 56px; }
     .battle-immersive .hud-label { font-size: 11px; margin-bottom: 2px; }

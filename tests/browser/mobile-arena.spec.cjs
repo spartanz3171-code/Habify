@@ -74,7 +74,7 @@ async function expectFits(page) {
             width: visualViewport.width, height: visualViewport.height,
             rootWidth: parseFloat(document.getElementById('app-content').style.getPropertyValue('--battle-width')),
             rootHeight: parseFloat(document.getElementById('app-content').style.getPropertyValue('--battle-height')),
-            boxes: [...document.querySelectorAll('.rt-btn, .battle-tool:not([hidden]), .hud-bar-container')].map(el => {
+            boxes: [...document.querySelectorAll('.rt-btn, .battle-joystick, .battle-tool:not([hidden]), .hud-bar-container')].map(el => {
                 const r = el.getBoundingClientRect();
                 return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, button: el.tagName === 'BUTTON' };
             })
@@ -119,10 +119,10 @@ test('Safari fallback rotates a playable arena, handles browser resizing, and re
     await expect.poll(() => page.evaluate(() => Engine._gameLoopRunning)).toBe(true);
     await expectFits(page);
     const pos = await page.evaluate(() => Engine._rtEntities[0].x);
-    const right = await page.locator('[data-action="right"]').boundingBox();
-    await page.mouse.move(right.x + right.width / 2, right.y + right.height / 2);
+    const right = await page.locator('#battle-joystick').boundingBox();
+    await page.mouse.move(right.x + right.width / 2, right.y + right.height * .8);
     await page.mouse.down();
-    await expect(page.locator('[data-action="right"]')).toHaveClass(/active/);
+    await expect(page.locator('#battle-joystick')).toHaveClass(/active/);
     await expect.poll(() => page.evaluate(() => Engine._rtEntities[0].x)).toBeGreaterThan(pos + 5);
     await page.mouse.up();
     await expect.poll(() => page.evaluate(() => Engine._rtInputs.right)).toBe(false);

@@ -85,6 +85,9 @@ CREATE TABLE IF NOT EXISTS public.verified_battles(
  created_at timestamptz NOT NULL DEFAULT now(),result jsonb
 );
 CREATE INDEX IF NOT EXISTS verified_battles_user_time ON public.verified_battles(user_id,created_at DESC);
+ALTER TABLE public.verified_battles ADD COLUMN IF NOT EXISTS settled_at timestamptz;
+UPDATE public.verified_battles SET settled_at=created_at WHERE result IS NOT NULL AND settled_at IS NULL;
+CREATE INDEX IF NOT EXISTS verified_battles_user_settled ON public.verified_battles(user_id,settled_at DESC) WHERE result IS NOT NULL;
 ALTER TABLE public.verified_battles ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.verified_battles FROM PUBLIC,anon,authenticated;
 
@@ -123,6 +126,8 @@ CREATE OR REPLACE FUNCTION public.combat_settle(p_user uuid,p_id uuid,p_won bool
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE account public.avatars%ROWTYPE; battle public.verified_battles%ROWTYPE;
  bonus integer:=0; lost integer:=0; habit record;
+ rewarded_today integer; earned_xp integer:=0; earned_gold integer:=0;
+ settled_time timestamptz; day_start timestamptz;
 BEGIN
  SELECT * INTO account FROM public.avatars WHERE user_id=p_user FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Avatar not found' USING ERRCODE='42501'; END IF;
@@ -140,9 +145,18 @@ BEGIN
   PERFORM public.habit_reconcile(habit.id,now());
  END LOOP;
  SELECT * INTO account FROM public.avatars WHERE id=account.id;
+ settled_time:=clock_timestamp();
+ day_start:=date_trunc('day',settled_time AT TIME ZONE 'UTC') AT TIME ZONE 'UTC';
+ SELECT count(*) INTO rewarded_today FROM public.verified_battles
+  WHERE user_id=p_user AND settled_at>=day_start AND settled_at<day_start+interval '24 hours'
+   AND result->>'won'='true' AND ((result->>'xp')::integer>0 OR (result->>'gold')::integer>0);
  IF p_won THEN
-  account.current_xp:=account.current_xp+p_xp; account.gold:=account.gold+p_gold;
-  account.hp:=least(account.max_hp,account.hp+5); account.is_dead:=account.hp<=0;
+  IF rewarded_today<3 THEN
+   earned_xp:=least(p_xp,5); earned_gold:=least(p_gold,3);
+  END IF;
+  account.current_xp:=account.current_xp+earned_xp; account.gold:=account.gold+earned_gold;
+  IF earned_xp>0 OR earned_gold>0 THEN account.hp:=least(account.max_hp,account.hp+5); END IF;
+  account.is_dead:=account.hp<=0;
   WHILE account.xp_to_level>0 AND account.current_xp>=account.xp_to_level LOOP
    account.current_xp:=account.current_xp-account.xp_to_level; account.level:=account.level+1;
    account.xp_to_level:=floor(account.xp_to_level*1.5); account.gold:=account.gold+25;
@@ -155,10 +169,12 @@ BEGIN
  UPDATE public.avatars SET current_xp=account.current_xp,gold=account.gold,hp=account.hp,is_dead=account.is_dead,
   level=account.level,xp_to_level=account.xp_to_level,updated_at=now() WHERE id=account.id RETURNING * INTO account;
  INSERT INTO public.battle_log(avatar_id,opponent,won,xp_gained,gold_gained,hp_lost)
-  VALUES(account.id,p_opponent,p_won,p_xp,p_gold+bonus,lost);
+  VALUES(account.id,p_opponent,p_won,earned_xp,earned_gold+bonus,lost);
  battle.result:=jsonb_build_object('status','settled','battle_id',p_id,'won',p_won,'fled',p_fled,
-  'xp',p_xp,'gold',p_gold,'avatar_bonus_gold',bonus,'hp_lost',lost,'opponent',p_opponent);
- UPDATE public.verified_battles SET result=battle.result WHERE id=p_id;
+  'xp',earned_xp,'gold',earned_gold,'avatar_bonus_gold',bonus,'hp_lost',lost,'opponent',p_opponent,
+  'reward_limited',p_won AND rewarded_today>=3,'daily_limit',3,
+  'daily_remaining',greatest(0,3-rewarded_today-CASE WHEN earned_xp>0 OR earned_gold>0 THEN 1 ELSE 0 END));
+ UPDATE public.verified_battles SET result=battle.result,settled_at=settled_time WHERE id=p_id;
  RETURN battle.result||jsonb_build_object('avatar',to_jsonb(account));
 END $$;
 

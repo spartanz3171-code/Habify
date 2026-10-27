@@ -359,8 +359,8 @@ const Engine = {
             sprite: e.sprite,
             level: oppLevel,
             difficulty, hp, maxHp: hp, attack,
-            xp: e.xp_reward != null ? Math.floor(e.xp_reward * oppLevel / baseLevel) : 15 + oppLevel * 10,
-            goldRaw: e.gold_reward != null ? Math.floor(e.gold_reward * oppLevel / baseLevel) : 10 + oppLevel * 5
+            xp: 5,
+            goldRaw: 3
         };
     },
 
@@ -1023,7 +1023,11 @@ const Engine = {
                 GameState.battleLog.unshift({ opponent: receipt.opponent, won: receipt.won, date: new Date().toLocaleDateString() });
                 result = { won: receipt.won, fled: receipt.fled, saved: true,
                     xpGain: receipt.xp, goldGain: receipt.gold, hpLost: receipt.hp_lost,
-                    message: receipt.won ? `+${receipt.xp} XP, +${receipt.gold} G` : `-${receipt.hp_lost} HP` };
+                    rewardLimited: !!receipt.reward_limited,
+                    dailyRemaining: Number.isInteger(receipt.daily_remaining) ? receipt.daily_remaining : null,
+                    message: receipt.reward_limited
+                        ? (typeof I18N !== 'undefined' && I18N.current === 'en' ? 'Daily rewards exhausted. Reset at 00:00 UTC.' : 'Premios diarios agotados. Se renuevan a las 00:00 UTC.')
+                        : receipt.won ? `+${receipt.xp} XP, +${receipt.gold} G` : `-${receipt.hp_lost} HP` };
             });
         } catch (_) {
             if (!isCurrentSession()) return null;

@@ -90,10 +90,24 @@ test('polished monsters preserve their rig, tiers and safe ID-free SVGs', () => 
             assert.match(svg, new RegExp(`character-${sprite} monster-rank-${tier}`));
             assert.match(svg, /data-state="RUNNING" data-facing="left"/);
             assert.match(svg, /char-body/);
+            assert.match(svg, /shape-rendering="geometricPrecision"/);
+            if (['goblin', 'orc', 'skeleton'].includes(sprite)) assert.match(svg, /creature-mantle/);
             assert.match(svg, /creature-(?:face|gel)-finish/);
             assert.doesNotMatch(svg, /\bid=|url\(#|NaN|undefined/);
             return svg;
         });
         assert.equal(new Set(looks).size, 4, sprite);
+    }
+});
+
+test('hero tailoring and rounded hands preserve every class, outfit and combat anchor', () => {
+    for (const avatarClass of roles) for (const body of ['male', 'female']) {
+        for (const outfit of ['default', 'outfit_ranger', 'outfit_knight', 'outfit_arcane']) {
+            const svg = art.render({ avatarClass, appearance: { body, outfit } });
+            assert.match(svg, /char-tailoring/);
+            assert.equal((svg.match(/class="char-hand"/g) || []).length, 2);
+            for (const anchor of ['char-leg-front', 'char-leg-back', 'char-head', 'char-arm-front', 'char-arm-back']) assert.ok(svg.includes(anchor));
+            assert.doesNotMatch(svg, /NaN|undefined|\bid=|url\(#/);
+        }
     }
 });

@@ -69,10 +69,10 @@ const Atelier = {
     },
     renderWardrobe() {
         const t = this.text.bind(this);
-        const items = Wardrobe.listCosmetics();
-        return `<section class="wardrobe-section"><div class="page-heading compact"><div><span class="eyebrow">${t('VISTE TU PROGRESO', 'WEAR YOUR PROGRESS')}</span><h2>${t('Guardarropa', 'Wardrobe')}</h2><p>${t('Gana oro con tus hábitos y desbloquea atuendos, cascos y accesorios.', 'Earn gold with your habits and unlock outfits, headwear and accessories.')}</p></div><span class="wallet">${GameState.avatar.gold} <small>G</small></span></div>
+        const items = Wardrobe.listCosmetics().filter(item => item.purchased);
+        return `<section class="wardrobe-section"><div class="page-heading compact"><h2>${t('Tu guardarropa', 'Your wardrobe')}</h2><button class="btn btn-secondary" onclick="App.navigate('store')">${t('IR A LA TIENDA', 'OPEN STORE')}</button></div>
             <div class="wardrobe-tools"><button class="choice-chip" onclick="Atelier.unequip('outfit')" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('Atuendo de clase', 'Class outfit')}</button><button class="choice-chip" onclick="Atelier.unequip('accessory')" ${this.busy || App.shopBusy ? 'disabled' : ''}>${t('Sin accesorio', 'No accessory')}</button></div>
-            ${this.renderCosmeticCards(items)}</section>`;
+            ${items.length ? this.renderCosmeticCards(items) : `<p class="empty-state">${t('Aún no tienes prendas desbloqueadas.', 'No unlocked clothing yet.')}</p>`}</section>`;
     },
     previewAppearance() {
         return GameState.currentView === 'character' && this.draft ? this.draft : GameState.avatar.appearance;

@@ -1,5 +1,13 @@
 # Arena horizontal y próximos pasos de multijugador
 
+## Joystick y premios diarios en 3.12.0
+
+Las flechas táctiles se sustituyen por un joystick: arrastra a izquierda o derecha para moverte y hacia arriba para saltar. La zona central evita movimientos accidentales. Ataques, defensa y habilidades se pueden mantener con otro dedo. El teclado sigue funcionando; soltar, cancelar el toque, pausar, cambiar de tamaño o salir libera las entradas. El giro visual de Safari transforma también los ejes del joystick.
+
+La victoria concede **5 XP y 3 monedas**, con premio en las primeras **3 victorias por cuenta y día UTC**. Luego se puede seguir combatiendo, pero ganar no entrega oro, XP ni curación. Perder o retirarse conserva las penalizaciones existentes. El resultado muestra el cupo restante; la renovación ocurre a las 00:00 UTC. El bono de subir de nivel no forma parte del premio directo de combate.
+
+Esta protección necesita [volver a aplicar manualmente el SQL actualizado](security-review.md#actualización-manual-de-3120), incluso en instalaciones con combate verificado anterior. No se activa sólo publicando el JavaScript. Las mejoras siguen en local y no se ejecutó SQL remoto.
+
 ## Combate verificado en 3.11.0
 
 El PvE conserva su simulación y sus controles locales, pero necesita conexión para iniciar y guardar. La API captura equipo y catálogo auténticos; al terminar reproduce las entradas y calcula victoria, experiencia, monedas y penalización. El cliente sólo envía acciones. Los premios y el historial se guardan juntos una vez por partida.

@@ -52,11 +52,22 @@ test('editor previews, saves locally and retains role across navigation', async 
     await page.screenshot({ path: testInfo.outputPath('dashboard.png'), fullPage: true });
     await page.locator('.nav-item[data-view="character"]').click();
     await expect(page.locator('#character-role')).toHaveText('Caballera real');
+    const framing = await page.locator('#character-preview').evaluate(preview => {
+        const frame = preview.getBoundingClientRect();
+        const hero = preview.querySelector('.character-art').getBoundingClientRect();
+        const floor = getComputedStyle(preview, '::after');
+        const floorBottom = frame.bottom - parseFloat(floor.bottom);
+        return { contained: hero.top >= frame.top && hero.left >= frame.left && hero.right <= frame.right,
+            grounded: hero.bottom <= floorBottom && hero.bottom >= floorBottom - parseFloat(floor.height) };
+    });
+    expect(framing).toEqual({ contained: true, grounded: true });
     await page.getByRole('button', { name: 'Trenzas', exact: true }).click();
     await page.getByRole('button', { name: 'Violeta', exact: true }).last().click();
     await page.getByRole('button', { name: 'GUARDAR APARIENCIA', exact: true }).click();
     await expect(page.locator('#appearance-status')).toContainText('Guardado en este dispositivo');
     expect(await page.evaluate(() => GameState.avatar.avatarClass)).toBe('knight');
+    await expect(page.locator('.cosmetic-card')).toHaveCount(0);
+    await page.getByRole('button', { name: 'IR A LA TIENDA', exact: true }).click();
     await page.getByRole('button', { name: 'PROBAR', exact: true }).first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'VOLVER', exact: true }).click();
@@ -109,10 +120,16 @@ test('facial choices preview, save and reload without changing headwear, class o
 test('unlocked cosmetics buy once, equip visibly, and save to account', async ({ page }) => {
     await boot(page, true);
     await page.locator('.nav-item[data-view="character"]').click();
+    await expect(page.locator('.cosmetic-card')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'COMPRAR', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'IR A LA TIENDA', exact: true }).click();
     const card = page.locator('.cosmetic-card').filter({ has: page.getByRole('heading', { name: 'Traje de exploración' }) });
     await card.getByRole('button', { name: 'COMPRAR', exact: true }).click();
     await expect(card.getByRole('button', { name: 'EQUIPAR', exact: true })).toBeEnabled();
     expect(await page.evaluate(() => GameState.avatar.gold)).toBe(420);
+    await page.locator('.nav-item[data-view="character"]').click();
+    await expect(page.locator('.cosmetic-card')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'COMPRAR', exact: true })).toHaveCount(0);
     await card.getByRole('button', { name: 'EQUIPAR', exact: true }).click();
     await expect(card).toHaveClass(/equipped/);
     expect(await page.evaluate(() => GameState.avatar.appearance.outfit)).toBe('outfit_ranger');
@@ -184,6 +201,23 @@ test('creature gallery renders all enemies in either direction and supports each
     await expect(page.locator('#characters .char-beard')).toHaveCount(0);
     await page.locator('#beard').selectOption('long');
     await expect(page.locator('#characters .char-beard[data-beard="long"]')).toHaveCount(32);
+    const coverage = await page.locator('#monsters .character-svg').evaluateAll(async sprites => Promise.all(sprites.map(async svg => {
+        const image = new Image();
+        image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = 96; canvas.height = 108;
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0, 96, 108);
+        const pixels = context.getImageData(0, 0, 96, 108).data;
+        let painted = 0;
+        for (let index = 3; index < pixels.length; index += 4) if (pixels[index] > 30) painted++;
+        return painted;
+    })));
+    for (const painted of coverage) expect(painted).toBeGreaterThan(1200);
+    await page.locator('#beard').selectOption('none');
+    await page.locator('#headwear').selectOption('none');
+    await page.locator('.role-group').filter({ has: page.getByRole('heading', { name: 'Magos arcanos', exact: true }) }).screenshot({ path: testInfo.outputPath('heroes.png') });
     await page.locator('#monsters').screenshot({ path: testInfo.outputPath('creatures.png') });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(errors).toEqual([]);
@@ -269,9 +303,9 @@ test('battle moves, jumps, attacks and releases controls after navigation', asyn
     expect(await page.evaluate(() => Object.values(Engine._rtInputs).some(Boolean))).toBe(false);
     await page.locator('.nav-item[data-view="arena"]').click();
     await expect.poll(() => page.evaluate(() => Engine._gameLoopRunning)).toBe(true);
-    const button = page.locator('[data-action="left"]');
+    const button = page.locator('#battle-joystick');
     const box = await button.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.move(box.x + box.width * .2, box.y + box.height / 2);
     await page.mouse.down();
     await expect.poll(() => page.evaluate(() => Engine._rtInputs.left)).toBe(true);
     await page.mouse.move(5, 5);
@@ -283,7 +317,7 @@ test('battle moves, jumps, attacks and releases controls after navigation', asyn
         const attackBox = await page.locator('[data-action="attack"]').boundingBox();
         const cdp = await page.context().newCDPSession(page);
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [
-            { id: 1, x: leftBox.x + leftBox.width / 2, y: leftBox.y + leftBox.height / 2 },
+            { id: 1, x: leftBox.x + leftBox.width * .2, y: leftBox.y + leftBox.height / 2 },
             { id: 2, x: attackBox.x + attackBox.width / 2, y: attackBox.y + attackBox.height / 2 }
         ] });
         await expect.poll(() => page.evaluate(() => Engine._rtInputs.left && Engine._rtInputs.attack)).toBe(true);
@@ -523,7 +557,7 @@ test('spell art follows direction, survives pause and expires after impact', asy
         for (let i = 0; i < 100; i++) Engine._spellBurst('heal', 100, 100);
     });
     expect(await page.locator('.combat-effect').count()).toBeLessThanOrEqual(32);
-    if (testInfo.project.name === 'mobile') await page.locator('.battle-toolbar button').first().click();
+    await page.locator('.battle-toolbar button').first().click();
     await page.locator('.nav-item[data-view="dashboard"]').click();
     expect(await page.evaluate(() => Engine._rtEffects.length)).toBe(0);
     expect(errors).toEqual([]);

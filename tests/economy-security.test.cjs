@@ -93,15 +93,58 @@ test('only the server settles battles; retries cannot pay twice or cross account
         await assert.rejects(settle(), /permission denied/);
         await db.exec('SET ROLE service_role');
         const first = (await settle()).rows[0].result;
-        assert.equal(first.avatar.gold, 60);
-        assert.equal(first.avatar.current_xp, 20);
-        assert.equal((await settle()).rows[0].result.avatar.gold, 60);
+        assert.equal(first.avatar.gold, 53);
+        assert.equal(first.avatar.current_xp, 5);
+        assert.equal((await settle()).rows[0].result.avatar.gold, 53);
         const other = '00000000-0000-0000-0000-000000000002';
         assert.equal((await db.query('SELECT public.combat_read($1,$2) AS result', [other, battle.id])).rows[0].result, null);
         args[0] = other;
         await assert.rejects(settle(), /Battle not found/);
         await db.exec('RESET ROLE');
         assert.equal((await db.query('SELECT * FROM public.battle_log')).rows.length, 1);
+    } finally { await db.close(); }
+});
+
+test('daily combat awards are bounded per account and UTC settlement day, including retries and healing', async () => {
+    const db = await fixture();
+    try {
+        await db.exec("RESET ROLE; SET timezone='Pacific/Kiritimati'; SET ROLE service_role;");
+        const open = async (owner = user) => (await db.query('SELECT public.combat_open($1,$2) AS result', [owner, 'version'])).rows[0].result;
+        const settle = async (battle, owner = user, won = true) => (await db.query(
+            'SELECT public.combat_settle($1,$2,$3,false,0,$4,$5,$6) AS result',
+            [owner, battle.id, won, won ? 1000000 : 0, won ? 1000000 : 0, 'Enemy'])).rows[0].result;
+        const defeat = await settle(await open(), user, false);
+        assert.equal(defeat.daily_remaining, 3);
+        const paid = [];
+        for (let index = 0; index < 3; index++) {
+            const battle = await open();
+            paid.push(battle);
+            const receipt = await settle(battle);
+            assert.equal(receipt.xp, 5);
+            assert.equal(receipt.gold, 3);
+            assert.equal(receipt.daily_remaining, 2-index);
+            assert.equal(receipt.reward_limited, false);
+        }
+        await db.exec("RESET ROLE; UPDATE public.avatars SET hp=30 WHERE id='a'; SET ROLE service_role;");
+        const capped = await settle(await open());
+        assert.equal(capped.reward_limited, true);
+        assert.equal(capped.xp, 0);
+        assert.equal(capped.gold, 0);
+        assert.equal(capped.avatar.hp, 30);
+        assert.equal(capped.avatar.current_xp, 15);
+        assert.equal(capped.avatar.gold, 59);
+        assert.equal((await settle(paid[0])).avatar.gold, 59);
+        const other = '00000000-0000-0000-0000-000000000002';
+        assert.equal((await settle(await open(other), other)).daily_remaining, 2);
+        await db.exec("RESET ROLE;");
+        await db.query("UPDATE public.verified_battles SET settled_at=(date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')-interval '1 second' WHERE id=$1", [paid[0].id]);
+        await db.exec('SET ROLE service_role;');
+        const renewed = await settle(await open());
+        assert.equal(renewed.xp, 5);
+        assert.equal(renewed.daily_remaining, 0);
+        assert.equal(renewed.avatar.gold, 62);
+        await db.exec('RESET ROLE;');
+        assert.equal((await db.query("SELECT sum(xp_gained)::integer AS xp,sum(gold_gained)::integer AS gold FROM public.battle_log WHERE avatar_id='a'")).rows[0].xp, 20);
     } finally { await db.close(); }
 });
 
