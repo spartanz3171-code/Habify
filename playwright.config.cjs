@@ -11,5 +11,5 @@ module.exports = defineConfig({
         // WebKit's Windows renderer needs more time for full SVG editor journeys.
         { name: 'webkit-mobile', timeout: 180000, testMatch: /(?:mobile-arena|equipment|habits-progress|habify)\.spec\.cjs/, use: { ...devices['iPhone 13'], browserName: 'webkit' } }
     ],
-    webServer: { command: 'npm run dev', url: 'http://127.0.0.1:4173', reuseExistingServer: !process.env.CI }
+    webServer: { command: `"${process.execPath}" tools/serve.cjs`, url: 'http://127.0.0.1:4173', reuseExistingServer: !process.env.CI }
 });

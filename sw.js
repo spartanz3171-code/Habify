@@ -2,7 +2,7 @@
 // HABIFY - Service Worker for PWA Offline Support
 // ==========================================
 
-const CACHE_NAME = 'habify-v3.10.0';
+const CACHE_NAME = 'habify-v3.11.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -23,14 +23,15 @@ const ASSETS_TO_CACHE = [
     './js/i18n.js?v=3.10.0',
     './js/characters.js?v=3.10.0',
     './js/pets.js?v=3.10.0',
-    './js/data.js?v=3.10.0',
+    './js/data.js?v=3.11.0',
     './js/wardrobe.js?v=3.10.0',
-    './js/habits.js?v=3.10.0',
+    './js/habits.js?v=3.11.0',
     './js/recovery.js?v=3.10.0',
-    './js/engine.js?v=3.10.0',
-    './js/views.js?v=3.10.0',
+    './js/combat-service.js?v=3.11.0',
+    './js/engine.js?v=3.11.0',
+    './js/views.js?v=3.11.0',
     './js/atelier.js?v=3.10.0',
-    './js/app.js?v=3.10.0',
+    './js/app.js?v=3.11.0',
     './js/supabase.min.js?v=3.10.0'
 ];
 
@@ -62,7 +63,7 @@ self.addEventListener('activate', (event) => {
 // Network first for app files; authentication and API traffic stay on the network.
 self.addEventListener('fetch', (event) => {
     // Ignore non-GET requests or Supabase API calls from hard caching
-    if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) {
+    if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin || new URL(event.request.url).pathname.startsWith('/api/')) {
         return;
     }
 

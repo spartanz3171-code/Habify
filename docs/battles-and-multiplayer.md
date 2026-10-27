@@ -1,5 +1,15 @@
 # Arena horizontal y próximos pasos de multijugador
 
+## Combate verificado en 3.11.0
+
+El PvE conserva su simulación y sus controles locales, pero necesita conexión para iniciar y guardar. La API captura equipo y catálogo auténticos; al terminar reproduce las entradas y calcula victoria, experiencia, monedas y penalización. El cliente sólo envía acciones. Los premios y el historial se guardan juntos una vez por partida.
+
+El equipo y la apariencia de combate quedan fijados al comenzar. Equipar o quitar armas y hechizos fuera de la pelea se refleja en la siguiente partida; no cambia las habilidades de la que está pausada. El tipo de rival seleccionado se conserva, pero sus estadísticas las calcula el servidor.
+
+Una pérdida de respuesta muestra **Pendiente** y **Reintentar guardado**. El reintento no duplica premios ni penalizaciones. Una pelea puede simular hasta 10 minutos y debe cerrarse antes de 20 minutos reales, incluidas pausas. Una partida vencida o de otra versión del motor no concede premios.
+
+Esta entrega está preparada localmente, sin despliegue ni SQL remoto. Requiere [activar manualmente la migración y el servicio](security-review.md#activación-manual-de-3110). La reproducción valida las reglas, no la ausencia de automatización. El multijugador sigue pendiente.
+
 ## Armas y magia en 3.8.1
 
 El ataque principal (**Z** o el botón **RAYO/FLECHA**) dispara energía arcana con `wpn_staff` y flechas con `wpn_bow`. **V / CARGA** prepara un disparo más potente; recibir un golpe durante la preparación lo interrumpe. Cada proyectil causa daño una sola vez, respeta la defensa y viaja en la dirección del rival. Sin estas armas, Z y V conservan los ataques cuerpo a cuerpo.

@@ -392,12 +392,7 @@ const PRESET_HABITS_CATALOG = [
     }
 ];
 
-// In-memory game state (synced with Supabase)
-const GameState = {
-    user: null,       // Supabase user
-    avatarId: null,   // DB avatar ID
-
-    avatar: {
+const DEFAULT_AVATAR = Object.freeze({
         name: 'Héroe',
         level: 1,
         currentXP: 0,
@@ -415,7 +410,13 @@ const GameState = {
         lastHabitModified: null,
         avatarClass: 'hero',
         appearance: null
-    },
+});
+
+// In-memory game state (synced with Supabase)
+const GameState = {
+    user: null,
+    avatarId: null,
+    avatar: { ...DEFAULT_AVATAR },
 
     habits: [],
     shopItems: [],
@@ -439,6 +440,17 @@ const GameState = {
     presetCatalog: [...PRESET_HABITS_CATALOG],
     tutorialStep: 0
 };
+
+function clearAccountState() {
+    if (GameState._cooldownInterval) clearInterval(GameState._cooldownInterval);
+    Object.assign(GameState, {
+        avatarId: null, avatar: { ...DEFAULT_AVATAR }, _avatarBalance: null,
+        habits: [], shopItems: [], inventory: [], cosmeticInventory: [], monsters: [], battleLog: [],
+        cosmeticsReady: false, appearanceSaveStatus: null, isAdmin: false, adminUsersList: [],
+        presetCatalog: [...PRESET_HABITS_CATALOG], currentBattle: null, _currentOpponent: null,
+        _lastBattleResult: null, pendingCombatSettlement: null, _cooldownInterval: null, _storeFilter: 'all', adminTab: 'stats', tutorialStep: 0
+    });
+}
 
 // Weapon ID to CSS class mapping
 const WEAPON_CSS = {
@@ -479,8 +491,9 @@ async function initSupabase() {
 
 async function loadGameFromDB() {
     const userId = GameState.user?.id;
+    const accountAvatar = GameState.avatar;
     if (!userId) return false;
-    const isCurrentUser = () => GameState.user?.id === userId;
+    const isCurrentUser = () => GameState.user?.id === userId && GameState.avatar === accountAvatar;
 
     try {
         // Load avatar
@@ -511,6 +524,7 @@ async function loadGameFromDB() {
         GameState.avatar.lastHabitModified = avatar.last_habit_modified;
         GameState.avatar.avatarClass = avatar.avatar_class || 'hero';
         GameState.avatar.gameRevision = avatar.game_revision;
+        GameState.avatar.economyVersion = avatar.economy_version;
         if (typeof HabitProgress !== 'undefined') HabitProgress.installed = avatar.game_revision !== undefined;
         rememberAvatarBalance(avatar);
 
@@ -619,13 +633,15 @@ function queueAvatarWrite(task) {
 async function saveAvatarToDB() {
     const avatarId = GameState.avatarId;
     const userId = GameState.user && GameState.user.id;
+    const accountAvatar = GameState.avatar;
+    const isCurrentUser = () => GameState.avatarId === avatarId && GameState.user?.id === userId && GameState.avatar === accountAvatar;
     if (!avatarId || !userId) return;
     return queueAvatarWrite(async () => {
-        if (GameState.avatarId !== avatarId || GameState.user?.id !== userId) return;
+        if (!isCurrentUser()) return;
         const a = GameState.avatar;
         // Appearance is intentionally excluded: wardrobe saves cannot be
         // reverted by a habit, equipment, or combat save.
-        let query = supabase.from('avatars').update({
+        const payload = {
             name: a.name,
             level: a.level,
             current_xp: a.currentXP,
@@ -643,21 +659,25 @@ async function saveAvatarToDB() {
             last_habit_modified: a.lastHabitModified ? new Date(a.lastHabitModified).toISOString() : null,
             avatar_class: a.avatarClass || 'hero',
             updated_at: new Date().toISOString()
-        }).eq('id', avatarId).eq('user_id', userId);
+        };
+        if (a.economyVersion >= 1) {
+            for (const key of [...AVATAR_BALANCE_FIELDS, 'last_penalty_check', 'last_habit_modified']) delete payload[key];
+        }
+        let query = supabase.from('avatars').update(payload).eq('id', avatarId).eq('user_id', userId);
         const baseline = GameState._avatarBalance;
         if (!baseline) return query;
         // A second device may have completed a habit while this screen was open.
         // Compare the full previous balance so an older save cannot overwrite it.
         for (const key of AVATAR_BALANCE_FIELDS) query = query.eq(key, baseline[key]);
         const response = await query.select('*');
-        if (GameState.user?.id !== userId) return response;
+        if (!isCurrentUser()) return response;
         if (response.error) throw response.error;
         if (response.data?.length) {
             rememberAvatarBalance(response.data[0]);
             return response;
         }
         const fresh = await supabase.from('avatars').select('*').eq('id', avatarId).eq('user_id', userId).single();
-        if (GameState.user?.id === userId && fresh.data) {
+        if (isCurrentUser() && fresh.data) {
             HabitProgress.syncAvatar(fresh.data);
             App.updateHeader();
             App.showToast(HabitProgress.text('Tu saldo cambió en otro dispositivo. Se actualizó la cuenta; vuelve a intentar la acción.', 'Your balance changed on another device. Your account was refreshed; retry the action.'), 'error');

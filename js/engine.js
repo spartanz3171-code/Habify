@@ -227,17 +227,26 @@ const Engine = {
 
     async buyItem(itemId) {
         const userId = GameState.user?.id;
+        const avatarId = GameState.avatarId;
+        const accountAvatar = GameState.avatar;
         const item = GameState.shopItems.find(i => i.id === itemId);
-        if (!item || item.purchased) return { success: false, message: 'No disponible.' };
-        if (GameState.avatar.gold < item.cost) return { success: false, message: 'Oro insuficiente!' };
-
-        GameState.avatar.gold -= item.cost;
-        item.purchased = true;
-        GameState.inventory.push({ ...item });
-        await addInventoryToDB(itemId);
-        if (GameState.user?.id !== userId) return { success: false, message: 'La sesión cambió.' };
-        await saveAvatarToDB();
-        return { success: true, message: `${item.name} comprado!` };
+        if (!userId || !avatarId || !item || item.purchased) return { success: false, message: 'No disponible.' };
+        const isCurrentUser = () => GameState.user?.id === userId && GameState.avatarId === avatarId && GameState.avatar === accountAvatar;
+        return queueAvatarWrite(async () => {
+            if (!isCurrentUser()) return { success: false, message: 'La sesión cambió.' };
+            const { data, error } = await supabase.rpc('purchase_shop_item', { p_item_id: itemId });
+            if (!isCurrentUser()) return { success: false, message: 'La sesión cambió.' };
+            if (error || !data) return { success: false, message: 'No se confirmó la compra. Revisa la conexión y la actualización de la tienda.' };
+            if (data.status === 'insufficient_gold') return { success: false, message: 'Oro insuficiente.' };
+            if (!['purchased', 'owned'].includes(data.status) || data.item_id !== itemId ||
+                !Number.isFinite(data.avatar?.gold) || data.avatar.gold < 0) {
+                return { success: false, message: 'El servidor no confirmó la compra.' };
+            }
+            HabitProgress.syncAvatar(data.avatar);
+            item.purchased = true;
+            if (!GameState.inventory.some(owned => owned.id === itemId)) GameState.inventory.push({ ...item });
+            return { success: true, message: `${item.name} comprado!` };
+        });
     },
 
     async equipItem(itemId) {
@@ -282,18 +291,21 @@ const Engine = {
         return { status: 'success', equipped };
     },
 
-    equippedSpells() {
-        const owned = new Set((GameState.inventory || []).filter(item => item.type === 'spell').map(item => item.id));
-        return [...new Set((GameState.avatar.equippedSpell || '').split(',').map(id => id.trim()).filter(id => owned.has(id)))];
+    equippedSpells(avatar = GameState.avatar, inventory = GameState.inventory) {
+        const owned = new Set((inventory || []).filter(item => item.type === 'spell').map(item => item.id));
+        return [...new Set((avatar.equippedSpell || '').split(',').map(id => id.trim()).filter(id => owned.has(id)))];
     },
 
+    combatAvatar() { return GameState.currentBattle?.loadout?.avatar || GameState.avatar; },
+
     combatAbilities() {
-        const spells = this.equippedSpells();
+        const avatar = this.combatAvatar();
+        const spells = this.equippedSpells(avatar, GameState.currentBattle?.loadout?.inventory || GameState.inventory);
         return {
-            magic: GameState.avatar.avatarClass === 'mage',
+            magic: avatar.avatarClass === 'mage',
             fire: spells.includes('spell_fire'),
             heal: spells.includes('spell_heal'),
-            weapon: { wpn_staff: 'magic', wpn_bow: 'arrow' }[GameState.avatar.equippedWeapon] || null
+            weapon: { wpn_staff: 'magic', wpn_bow: 'arrow' }[avatar.equippedWeapon] || null
         };
     },
 
@@ -318,7 +330,7 @@ const Engine = {
         };
     },
 
-    generateOpponent() {
+    generateOpponent(sprite = null) {
         const enemies = [
             { name: 'Goblin Oscuro', sprite: 'goblin' },
             { name: 'Esqueleto Guerrero', sprite: 'skeleton' },
@@ -327,7 +339,9 @@ const Engine = {
             { name: 'Espectro', sprite: 'ghost' }
         ];
         const catalog = GameState.monsters?.length ? GameState.monsters : enemies;
-        const e = catalog[Math.floor(Math.random() * catalog.length)];
+        const candidates = sprite ? catalog.filter(enemy => enemy.sprite === sprite) : catalog;
+        if (!candidates.length) throw new Error('Unknown opponent');
+        const e = candidates[Math.floor(Math.random() * candidates.length)];
         const playerLevel = Math.max(1, Math.floor(Number(GameState.avatar.level) || 1));
         const oppLevel = playerLevel + Math.floor(Math.random() * (playerLevel >= 10 ? 3 : 2));
         const difficulty = this.combatDifficulty(oppLevel, e.sprite);
@@ -364,7 +378,15 @@ const Engine = {
     _accumulator: 0,
     _hitStop: 0,
 
+    recordCombatEvent(kind, details = {}) {
+        const battle = GameState.currentBattle;
+        if (!battle?.verification || battle.isFinished) return;
+        if (battle.replay.events.length >= 20000) { battle.replay.invalid = true; return; }
+        battle.replay.events.push({ frame: battle.replay.frames, kind, ...details });
+    },
+
     resetInputs() {
+        this.recordCombatEvent('reset');
         this._rtInputs = { left: false, right: false, up: false, attack: false, heavy: false, magic: false, heal: false, fire: false, guard: false };
         this._inputBuffer = {};
         for (const ent of this._rtEntities) ent.queuedCombo = false;
@@ -373,23 +395,28 @@ const Engine = {
     // Movement and guard are held; actions are buffered briefly on a fresh press.
     handleInput(action, isPressed) {
         if (!(action in this._rtInputs)) return;
+        if (this._rtInputs[action] !== !!isPressed) this.recordCombatEvent('input', { action, pressed: !!isPressed });
         if (isPressed && !this._rtInputs[action] && !['left', 'right', 'guard'].includes(action)) {
             this._inputBuffer[action] = 0.2;
         }
         this._rtInputs[action] = !!isPressed;
     },
 
-    startPvEBattle(opponent) {
+    startPvEBattle(opponent, verification = null) {
         if (GameState.currentBattle && !GameState.currentBattle.isFinished) return GameState.currentBattle;
         this.stopGameLoop();
-        const maxHp = 100 + (GameState.avatar.level || 1) * 10;
+        const avatar = verification?.avatar || GameState.avatar;
+        const maxHp = 100 + (avatar.level || 1) * 10;
+        this._combat = { width: 640, height: 320, floor: 286, step: 1 / 120 };
         GameState.currentBattle = {
             mode: 'pve', opponent, playerHp: maxHp, playerMaxHp: maxHp,
             oppHp: opponent.hp, oppMaxHp: opponent.maxHp,
-            logs: [], isFinished: false, healUses: 0, fireUses: 0, knockout: null
+            logs: [], isFinished: false, healUses: 0, fireUses: 0, knockout: null,
+            verification, replay: { version: 1, frames: 0, events: [] },
+            loadout: verification ? { avatar: { ...avatar }, inventory: verification.inventory.map(item => ({ ...item })) } : null
         };
         this._rtEntities = [
-            this._createFighter('player', true, 150, this._combat.floor, GameState.avatar),
+            this._createFighter('player', true, 150, this._combat.floor, avatar),
             this._createFighter('enemy', false, 490, this._combat.floor, opponent)
         ];
         this._rtProjectiles = [];
@@ -418,6 +445,14 @@ const Engine = {
         if (!arena) return null;
         const width = Math.max(240, arena.clientWidth || 640);
         const height = arena.clientHeight || 320;
+        this.resizeCombatArena(width, height);
+        arena.style.setProperty('--combat-floor', '28px');
+        arena.style.setProperty('--fighter-size', `${this._combat.artSize}px`);
+        return arena;
+    },
+
+    resizeCombatArena(width, height) {
+        this.recordCombatEvent('resize', { width, height });
         const oldWidth = this._combat.width;
         const oldFloor = this._combat.floor;
         const artSize = Math.max(40, Math.min(144, height - 44));
@@ -433,9 +468,6 @@ const Engine = {
             projectile.y += this._combat.floor - oldFloor;
         }
         this._freshBattle = false;
-        arena.style.setProperty('--combat-floor', '28px');
-        arena.style.setProperty('--fighter-size', `${artSize}px`);
-        return arena;
     },
 
     startGameLoop() {
@@ -489,6 +521,11 @@ const Engine = {
     _stepCombat(dt) {
         const battle = GameState.currentBattle;
         if (!battle || battle.isFinished) return;
+        if (battle.verification && battle.replay.frames >= 71880 && !battle.knockout) {
+            this._endBattle(false, true, battle);
+            return;
+        }
+        if (battle.verification) battle.replay.frames++;
         this._advanceEffects(dt);
         if (this._hitStop > 0) { this._hitStop = Math.max(0, this._hitStop - dt); return; }
         const [player, enemy] = this._rtEntities;
@@ -650,7 +687,7 @@ const Engine = {
                 if (attack.projectile) {
                     attack.hit = true;
                     this._spawnProjectile(ent, attack.projectile, {
-                        warmup: 0, damage: Math.round((13 + (GameState.avatar.level || 1) * 2) * attack.multiplier),
+                        warmup: 0, damage: Math.round((13 + (this.combatAvatar().level || 1) * 2) * attack.multiplier),
                         knockback: attack.knockback, heavy: attack.kind === 'heavy'
                     });
                 } else this._executeMeleeHit(ent);
@@ -717,8 +754,9 @@ const Engine = {
         const fistY = attacker.y - 55;
         if (distance < 0 || distance > attack.range || fistY < target.y - target.height || fistY > target.y - 8) return;
         attack.hit = true;
-        let base = attacker.isPlayer ? 5 + (GameState.avatar.level || 1) * 2 + (GameState.avatar.equippedWeapon ? 8 : 0) : attacker.stats.attack;
-        if (target.isPlayer && GameState.avatar.equippedShield) base = Math.max(2, base - 8);
+        const avatar = this.combatAvatar();
+        let base = attacker.isPlayer ? 5 + (avatar.level || 1) * 2 + (avatar.equippedWeapon ? 8 : 0) : attacker.stats.attack;
+        if (target.isPlayer && avatar.equippedShield) base = Math.max(2, base - 8);
         this.applyDamage(target.id, attacker.id, Math.max(1, Math.round(base * attack.multiplier)), {
             knockback: attack.knockback, heavy: attack.kind === 'heavy', direction
         });
@@ -758,7 +796,7 @@ const Engine = {
         this._rtProjectiles.push({
             sourceId: source.id, x: source.x + direction * 43, y: source.y - 56,
             vx: direction * (type === 'arrow' ? 560 : 380), radius: type === 'arrow' ? 7 : 15, type, life: 2.5, warmup: 0.1, trailTimer: 0, dom: null,
-            damage: Math.max(6, (GameState.avatar.level || 1) * 3) * (type === 'fire' ? 2 : 1),
+            damage: Math.max(6, (this.combatAvatar().level || 1) * 3) * (type === 'fire' ? 2 : 1),
             knockback: 175, heavy: false, ...options
         });
     },
@@ -913,7 +951,7 @@ const Engine = {
                 ent.dom = document.createElement('div');
                 ent.dom.className = `combat-fighter ${ent.isPlayer ? 'combat-player' : 'combat-enemy'}`;
                 ent.dom.innerHTML = ent.isPlayer
-                    ? CharacterArt.render(GameState.avatar, { state: ent.state, facing: ent.facing })
+                    ? CharacterArt.render(this.combatAvatar(), { state: ent.state, facing: ent.facing })
                     : CharacterArt.renderMonster(ent.stats.sprite, { state: ent.state, facing: ent.facing, level: ent.stats.level });
                 ent.art = ent.dom.querySelector('.character-art');
                 const tell = document.createElement('span');
@@ -973,14 +1011,51 @@ const Engine = {
     },
 
 
+    async _finishVerifiedBattle(battle, fled, isCurrentSession) {
+        let result;
+        try {
+            await queueAvatarWrite(async () => {
+                if (!isCurrentSession()) return;
+                const receipt = await CombatService.finish(battle, fled);
+                if (!isCurrentSession()) return;
+                HabitProgress.syncAvatar(receipt.avatar);
+                GameState.pendingCombatSettlement = null;
+                GameState.battleLog.unshift({ opponent: receipt.opponent, won: receipt.won, date: new Date().toLocaleDateString() });
+                result = { won: receipt.won, fled: receipt.fled, saved: true,
+                    xpGain: receipt.xp, goldGain: receipt.gold, hpLost: receipt.hp_lost,
+                    message: receipt.won ? `+${receipt.xp} XP, +${receipt.gold} G` : `-${receipt.hp_lost} HP` };
+            });
+        } catch (_) {
+            if (!isCurrentSession()) return null;
+            GameState.pendingCombatSettlement = { battle, fled };
+            result = { won: false, fled, saved: false, xpGain: 0, goldGain: 0,
+                message: typeof I18N !== 'undefined' && I18N.current === 'en'
+                    ? 'Result not confirmed. Retry saving.' : 'Resultado sin confirmar. Reintenta el guardado.' };
+        }
+        if (!isCurrentSession() || !result) return null;
+        if (typeof App !== 'undefined') App.showToast(result.message, result.saved && result.won ? 'gold' : 'error');
+        if (GameState.currentBattle && GameState.currentBattle !== battle) return result;
+        GameState._lastBattleResult = result;
+        GameState._currentOpponent = null;
+        GameState.currentBattle = null;
+        if (GameState.currentView === 'arena' && typeof App !== 'undefined') App.navigate('arena');
+        return result;
+    },
+
     async _endBattle(playerWon, fled = false, expectedBattle = GameState.currentBattle) {
         if (!expectedBattle || GameState.currentBattle !== expectedBattle || expectedBattle.isFinished) return null;
         const b = GameState.currentBattle;
+        const userId = GameState.user?.id;
+        const avatarId = GameState.avatarId;
+        const sessionVersion = typeof App !== 'undefined' ? App.authSessionVersion : null;
+        const isCurrentSession = () => GameState.user?.id === userId && GameState.avatarId === avatarId &&
+            (typeof App === 'undefined' || App.authSessionVersion === sessionVersion);
         b.isFinished = true;
         if (typeof BattleScreen !== 'undefined') BattleScreen.leave();
         
         // Stop the real-time loop
         this.stopGameLoop();
+        if (b.verification) return this._finishVerifiedBattle(b, fled, isCurrentSession);
         
         let result;
         if (fled) {
@@ -1020,6 +1095,7 @@ const Engine = {
         try {
             await saveAvatarToDB();
         } catch (_) {
+            if (!isCurrentSession()) return null;
             result.saved = false;
             result.xpGain = result.goldGain = result.hpLost = result.hpLoss = 0;
             result.message = typeof I18N !== 'undefined' && I18N.current === 'en'
@@ -1029,6 +1105,7 @@ const Engine = {
                 HabitProgress.syncAvatar({ ...GameState._avatarBalance, game_revision: GameState.avatar.gameRevision });
             }
         }
+        if (!isCurrentSession()) return null;
         if (result.saved !== false) {
             const logEntry = {
                 opponent: b.opponent.name, won: result.won, fled: !!result.fled,
@@ -1037,6 +1114,7 @@ const Engine = {
             GameState.battleLog.unshift({ ...logEntry, date: new Date().toLocaleDateString() });
             try { await addBattleLogToDB(logEntry); } catch (_) { /* Balance was already saved; do not pay again. */ }
         }
+        if (!isCurrentSession()) return null;
         if (typeof App !== 'undefined' && App.showToast) App.showToast(result.message, result.saved === false || !result.won ? 'error' : 'gold');
         // A completed save must never clear or navigate away from a newer match.
         if (GameState.currentBattle !== b) return result;

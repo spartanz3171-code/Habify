@@ -42,7 +42,7 @@ const HabitProgress = {
     syncAvatar(a) {
         if (!a) return;
         rememberAvatarBalance(a);
-        for (const [key, column] of Object.entries({ currentXP: 'current_xp', xpToLevel: 'xp_to_level', gold: 'gold', hp: 'hp', maxHp: 'max_hp', level: 'level', isDead: 'is_dead', gameRevision: 'game_revision' })) {
+        for (const [key, column] of Object.entries({ currentXP: 'current_xp', xpToLevel: 'xp_to_level', gold: 'gold', hp: 'hp', maxHp: 'max_hp', level: 'level', isDead: 'is_dead', gameRevision: 'game_revision', economyVersion: 'economy_version' })) {
             if (a[column] !== undefined) GameState.avatar[key] = a[column];
         }
     },

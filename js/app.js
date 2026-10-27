@@ -73,6 +73,8 @@ const App = {
 
     clearAccountView() {
         BattleScreen.leave();
+        this.battleStarting = false;
+        this.battleRetrying = false;
         clearTimeout(this._tutorialTimer);
         HabitProgress.ready = false;
         HabitProgress.installed = false;
@@ -89,6 +91,7 @@ const App = {
         GameState.habits = [];
         Engine.stopGameLoop();
         Wardrobe.reset();
+        clearAccountState();
         Atelier.draft = null;
         Atelier.previewItem = null;
         Atelier.savedMessage = '';
@@ -170,20 +173,22 @@ const App = {
 
     async loadUserData() {
         const userId = GameState.user?.id;
-        const isCurrentUser = () => !!userId && GameState.user?.id === userId;
+        const accountAvatar = GameState.avatar;
+        const isCurrentUser = () => !!userId && GameState.user?.id === userId && GameState.avatar === accountAvatar;
         if (!isCurrentUser()) return;
         const content = document.getElementById('app-content');
         content.innerHTML = Views.renderLoading();
 
-        const loaded = await loadGameFromDB();
+        let loaded = await loadGameFromDB();
         if (!isCurrentUser()) return;
         if (!loaded) {
             // If avatar wasn't created yet (trigger may be slow), wait and retry
             await new Promise(r => setTimeout(r, 1500));
             if (!isCurrentUser()) return;
-            await loadGameFromDB();
+            loaded = await loadGameFromDB();
             if (!isCurrentUser()) return;
         }
+        if (!loaded) throw new Error('Could not load account profile');
 
         // Check daily penalties
         const penalties = await Engine.checkDailyPenalties();
@@ -283,10 +288,17 @@ const App = {
     async acceptAuthSession(session) {
         if (PasswordRecovery.expected || PasswordRecovery.received) return false;
         if (!session?.user?.id || this.authBusy && this._registering) return false;
-        if (this._acceptingUser === session.user.id) return this._acceptingPromise;
-        const version = this.authSessionVersion;
+        if (this._acceptingUser === session.user.id && this._acceptingVersion === this.authSessionVersion) return this._acceptingPromise;
+        const changingAccount = GameState.user?.id !== session.user.id;
+        const version = changingAccount ? ++this.authSessionVersion : this.authSessionVersion;
+        if (changingAccount) {
+            this.clearAccountView();
+            GameState.user = null;
+            this.showAuth('login');
+        }
         this._acceptingUser = session.user.id;
-        this._acceptingPromise = (async () => {
+        this._acceptingVersion = version;
+        const accepting = (async () => {
             // Confirmation comes from Supabase, never from editable metadata or local storage.
             const { data, error } = await supabase.auth.getUser();
             if (version !== this.authSessionVersion) return false;
@@ -310,7 +322,8 @@ const App = {
             await this.loadUserData();
             return true;
         })();
-        try { return await this._acceptingPromise; }
+        this._acceptingPromise = accepting;
+        try { return await accepting; }
         catch (error) {
             if (version === this.authSessionVersion) {
                 this.clearAccountView();
@@ -320,7 +333,9 @@ const App = {
             }
             return false;
         }
-        finally { this._acceptingUser = null; this._acceptingPromise = null; }
+        finally {
+            if (this._acceptingPromise === accepting) { this._acceptingUser = null; this._acceptingPromise = null; }
+        }
     },
 
     async finishRegistration(user) {
@@ -819,7 +834,8 @@ const App = {
     // --- Battle ---
 
     async startBattle(mode) {
-        if (HabitProgress.busy || this.shopBusy || Atelier.busy) return;
+        if (HabitProgress.busy || this.shopBusy || Atelier.busy || this.battleStarting || this.battleRetrying) return;
+        if (GameState.pendingCombatSettlement) return this.retryBattleSettlement();
         if (mode === 'pvp') {
             this.startPvP();
             return;
@@ -837,13 +853,34 @@ const App = {
             btn.textContent = 'PREPARANDO...';
         }
 
-        setTimeout(() => {
-            if (GameState.currentView !== 'arena') return;
-            const opponent = GameState._currentOpponent || Engine.generateOpponent();
-            Engine.startPvEBattle(opponent);
+        const accountAvatar = GameState.avatar;
+        const userId = GameState.user?.id;
+        const current = () => GameState.avatar === accountAvatar && GameState.user?.id === userId;
+        this.battleStarting = true;
+        try {
+            const match = await CombatService.start();
+            if (!current() || GameState.currentView !== 'arena') return;
+            Engine.startPvEBattle(match.opponent, match);
             GameState._lastBattleResult = null;
             this.navigate('arena');
-        }, 300);
+        } catch (_) {
+            if (current()) this.showToast(this.authText('No se pudo preparar el combate. Revisa la conexión y la configuración del servidor.', 'Could not prepare combat. Check the connection and server configuration.'), 'error');
+        } finally {
+            if (current()) {
+                this.battleStarting = false;
+                if (btn?.isConnected) { btn.disabled = false; btn.textContent = this.authText('ENTRAR A LA ARENA', 'ENTER THE ARENA'); }
+            }
+        }
+    },
+
+    async retryBattleSettlement() {
+        const pending = GameState.pendingCombatSettlement;
+        if (!pending || this.battleRetrying) return;
+        const avatar = GameState.avatar;
+        const current = () => GameState.avatar === avatar;
+        this.battleRetrying = true;
+        try { await Engine._finishVerifiedBattle(pending.battle, pending.fled, current); }
+        finally { if (current()) this.battleRetrying = false; }
     },
 
 

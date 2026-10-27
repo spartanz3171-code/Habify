@@ -1,7 +1,8 @@
 const { test, expect } = require('@playwright/test');
+const { mockCombat, verifiedCombat } = require('../helpers/browser-combat.cjs');
 test.use({ hasTouch: true });
 
-async function boot(page, viewport = { width: 390, height: 844 }) {
+async function boot(page, viewport = { width: 390, height: 844 }, prepareCombat = mockCombat) {
     await page.setViewportSize(viewport);
     await page.route('**/*.supabase.co/**', route => route.abort());
     await page.goto('/');
@@ -14,9 +15,28 @@ async function boot(page, viewport = { width: 390, height: 844 }) {
         Engine._controlEnemy = () => {}; // Stable input assertions; no random enemy hits.
         App.initInput(); App.showMainApp(); App.navigate('arena');
     });
+    await prepareCombat(page);
     await page.locator('#battle-btn').click();
     await expect(page.locator('#real-time-arena')).toBeAttached();
 }
+
+test('real combat API verifies desktop and small-phone replays and retries a lost receipt only once', async ({ page }, info) => {
+    for (const viewport of [{ width: 1280, height: 900 }, { width: 568, height: 240 }]) {
+        await boot(page, viewport, target => verifiedCombat(target, { dropFirstResponse: true }));
+        await expect.poll(() => page.evaluate(() => Engine._gameLoopRunning)).toBe(true);
+        await page.screenshot({ path: info.outputPath(`verified-combat-${viewport.width}.png`) });
+        await page.keyboard.press('ArrowRight');
+        await page.locator('#btn-flee-battle').click();
+        await expect(page.locator('.battle-result-title')).toHaveText('PENDIENTE');
+        expect(await page.evaluate(() => GameState.avatar.hp)).toBe(90);
+        await page.getByRole('button', { name: 'REINTENTAR GUARDADO', exact: true }).click();
+        await expect(page.locator('.battle-result-title')).toHaveText('RETIRADA');
+        expect(await page.evaluate(() => GameState.avatar.hp)).toBe(80);
+        expect(await page.evaluate(() => GameState.avatar.gold)).toBe(500);
+        expect(await page.evaluate(() => GameState.battleLog.length)).toBe(1);
+        expect(await page.evaluate(() => GameState.pendingCombatSettlement)).toBeNull();
+    }
+});
 
 test('portrait waits safely, rotation resumes only on confirmation, and returning preserves the match', async ({ page }, info) => {
     const errors = []; page.on('pageerror', error => errors.push(error.message));

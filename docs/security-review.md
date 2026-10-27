@@ -1,5 +1,35 @@
 # Revisión de seguridad · 12 de octubre de 2026
 
+## Correcciones locales del 26 de octubre (3.11.0)
+
+Se completaron las correcciones de compras, limpieza de cuentas y resultados de batalla pendientes de la revisión posterior. **No se ejecutó SQL en Supabase, no se utilizaron cuentas reales y no se publicó el proyecto.** La validación se hizo con PostgreSQL local en memoria, sesiones simuladas y pruebas de navegador.
+
+- `purchase_shop_item` obtiene el precio del catálogo, bloquea la fila del avatar y guarda artículo y descuento en una sola transacción. Un fallo revierte ambos; una compra repetida devuelve la propiedad existente.
+- La nueva protección impide escrituras directas de saldo, experiencia, nivel, salud, inventario e historial, incluso desde el panel de un administrador autenticado. Las operaciones autorizadas de hábitos, compras y apariencia siguen funcionando. La administración confiable de la base conserva sus permisos.
+- La API de combate comprueba la sesión con Supabase Auth. Sólo sus funciones privadas pueden abrir y liquidar una partida para esa cuenta. La clave `service_role` nunca llega al navegador.
+- El servidor captura avatar, inventario y catálogo; calcula el rival, reproduce movimiento, ataques y cambios de tamaño con el mismo motor y determina el resultado. El cliente no proporciona estadísticas ni premios. La liquidación es atómica y el identificador de partida evita pagos duplicados.
+- Al salir o cambiar de cuenta se limpia el estado privado. Las respuestas tardías no pueden abrir la cuenta anterior, aplicar su saldo ni registrar una batalla en la cuenta nueva.
+
+## Activación manual de 3.11.0
+
+1. Trabaja primero sobre una copia de prueba y conserva un respaldo. La base debe tener los esquemas existentes de avatar, tienda, inventario, monstruos e historial, además del guardarropa, el endurecimiento de seguridad y los ciclos de hábitos v5. No vuelvas a ejecutar todas las migraciones antiguas indiscriminadamente. Para actualizar una instalación de ciclos v4 usa [supabase_habit_abstinence_activation.sql](../supabase_habit_abstinence_activation.sql).
+2. En el SQL Editor ejecuta el contenido completo de [supabase_economy_security.sql](../supabase_economy_security.sql), después de [supabase_security_hardening.sql](../supabase_security_hardening.sql). Es repetible y no reinicia saldos, ciclos ni historial. Añade `avatars.economy_version`, las protecciones y la tabla `verified_battles`.
+3. Configura **sólo en el entorno privado del servidor** `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`. Deben corresponder al mismo proyecto usado por el cliente. No pongas la clave privada en JavaScript público, en variables con prefijos públicos, en capturas, en el chat ni en el repositorio. Introdúcela directamente en el panel de variables de Vercel o en el entorno local privado.
+4. Cuando autorices la publicación, despliega la carpeta completa de la aplicación con [vercel.json](../vercel.json). Debe incluir [api/combat.js](../api/combat.js), [server/combat.cjs](../server/combat.cjs) y [js/engine.js](../js/engine.js). Usa Node.js 22 o posterior. La configuración empaqueta el motor para la función; no es una publicación únicamente estática. No publiques un cliente viejo después de cerrar las escrituras de economía.
+5. En desarrollo, `npm run dev` expone la misma API. Sin esas variables responde 503; no inventa premios ni conecta con credenciales alternativas. Para las pruebas locales basta `npm install`: no necesitan claves privadas ni ejecutan SQL remoto.
+6. En la copia de prueba, verifica una compra, su reintento, un hábito, un cosmético, victoria, derrota y retirada. Comprueba desde otra cuenta que no se mezclen inventarios ni historiales. Actualiza la PWA para cargar la caché 3.11.0. Antes de cada despliegue termina las partidas abiertas, porque una versión diferente del motor no debe validar un replay antiguo.
+
+**Orden de publicación:** coordina SQL y función/cliente en una ventana de mantenimiento. El cliente nuevo bloquea compras y combate si falta su backend; el cliente viejo no puede seguir escribiendo saldos tras aplicar este SQL. Publicar en GitHub o Vercel no ejecuta la migración.
+
+### Reglas operativas y límites
+
+- Una partida admite hasta 10 minutos de simulación y vence a los 20 minutos de su creación, contando pausas. El servidor comprueba el tiempo transcurrido, un máximo de 20 000 eventos, 120 cambios de tamaño y un cuerpo de 2 MiB. La reproducción tiene un límite de CPU de 2 segundos.
+- Reabrir una partida pendiente conserva la instantánea original; cambiar equipo o nivel fuera de ella no modifica sus estadísticas. Los cambios se usan en la siguiente partida. El tipo de rival elegido se valida contra el catálogo; su nivel exacto se calcula en el servidor.
+- **Reintentar guardado** vuelve a enviar el mismo identificador. Si ya se liquidó, devuelve el resultado sin repetir premios ni penalizaciones. Un replay inválido, vencido o de una versión anterior no gana recompensas; recarga para sincronizar la cuenta y abandonar ese intento local. Los replays pendientes están en memoria y no sobreviven a una recarga.
+- La reproducción valida reglas, no demuestra que una persona haya pulsado los botones: no es protección contra bots ni verificación de hábitos del mundo real. Tampoco convierte el PvE en multijugador.
+- Antes de abrir el servicio públicamente, configura límites de solicitudes y monitorización en el proveedor, y define retención de `verified_battles`. No se configuraron servicios externos, cuotas ni borrados automáticos.
+- La base remota puede tener funciones o permisos que no estén en estos archivos. Deben auditarse antes de afirmar que toda la economía remota está protegida. Estas pruebas no sustituyen un ensayo en un teléfono físico ni la revisión de la base desplegada.
+
 ## Resultado y alcance
 
 Había un acceso de administrador falso en el cliente: un nombre que contuviera `admin` y una contraseña de cuatro caracteres, o un botón de desarrollo, activaban el panel sin autenticar. Además, el cliente consideraba administrador a un correo que contuviera `admin` o a metadatos editables. Estos caminos se eliminaron. Eso es un fallo de autorización; no demuestra que se haya ejecutado una inyección SQL.
@@ -42,8 +72,8 @@ Para retirar un permiso que no corresponda, usa la misma consulta con `false` y 
 
 ## Limitaciones que siguen pendientes
 
-- El combate, compras de la tienda anterior y parte del saldo/inventario todavía dependen de datos calculados por el cliente. Un usuario técnico podría intentar alterar **sus propios** premios o artículos con peticiones directas. RLS aísla cuentas, pero no verifica que haya ganado una batalla. Antes de tratar la economía como resistente a trampas hay que llevar esas operaciones a funciones de servidor, validar compras/equipo y retirar las escrituras directas de saldo e inventario. No se retiraron esos permisos sin sustituir los flujos, porque rompería el juego actual.
+- La instalación anterior mantiene las limitaciones de economía calculada en cliente hasta activar el SQL y el servicio de 3.11.0 descritos arriba. RLS por sí solo no verifica las victorias ni protege los premios. La corrección local no demuestra qué reglas tiene hoy la base remota.
 - No se auditaron registros históricos ni todas las funciones o tablas que puedan existir sólo en el proyecto remoto. Tampoco se puede determinar con este código qué hizo el amigo en aquella sesión.
-- Los dos SQL preparados no se ejecutan al publicar en Vercel. Hasta ejecutarlos, la base mantiene sus reglas actuales. El frontend actualizado bloquea el panel si falta su comprobación de permisos.
+- Los SQL preparados no se ejecutan al publicar en Vercel. Hasta ejecutarlos, la base mantiene sus reglas actuales. El frontend bloquea cada flujo si falta su comprobación o función de servidor.
 
 Referencia: [RLS y permisos de Supabase](https://supabase.com/docs/guides/database/postgres/row-level-security). Las políticas y los permisos son las barreras del servidor; esconder un botón no lo es.

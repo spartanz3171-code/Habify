@@ -1,4 +1,5 @@
 ﻿const { test, expect } = require('@playwright/test');
+const { mockCombat } = require('../helpers/browser-combat.cjs');
 
 // The full UI runs with a test account and in-memory backend. Never writes to Supabase.
 async function boot(page, migrated = false) {
@@ -17,6 +18,12 @@ async function boot(page, migrated = false) {
                 return query;
             },
             async rpc(name, args) {
+                if (name === 'purchase_shop_item') {
+                    const product = GameState.shopItems.find(item => item.id === args.p_item_id);
+                    const alreadyOwned = purchased.has(product.id);
+                    if (!alreadyOwned) { purchased.add(product.id); gold -= product.cost; }
+                    return { data: { status: alreadyOwned ? 'owned' : 'purchased', item_id: product.id, avatar: { gold } } };
+                }
                 if (!migrated) return { error: { code: 'PGRST202' } };
                 if (name === 'save_avatar_appearance') return { data: { status: 'saved', appearance: args.p_appearance } };
                 const item = Wardrobe.catalog.find(i => i.id === args.p_item_id);
@@ -35,6 +42,7 @@ async function boot(page, migrated = false) {
         App.initInput();
         App.showMainApp();
     }, migrated);
+    await mockCombat(page);
 }
 
 test('editor previews, saves locally and retains role across navigation', async ({ page }, testInfo) => {
@@ -255,7 +263,7 @@ test('battle moves, jumps, attacks and releases controls after navigation', asyn
     await page.keyboard.press('KeyV');
     await expect(page.locator('.combat-player .character-art')).toHaveAttribute('data-state', 'HEAVY_ATTACK');
     await page.screenshot({ path: testInfo.outputPath('battle.png'), fullPage: true });
-    if (testInfo.project.name === 'mobile') await page.locator('.battle-toolbar button').first().click();
+    await page.locator('.battle-toolbar button').first().click();
     await page.locator('.nav-item[data-view="character"]').click();
     expect(await page.evaluate(() => Engine._gameLoopRunning)).toBe(false);
     expect(await page.evaluate(() => Object.values(Engine._rtInputs).some(Boolean))).toBe(false);
@@ -361,14 +369,15 @@ test('equipment and cosmetic purchases share a lock in either order', async ({ p
             window.purchaseCalls = [];
             const rpc = supabase.rpc.bind(supabase);
             supabase.rpc = async (name, args) => {
+                if (name === 'purchase_shop_item') {
+                    window.purchaseCalls.push('equipment');
+                    await new Promise(resolve => { window.releasePurchase = resolve; });
+                    return { data: { status: 'purchased', item_id: args.p_item_id, avatar: { gold: 50 } } };
+                }
                 if (name !== 'purchase_avatar_cosmetic') return rpc(name, args);
                 window.purchaseCalls.push('cosmetic');
                 await new Promise(resolve => { window.releasePurchase = resolve; });
                 return { data: { status: 'purchased', item_id: args.p_item_id, gold: 20 } };
-            };
-            addInventoryToDB = async () => {
-                window.purchaseCalls.push('equipment');
-                await new Promise(resolve => { window.releasePurchase = resolve; });
             };
             App.navigate('store');
             window.pendingPurchase = first === 'cosmetic' ? Atelier.buy('outfit_ranger') : App.buyItem('pet_trex');

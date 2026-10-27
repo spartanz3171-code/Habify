@@ -1,6 +1,15 @@
 # Habify
 
-Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. Se despliega como sitio estático en Vercel.
+Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. La interfaz se sirve en Vercel y una función Node.js verifica los combates.
+
+## Actualización 3.11.0 (preparada en local)
+
+- Las compras de equipo cobran y entregan el artículo en una transacción de servidor. Los reintentos no vuelven a cobrar.
+- Cambiar de cuenta limpia avatar, inventario, historial y partidas. Una carga fallida no abre la cuenta con datos anteriores; se descartan respuestas de sesiones antiguas.
+- La arena solicita una partida al servidor. Al terminar, el servidor reproduce sus entradas con el mismo motor, valida equipo y resultado, y registra premios e historial una sola vez. No acepta oro, XP ni victorias calculadas por el navegador.
+- El equipo queda fijo durante cada partida. Un guardado sin confirmar muestra **Pendiente** y permite reintentar sin duplicar recompensas.
+- **Requiere activación manual:** [supabase_economy_security.sql](supabase_economy_security.sql) y la función [api/combat.js](api/combat.js), con variables privadas de servidor. Lee el [orden de instalación y los límites](docs/security-review.md#activación-manual-de-3110) antes de publicar. No basta con subir los archivos estáticos.
+- No se ejecutó SQL remoto ni se desplegó este cambio. Mientras falte la función de compra o la API de combate, esos flujos muestran un error sin fingir un guardado.
 
 ## Actualización 3.10.0
 
@@ -65,7 +74,7 @@ npm install
 npm run dev
 ```
 
-Abre http://127.0.0.1:4173. La app usa el proyecto Supabase configurado en `js/data.js`; iniciar sesión requiere conexión. No hay paso de compilación.
+Abre http://127.0.0.1:4173. La app usa el proyecto Supabase configurado en `js/data.js`; iniciar sesión requiere conexión. No hay paso de compilación. El servidor local también expone `/api/combat`, pero sólo funciona si configuras las variables privadas indicadas en la [guía de seguridad](docs/security-review.md#activación-manual-de-3110). Las pruebas usan cuentas y bases simuladas, sin necesidad de esas variables ni acceso remoto.
 
 ## Verificación por correo
 
@@ -130,7 +139,7 @@ También hay botones táctiles, que permiten mover y atacar al mismo tiempo. Al 
 
 Los hechizos muestran una breve carga, estela e impacto; la curación tiene anillos y partículas propios. Se respeta la preferencia de movimiento reducido. Tras varios golpes seguidos, el rival recupera brevemente el equilibrio (contorno dorado): puede contraatacar y sigue recibiendo daño. El aviso de ataque permite defenderse o alejarse.
 
-El combate en línea todavía está pendiente. La configuración de Capacitor y la aplicación web instalable se conservan; no se ha generado una aplicación nativa de Android/iOS.
+El multijugador todavía está pendiente. El PvE necesita conexión al iniciar y guardar, aunque el movimiento y el dibujo se ejecutan en el navegador. La configuración de Capacitor y la aplicación web instalable se conservan; no se ha generado una aplicación nativa de Android/iOS.
 
 ## Pruebas
 

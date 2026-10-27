@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/combat.js": {
+      "includeFiles": "js/engine.js",
+      "maxDuration": 30
+    }
+  }
+}

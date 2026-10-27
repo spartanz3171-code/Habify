@@ -372,6 +372,46 @@ test('a delayed result save cannot erase a newer match or pay twice', async () =
     assert.equal(state.currentBattle, newBattle);
 });
 
+test('a battle settlement cannot write history or show a result after the account changes', async () => {
+    for (const rejected of [false, true]) {
+        const { engine, state, context } = setup();
+        state.user = { id: 'first-user' }; state.avatarId = 'first-avatar';
+        let release;
+        context.saveAvatarToDB = () => new Promise((resolve, reject) => {
+            release = () => rejected ? reject(new Error('offline')) : resolve();
+        });
+        let logs = 0, notices = 0;
+        context.addBattleLogToDB = async () => { logs++; };
+        context.App = { authSessionVersion: 1, showToast() { notices++; } };
+        const pending = engine._endBattle(true);
+        state.user = { id: 'second-user' }; state.avatarId = 'second-avatar';
+        state.avatar = { gold: 777, hp: 100 }; state.battleLog = []; state.currentBattle = null;
+        context.App.authSessionVersion++;
+        release();
+        assert.equal(await pending, null);
+        assert.equal(logs, 0); assert.equal(notices, 0);
+        assert.equal(state.battleLog.length, 0); assert.equal(state.avatar.gold, 777);
+    }
+});
+
+test('verified combat never changes balance before confirmation and retains a retry after failure', async () => {
+    const { engine, state, context } = setup();
+    const battle = state.currentBattle;
+    battle.verification = { id: 'official' };
+    context.queueAvatarWrite = task => task();
+    context.CombatService = { finish: async () => { throw new Error('offline'); } };
+    context.HabitProgress = { syncAvatar(row) { state.avatar.gold = row.gold; } };
+    const first = await engine._endBattle(true);
+    assert.equal(first.saved, false);
+    assert.equal(state.avatar.gold, 0);
+    assert.equal(state.pendingCombatSettlement.battle, battle);
+    context.CombatService.finish = async () => ({ won: true, fled: false, avatar: { gold: 10 }, xp: 20, gold: 10, hp_lost: 0, opponent: 'Official' });
+    await engine._finishVerifiedBattle(battle, false, () => true);
+    assert.equal(state.avatar.gold, 10);
+    assert.equal(state.pendingCombatSettlement, null);
+    assert.equal(state.battleLog.length, 1);
+});
+
 test('defeat and surrender retain the minimum real avatar HP', async () => {
     for (const fled of [false, true]) {
         const { engine, state } = setup();

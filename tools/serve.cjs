@@ -1,16 +1,18 @@
-// Local static server. Production remains a static deployment on Vercel.
+// Local app server. The combat route requires server-only environment variables.
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
+const combat = require('../api/combat.js');
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
 http.createServer((req, res) => {
     let requested;
     try { requested = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); }
     catch { res.writeHead(400).end(); return; }
+    if (requested === '/api/combat') { combat(req, res); return; }
     const file = path.resolve(root, '.' + (requested === '/' ? '/index.html' : requested));
     const relative = path.relative(root, file);
-    if (relative.startsWith('..') || path.isAbsolute(relative) || relative.split(path.sep).some(part => part.startsWith('.') || part === 'node_modules')) {
+    if (relative.startsWith('..') || path.isAbsolute(relative) || relative.split(path.sep).some(part => part.startsWith('.') || ['node_modules', 'server', 'api'].includes(part))) {
         res.writeHead(403).end(); return;
     }
     fs.readFile(file, (error, data) => {

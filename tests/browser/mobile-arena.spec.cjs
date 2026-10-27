@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { mockCombat } = require('../helpers/browser-combat.cjs');
 test.use({ hasTouch: true });
 
 async function boot(page, viewport = { width: 390, height: 720 }, liveEnemy = false) {
@@ -14,6 +15,7 @@ async function boot(page, viewport = { width: 390, height: 720 }, liveEnemy = fa
         if (!liveEnemy) Engine._controlEnemy = () => {};
         App.initInput(); App.showMainApp(); App.navigate('arena');
     }, liveEnemy);
+    await mockCombat(page);
 }
 
 for (const standalone of [false, true]) test(`active combat keeps HUD and controls anchored after touch drags and viewport panning (${standalone ? 'PWA' : 'browser'})`, async ({ page }, info) => {
@@ -134,7 +136,12 @@ test('Safari fallback rotates a playable arena, handles browser resizing, and re
     await page.locator('#battle-resume').tap();
     await page.screenshot({ path: info.outputPath('safari-rotated-arena.png') });
     await page.evaluate(() => {
-        saveAvatarToDB = () => new Promise(resolve => { window.finishSaving = resolve; });
+        combatMock.won = true;
+        const finish = CombatService.finish.bind(CombatService);
+        CombatService.finish = async (...args) => {
+            await new Promise(resolve => { window.finishSaving = resolve; });
+            return finish(...args);
+        };
         void Engine._endBattle(true);
     });
     await expect(page.locator('body')).not.toHaveClass(/battle-(rotated|immersive)/);

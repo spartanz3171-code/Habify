@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { mockCombat } = require('../helpers/browser-combat.cjs');
 test.setTimeout(60000);
 
 // Isolated account: purchases and reloads only write to this browser's local fixture.
@@ -16,11 +17,17 @@ async function boot(page) {
         if (saved) { Object.assign(GameState.avatar, saved.avatar); GameState.inventory = saved.inventory; GameState.shopItems = saved.shop; }
         saveAvatarToDB = async () => localStorage.setItem('equipment-fixture', JSON.stringify({ avatar: GameState.avatar, inventory: GameState.inventory, shop: GameState.shopItems }));
         addInventoryToDB = async () => {}; addBattleLogToDB = async () => {};
+        supabase.rpc = async (name, args) => {
+            if (name !== 'purchase_shop_item') return { error: { code: 'PGRST202' } };
+            const item = GameState.shopItems.find(product => product.id === args.p_item_id);
+            return { data: { status: 'purchased', item_id: item.id, avatar: { gold: GameState.avatar.gold - item.cost } } };
+        };
         Engine._controlEnemy = () => {};
         // Advance simulation explicitly; WebKit focus/resize events may restart RAF.
         Engine._gameLoop = () => {};
         App.initInput(); App.showMainApp();
     });
+    await mockCombat(page);
 }
 
 async function enterArena(page) {
@@ -66,6 +73,10 @@ test('buying and removing fire updates touch controls, keyboard and the saved eq
     await page.locator('.nav-item[data-view="store"]').click();
     await fireItem.click();
     await expect(fireItem).toHaveAttribute('aria-pressed', 'false');
+    await enterArena(page);
+    await expect(page.locator('[data-action="fire"]')).toBeDisabled();
+    await page.locator('#btn-flee-battle').click();
+    await expect(page.locator('.battle-result')).toBeVisible();
     await enterArena(page);
     await expect(page.locator('[data-action="fire"]')).toHaveCount(0);
     await page.keyboard.press('x');
