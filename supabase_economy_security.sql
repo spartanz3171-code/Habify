@@ -109,7 +109,13 @@ BEGIN
  IF FOUND THEN RETURN to_jsonb(battle); END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(product)),'[]'::jsonb) INTO owned
   FROM public.inventory inventory JOIN public.shop_items product ON product.id=inventory.item_id WHERE inventory.avatar_id=account.id;
- SELECT coalesce(jsonb_agg(to_jsonb(monster) ORDER BY monster.id),'[]'::jsonb) INTO catalog FROM public.monsters monster;
+ -- The monster catalog is optional; the shared server engine already has
+ -- built-in rivals. Older installations may never have created this table.
+ IF to_regclass('public.monsters') IS NULL THEN
+  catalog:='[]'::jsonb;
+ ELSE
+  SELECT coalesce(jsonb_agg(to_jsonb(monster) ORDER BY monster.id),'[]'::jsonb) INTO catalog FROM public.monsters monster;
+ END IF;
  INSERT INTO public.verified_battles(user_id,avatar_id,engine_version,snapshot)
   VALUES(p_user,account.id::text,p_engine_version,jsonb_build_object('avatar',to_jsonb(account),'inventory',owned,'monsters',catalog,'opponent_sprite',p_opponent_sprite))
   RETURNING * INTO battle;

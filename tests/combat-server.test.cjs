@@ -95,6 +95,30 @@ test('the server reproduces a real client defeat and rejects changing it to surr
     assert.throws(() => verifyReplay(official, replay, true, replay.frames / 120 + 1), /after knockout/);
 });
 
+test('HTTP combat distinguishes database setup and permission failures without exposing private diagnostics', async () => {
+    for (const [status, dbCode, expectedCode] of [
+        [404, '42P01', 'combat_schema_missing'],
+        [404, 'PGRST202', 'combat_schema_missing'],
+        [403, '42501', 'combat_access_denied'],
+        [400, 'XX000', 'combat_unavailable']
+    ]) {
+        const logs = [];
+        const handler = createHandler({
+            env: { SUPABASE_URL: 'https://test.invalid', SUPABASE_ANON_KEY: 'public-test', SUPABASE_SERVICE_ROLE_KEY: 'private-test' },
+            logger: { warn: (...args) => logs.push(args) },
+            fetcher: async url => url.endsWith('/user') ?
+                Response.json({ id: 'authenticated-user', email_confirmed_at: '2026-01-01' }) :
+                Response.json({ code: dbCode, message: 'private-test sensitive SQL', details: 'user-private-data' }, { status })
+        });
+        const response = { setHeader() {}, end(value) { this.body = JSON.parse(value); } };
+        await handler({ method: 'POST', headers: { authorization: 'Bearer user-private-token' }, body: { action: 'start' } }, response);
+        assert.equal(response.body.code, expectedCode);
+        assert.equal(logs[0][1].operation, 'combat_open');
+        assert.equal(logs[0][1].code, dbCode);
+        assert.doesNotMatch(JSON.stringify({ logs, body: response.body }), /private-test|sensitive SQL|user-private/);
+    }
+});
+
 test('HTTP combat rejects unauthenticated, cross-account and forged reward requests without settling', async () => {
     const calls = [];
     const row = { id: match().id, engine_version: engineVersion, created_at: new Date().toISOString(),

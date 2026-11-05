@@ -1,7 +1,7 @@
 const { createMatch, verifyReplay, engineVersion } = require('../server/combat.cjs');
 const maxBodyBytes = 2 * 1024 * 1024;
 
-function failure(status, message) { return Object.assign(new Error(message), { status }); }
+function failure(status, message, code = 'combat_unavailable') { return Object.assign(new Error(message), { status, code }); }
 
 async function readBody(request) {
     if (Number(request.headers['content-length']) > maxBodyBytes) throw failure(413, 'Replay too large');
@@ -21,22 +21,22 @@ async function readBody(request) {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-function createHandler({ env = process.env, fetcher = fetch, now = Date.now } = {}) {
+function createHandler({ env = process.env, fetcher = fetch, now = Date.now, logger = console } = {}) {
     return async function handler(request, response) {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Type', 'application/json; charset=utf-8');
         try {
             if (request.method !== 'POST') { response.setHeader('Allow', 'POST'); throw failure(405, 'POST required'); }
             const base = env.SUPABASE_URL?.replace(/\/$/, '');
-            if (!base || !env.SUPABASE_ANON_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) throw failure(503, 'Combat server is not configured');
+            if (!base || !env.SUPABASE_ANON_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) throw failure(503, 'Combat server is not configured', 'combat_not_configured');
             const authorization = request.headers.authorization || '';
-            if (!/^Bearer \S+$/.test(authorization) || authorization.length > 8192) throw failure(401, 'Authentication required');
+            if (!/^Bearer \S+$/.test(authorization) || authorization.length > 8192) throw failure(401, 'Authentication required', 'session_expired');
             const auth = await fetcher(`${base}/auth/v1/user`, {
                 headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: authorization }, signal: AbortSignal.timeout(10000)
             });
-            if (!auth.ok) throw failure(401, 'Session expired');
+            if (!auth.ok) throw failure(401, 'Session expired', 'session_expired');
             const user = await auth.json();
-            if (!user.id || !user.email_confirmed_at) throw failure(401, 'Confirmed account required');
+            if (!user.id || !user.email_confirmed_at) throw failure(401, 'Confirmed account required', 'session_expired');
             let body;
             try { body = await readBody(request); } catch (error) { throw error.status ? error : failure(400, 'Invalid JSON'); }
             if (!body || !['start', 'finish'].includes(body.action)) throw failure(400, 'Invalid action');
@@ -47,7 +47,22 @@ function createHandler({ env = process.env, fetcher = fetch, now = Date.now } = 
                         'Content-Type': 'application/json'
                     }, body: JSON.stringify(args), signal: AbortSignal.timeout(10000)
                 });
-                if (!result.ok) throw failure(409, 'Could not confirm combat; sync your account and retry');
+                if (!result.ok) {
+                    const detail = await result.json().catch(() => ({}));
+                    const dbCode = typeof detail?.code === 'string' && /^[A-Z0-9]{5,8}$/.test(detail.code) ? detail.code : 'unknown';
+                    // Log diagnostics without keys, tokens, user data or raw SQL.
+                    logger.warn('[Combat RPC]', { operation: name, status: result.status, code: dbCode });
+                    if (['42P01', '42703', '42883', 'PGRST202', 'PGRST205'].includes(dbCode)) {
+                        throw failure(503, 'Combat database setup is incomplete', 'combat_schema_missing');
+                    }
+                    if (detail?.message === 'Complete a habit to revive first') {
+                        throw failure(409, 'Complete a habit to revive first', 'avatar_dead');
+                    }
+                    if (result.status === 401 || result.status === 403 || dbCode === '42501') {
+                        throw failure(503, 'Combat server database access was rejected', 'combat_access_denied');
+                    }
+                    throw failure(409, 'Could not confirm combat; sync your account and retry');
+                }
                 return result.json();
             };
             let result;
@@ -80,7 +95,7 @@ function createHandler({ env = process.env, fetcher = fetch, now = Date.now } = 
             response.end(JSON.stringify(result));
         } catch (error) {
             response.statusCode = error.status || 503;
-            response.end(JSON.stringify({ error: error.status ? error.message : 'Combat service unavailable; retry later' }));
+            response.end(JSON.stringify({ error: error.status ? error.message : 'Combat service unavailable; retry later', code: error.status ? error.code : 'combat_unavailable' }));
         }
     };
 }

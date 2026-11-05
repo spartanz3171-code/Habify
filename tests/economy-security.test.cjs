@@ -5,6 +5,8 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { createFixture, user } = require('./helpers/habit-db.cjs');
 const migration = fs.readFileSync(path.join(__dirname, '../supabase_economy_security.sql'), 'utf8');
+const { createMatch, engineVersion } = require('../server/combat.cjs');
+const catalogFix = fs.readFileSync(path.join(__dirname, '../supabase_combat_catalog_fix.sql'), 'utf8');
 
 async function fixture({ fullMigrations = false } = {}) {
     const db = await createFixture();
@@ -34,6 +36,62 @@ async function fixture({ fullMigrations = false } = {}) {
     await db.exec(`SET request.jwt.claim.sub='${user}'; SET ROLE authenticated;`);
     return db;
 }
+
+test('combat starts with server-generated rivals when the optional monster catalog was never installed', async () => {
+    const db = await fixture();
+    try {
+        await db.exec('RESET ROLE; DROP TABLE public.monsters;');
+        // PL/pgSQL can be installed without this optional table: the error only
+        // used to appear at runtime, after a real player pressed Fight.
+        await db.exec(migration);
+        await db.exec("SET request.jwt.claim.sub=''; SET ROLE service_role;");
+        const row = (await db.query('SELECT public.combat_open($1,$2,$3) AS result', [user, engineVersion, 'orc'])).rows[0].result;
+        assert.deepEqual(row.snapshot.monsters, []);
+        const match = createMatch(row);
+        assert.equal(match.opponent.sprite, 'orc');
+        assert.equal(match.opponent.xp, 5);
+        assert.equal(match.opponent.goldRaw, 3);
+        assert.ok(match.opponent.hp > 0);
+        assert.equal((await db.query('SELECT public.combat_open($1,$2,$3) AS result', [user, engineVersion, 'orc'])).rows[0].result.id, row.id);
+        const receipt = (await db.query('SELECT public.combat_settle($1,$2,true,false,0,5,3,$3) AS result', [user, row.id, match.opponent.name])).rows[0].result;
+        assert.equal(receipt.status, 'settled');
+        assert.equal(receipt.avatar.gold, 53);
+    } finally { await db.close(); }
+});
+
+test('the catalog repair upgrades the old function twice without changing accounts, pending battles or catalog entries', async () => {
+    const db = await fixture();
+    try {
+        await db.exec('RESET ROLE;');
+        const original = migration.replace(/ -- The monster catalog is optional;[\s\S]*? END IF;/,
+            " SELECT coalesce(jsonb_agg(to_jsonb(monster) ORDER BY monster.id),'[]'::jsonb) INTO catalog FROM public.monsters monster;");
+        await db.exec(original);
+        await db.exec('INSERT INTO public.monsters VALUES(7); SET ROLE service_role;');
+        const open = async owner => (await db.query('SELECT public.combat_open($1,$2) AS result', [owner, engineVersion])).rows[0].result;
+        const pending = await open(user);
+        assert.deepEqual(pending.snapshot.monsters, [{ id: 7 }]);
+        await db.exec('RESET ROLE; DROP TABLE public.monsters; SET ROLE service_role;');
+        const other = '00000000-0000-0000-0000-000000000002';
+        await assert.rejects(open(other), /relation "public.monsters" does not exist/);
+        await db.exec('RESET ROLE;');
+        const accounts = (await db.query('SELECT * FROM public.avatars ORDER BY id')).rows;
+        await db.exec(catalogFix);
+        await db.exec(catalogFix);
+        assert.deepEqual((await db.query('SELECT * FROM public.avatars ORDER BY id')).rows, accounts);
+        await db.exec('SET ROLE service_role;');
+        assert.deepEqual(await open(user), pending);
+        assert.deepEqual((await open(other)).snapshot.monsters, []);
+        await db.exec('RESET ROLE; CREATE TABLE public.monsters(id integer PRIMARY KEY); INSERT INTO public.monsters VALUES(9);');
+        await db.exec(catalogFix);
+        await db.exec('SET ROLE service_role;');
+        const withCatalog = (await db.query('SELECT public.combat_open($1,$2) AS result', [user, 'next-version'])).rows[0].result;
+        assert.deepEqual(withCatalog.snapshot.monsters, [{ id: 9 }]);
+        for (const role of ['anon', 'authenticated']) {
+            await db.exec(`SET ROLE ${role};`);
+            await assert.rejects(open(user), /permission denied/);
+        }
+    } finally { await db.close(); }
+});
 
 test('shop purchases charge the server price once and deliver to the authenticated account', async () => {
     const db = await fixture();

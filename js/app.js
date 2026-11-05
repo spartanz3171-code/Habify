@@ -911,8 +911,8 @@ const App = {
             Engine.startPvEBattle(match.opponent, match);
             GameState._lastBattleResult = null;
             this.navigate('arena');
-        } catch (_) {
-            if (current()) this.showToast(this.authText('No se pudo preparar el combate. Revisa la conexión y la configuración del servidor.', 'Could not prepare combat. Check the connection and server configuration.'), 'error');
+        } catch (error) {
+            if (current()) this.showToast(CombatService.startErrorMessage(error), 'error');
         } finally {
             if (current()) {
                 this.battleStarting = false;

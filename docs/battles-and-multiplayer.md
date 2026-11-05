@@ -1,5 +1,13 @@
 # Arena horizontal y próximos pasos de multijugador
 
+## Corrección del inicio de combate (3.12.1)
+
+Desde 3.11.0 la arena abre una partida mediante `combat_open`. La primera versión consultaba `public.monsters` siempre, aunque la carga del cliente ya toleraba que ese catálogo opcional no existiera. En una base antigua sin esa tabla, instalar la función podía funcionar y el primer combate fallaba con `42P01`.
+
+Aplica [supabase_combat_catalog_fix.sql](../supabase_combat_catalog_fix.sql) sobre la economía ya instalada. Si falta el catálogo, la instantánea contiene una lista vacía y el motor del servidor selecciona los monstruos incorporados. Si existe, se usa el catálogo original. La reparación es repetible, mantiene las partidas pendientes y los permisos exclusivos de `service_role`, y no modifica los premios ni los límites diarios. No necesita crear otra API key.
+
+La API devuelve códigos de error públicos limitados; nunca expone el SQL ni las claves. En los registros de Vercel, `[Combat RPC]` identifica operación, estado HTTP y código de Supabase. `42P01`, `42703`, `42883`, `PGRST202` y `PGRST205` indican problemas de esquema; `42501` o HTTP 401/403 requieren revisar el acceso del servidor. Una sesión vencida tiene su propio aviso. La conexión de la API y la presencia de las funciones no bastan para probar una partida autenticada en producción.
+
 ## Joystick y premios diarios en 3.12.0
 
 Las flechas táctiles se sustituyen por un joystick: arrastra a izquierda o derecha para moverte y hacia arriba para saltar. La zona central evita movimientos accidentales. Ataques, defensa y habilidades se pueden mantener con otro dedo. El teclado sigue funcionando; soltar, cancelar el toque, pausar, cambiar de tamaño o salir libera las entradas. El giro visual de Safari transforma también los ejes del joystick.

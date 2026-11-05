@@ -2,7 +2,7 @@
 // HABIFY - Service Worker for PWA Offline Support
 // ==========================================
 
-const CACHE_NAME = 'habify-v3.12.0';
+const CACHE_NAME = 'habify-v3.12.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -27,11 +27,11 @@ const ASSETS_TO_CACHE = [
     './js/wardrobe.js?v=3.10.0',
     './js/habits.js?v=3.11.0',
     './js/recovery.js?v=3.10.0',
-    './js/combat-service.js?v=3.11.0',
+    './js/combat-service.js?v=3.12.1',
     './js/engine.js?v=3.12.0',
     './js/views.js?v=3.12.0',
     './js/atelier.js?v=3.12.0',
-    './js/app.js?v=3.12.0',
+    './js/app.js?v=3.12.1',
     './js/supabase.min.js?v=3.10.0'
 ];
 

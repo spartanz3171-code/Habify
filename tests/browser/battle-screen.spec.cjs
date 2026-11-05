@@ -20,6 +20,24 @@ async function boot(page, viewport = { width: 390, height: 844 }, prepareCombat 
     await expect(page.locator('#real-time-arena')).toBeAttached();
 }
 
+test('battle setup explains a missing database update and allows retrying after the server is repaired', async ({ page }) => {
+    await boot(page, { width: 844, height: 390 }, async target => {
+        await mockCombat(target);
+        await target.route('**/api/combat', route => route.fulfill({ status: 503,
+            json: { code: 'combat_schema_missing', error: 'internal server details' } }), { times: 1 });
+        await target.locator('#battle-btn').click();
+        await expect(target.locator('.toast')).toContainText('Falta una actualización de la base de datos de combate');
+        await expect(target.locator('.toast')).not.toContainText('internal server details');
+        await expect(target.locator('#battle-btn')).toBeEnabled();
+        expect(await target.evaluate(() => GameState.currentBattle)).toBeNull();
+        expect(await target.evaluate(() => CombatService.startErrorMessage({ code: 'session_expired' }))).toContain('Vuelve a iniciar sesión');
+        await target.evaluate(() => { I18N.current = 'en'; });
+        expect(await target.evaluate(() => CombatService.startErrorMessage({ code: 'combat_schema_missing' }))).toContain('combat database update');
+        await target.evaluate(() => { I18N.current = 'es'; });
+    });
+    await expect.poll(() => page.evaluate(() => Engine._gameLoopRunning)).toBe(true);
+});
+
 test('real combat API verifies desktop and small-phone replays and retries a lost receipt only once', async ({ page }, info) => {
     for (const viewport of [{ width: 1280, height: 900 }, { width: 568, height: 240 }]) {
         await boot(page, viewport, target => verifiedCombat(target, { dropFirstResponse: true }));

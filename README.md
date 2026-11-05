@@ -2,6 +2,12 @@
 
 Hábitos personales convertidos en una aventura RPG. HTML, CSS y JavaScript, con cuentas y datos en Supabase. La interfaz se sirve en Vercel y una función Node.js verifica los combates.
 
+## Actualización 3.12.1
+
+- Corrige el inicio de batallas en bases sin la tabla opcional `monsters`: el servidor vuelve a usar los cinco rivales incorporados al motor, con las mismas comprobaciones de partidas y premios.
+- Si ya instalaste la economía de combate, ejecuta **sólo [supabase_combat_catalog_fix.sql](supabase_combat_catalog_fix.sql)** en el SQL Editor de tu proyecto Supabase. No modifica saldos, inventario, hábitos, historial ni límites diarios. La instalación completa de [supabase_economy_security.sql](supabase_economy_security.sql) también incluye la corrección. Subir a GitHub no ejecuta el SQL.
+- Los errores de preparación distinguen sesión vencida, configuración ausente, actualización de base pendiente y permisos del servidor. Vercel registra la operación, estado HTTP y código de error sin claves ni datos personales. Caché 3.12.1.
+
 ## Actualización 3.12.0
 
 - **Tienda** concentra las compras de ropa y accesorios. **Personaje** muestra sólo prendas adquiridas, además del editor gratuito y la opción de equipar o quitar prendas.
